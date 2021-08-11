@@ -52,6 +52,15 @@ static enum sub_state_type {
 /* GPS device. Used to identify the GPS driver in the sensor API. */
 static const struct device *gps_dev;
 
+static struct module_helpers {
+	/* Uptime set when GPS search is started. Used to calculate search time for
+	 * GPS fix and timeout.
+	 */
+	uint64_t start_uptime;
+	/* Numer of satellites tracked for a GPS fix or timeout. */
+	uint8_t satellites_tracked;
+} helpers;
+
 /* nRF9160 GPS driver configuration. */
 static struct gps_config gps_cfg = {
 	.nav_mode = GPS_NAV_MODE_SINGLE_FIX,
@@ -171,6 +180,33 @@ static bool event_handler(const struct event_header *eh)
 	return false;
 }
 
+static uint8_t set_satellites_tracked(struct gps_sv *sv, uint8_t sv_entries)
+{
+	uint8_t sv_used = 0;
+
+	/* Check number of tracked Satellites. SV number 0 indicates that the satellite was not
+	 * tracked.
+	 */
+	for (int i = 0; i < sv_entries; i++) {
+		if (sv[i].sv) {
+			sv_used++;
+		}
+	}
+
+	return sv_used;
+}
+
+static void timeout_send(void)
+{
+	struct gps_module_event *gps_module_event = new_gps_module_event();
+
+	gps_module_event->data.gps.search_time = k_uptime_get() - helpers.start_uptime;
+	gps_module_event->data.gps.satellites_tracked = helpers.satellites_tracked;
+	gps_module_event->type = GPS_EVT_TIMEOUT;
+
+	EVENT_SUBMIT(gps_module_event);
+}
+
 static void gps_event_handler(const struct device *dev, struct gps_event *evt)
 {
 	switch (evt->type) {
@@ -182,18 +218,20 @@ static void gps_event_handler(const struct device *dev, struct gps_event *evt)
 		break;
 	case GPS_EVT_SEARCH_TIMEOUT:
 		LOG_DBG("GPS_EVT_SEARCH_TIMEOUT");
-		SEND_EVENT(gps, GPS_EVT_TIMEOUT);
 
-		/* Wrap sending of GPS_EVT_INACTIVE to avoid macro redefinition errors. */
+		timeout_send();
 		inactive_send();
 		break;
 	case GPS_EVT_PVT:
-		/* Don't spam logs */
+		helpers.satellites_tracked = set_satellites_tracked(evt->pvt.sv,
+								    ARRAY_SIZE(evt->pvt.sv));
 		break;
 	case GPS_EVT_PVT_FIX:
 		LOG_DBG("GPS_EVT_PVT_FIX");
 		time_set(&evt->pvt);
 		inactive_send();
+		helpers.satellites_tracked = set_satellites_tracked(evt->pvt.sv,
+								    ARRAY_SIZE(evt->pvt.sv));
 
 #if defined(CONFIG_NRF_CLOUD_PGPS) && defined(CONFIG_GPS_MODULE_PGPS_STORE_LOCATION)
 		nrf_cloud_pgps_set_location(evt->pvt.latitude, evt->pvt.longitude);
@@ -221,8 +259,7 @@ static void gps_event_handler(const struct device *dev, struct gps_event *evt)
 		break;
 	case GPS_EVT_AGPS_DATA_NEEDED:
 		LOG_DBG("GPS_EVT_AGPS_DATA_NEEDED");
-		struct gps_module_event *gps_module_event =
-				new_gps_module_event();
+		struct gps_module_event *gps_module_event = new_gps_module_event();
 
 		gps_module_event->data.agps_request = evt->agps_request;
 		gps_module_event->type = GPS_EVT_AGPS_NEEDED;
@@ -250,6 +287,8 @@ static void data_send_pvt(struct gps_pvt *gps_data)
 	gps_module_event->data.gps.timestamp = k_uptime_get();
 	gps_module_event->type = GPS_EVT_DATA_READY;
 	gps_module_event->data.gps.format = GPS_MODULE_DATA_FORMAT_PVT;
+	gps_module_event->data.gps.satellites_tracked = helpers.satellites_tracked;
+	gps_module_event->data.gps.search_time = k_uptime_get() - helpers.start_uptime;
 
 	EVENT_SUBMIT(gps_module_event);
 }
@@ -265,6 +304,8 @@ static void data_send_nmea(struct gps_nmea *gps_data)
 	gps_module_event->data.gps.timestamp = k_uptime_get();
 	gps_module_event->type = GPS_EVT_DATA_READY;
 	gps_module_event->data.gps.format = GPS_MODULE_DATA_FORMAT_NMEA;
+	gps_module_event->data.gps.satellites_tracked = helpers.satellites_tracked;
+	gps_module_event->data.gps.search_time = k_uptime_get() - helpers.start_uptime;
 
 	EVENT_SUBMIT(gps_module_event);
 }
@@ -280,6 +321,7 @@ static void search_start(void)
 	}
 
 	SEND_EVENT(gps, GPS_EVT_ACTIVE);
+	helpers.start_uptime = k_uptime_get();
 }
 
 static void inactive_send(void)

@@ -31,6 +31,7 @@
 #include "events/util_module_event.h"
 #include "events/modem_module_event.h"
 #include "events/gps_module_event.h"
+#include "events/debug_module_event.h"
 
 #include <logging/log.h>
 LOG_MODULE_REGISTER(MODULE, CONFIG_CLOUD_MODULE_LOG_LEVEL);
@@ -46,6 +47,7 @@ struct cloud_msg_data {
 		struct cloud_module_event cloud;
 		struct util_module_event util;
 		struct gps_module_event gps;
+		struct debug_module_event debug;
 	} module;
 };
 
@@ -88,7 +90,7 @@ const k_tid_t cloud_module_thread;
 static struct gps_agps_request agps_request;
 
 /* Cloud module message queue. */
-#define CLOUD_QUEUE_ENTRY_COUNT		10
+#define CLOUD_QUEUE_ENTRY_COUNT		20
 #define CLOUD_QUEUE_BYTE_ALIGNMENT	4
 
 K_MSGQ_DEFINE(msgq_cloud, sizeof(struct cloud_msg_data),
@@ -204,6 +206,13 @@ static bool event_handler(const struct event_header *eh)
 		struct gps_module_event *evt = cast_gps_module_event(eh);
 
 		msg.module.gps = *evt;
+		enqueue_msg = true;
+	}
+
+	if (is_debug_module_event(eh)) {
+		struct debug_module_event *evt = cast_debug_module_event(eh);
+
+		msg.module.debug = *evt;
 		enqueue_msg = true;
 	}
 
@@ -386,6 +395,19 @@ static void data_send(struct data_module_event *evt)
 	LOG_DBG("Data sent, data pointer: %p", evt->data.buffer.buf);
 
 	send_data_ack(evt->data.buffer.buf, evt->data.buffer.len, true);
+}
+
+static void memfault_data_send(struct debug_module_event *evt)
+{
+	int err;
+
+	err = cloud_wrap_memfault_data_send(evt->data.memfault.buf, evt->data.memfault.len);
+	if (err) {
+		LOG_ERR("cloud_wrap_data_send, err: %d", err);
+		return;
+	}
+
+	LOG_WRN("Memfault data sent");
 }
 
 static void config_send(struct data_module_event *evt)
@@ -693,6 +715,10 @@ static void on_sub_state_cloud_connected(struct cloud_msg_data *msg)
 		agps_request_send(&msg->module.data);
 	}
 
+	if (IS_EVENT(msg, debug, DEBUG_EVT_MEMFAULT_DATA_READY)) {
+		memfault_data_send(&msg->module.debug);
+	}
+
 	if (IS_EVENT(msg, data, DATA_EVT_DATA_SEND)) {
 		data_send(&msg->module.data);
 	}
@@ -851,4 +877,5 @@ EVENT_SUBSCRIBE(MODULE, app_module_event);
 EVENT_SUBSCRIBE(MODULE, modem_module_event);
 EVENT_SUBSCRIBE(MODULE, cloud_module_event);
 EVENT_SUBSCRIBE(MODULE, gps_module_event);
+EVENT_SUBSCRIBE(MODULE, debug_module_event);
 EVENT_SUBSCRIBE_EARLY(MODULE, util_module_event);

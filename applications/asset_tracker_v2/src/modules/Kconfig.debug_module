@@ -1,0 +1,44 @@
+#
+# Copyright (c) 2021 Nordic Semiconductor
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+menuconfig DEBUG_MODULE
+	bool "Debug module"
+
+if DEBUG_MODULE
+
+config DEBUG_MODULE_USE_CUSTOM_TRANSPORT
+	bool "Use custom transport when sending memfault data"
+	help
+	  If this option is disabled, Memfault SDKs own internal HTTP transport is used to
+	  send Memfault data.
+
+config DEBUG_MODULE_MEMFAULT_CHUNK_SIZE_MAX
+	int "Fragment size of data transmitted to memfault"
+	default 2048 if DEBUG_MODULE_USE_CUSTOM_TRANSPORT
+	default 80
+	help
+	  Decreasing this option will, in case of a core-dump, produce more events carrying
+	  Memfault data to the cloud module, if DEBUG_MODULE_USE_CUSTOM_TRANSPORT is enabled.
+	  This increases the possibility of the an overfilled cloud module message queue, depending
+	  on how fast the cloud module thread can handle incoming message queue entries.
+	  A filled message queue is in general considered a fatal error that can cause
+	  undefined behaviour. Upon a filled message queue, the device is rebooted.
+
+config DEBUG_MODULE_MEMFAULT_HEARTBEAT_INTERVAL_SEC
+	int "Memfault heartbeat interval in seconds"
+	default 1800
+	help
+	  Configuration that sets how often Memfault captures and prepares data that will be sent
+	  to Memfault cloud. Reduce this interval to get more frequent updates to Memfault.
+	  Note that data transmitted to Memfault cloud is still dependent on how often the
+	  application sends data, which can be manipulated by setting the applications real-time
+	  configurations.
+
+endif
+
+module = DEBUG_MODULE
+module-str = Debug module
+source "subsys/logging/Kconfig.template.log_config"

@@ -1,0 +1,8 @@
+/* Application-specific metrics can be defined here.
+ * Please refer to https://docs.memfault.com/docs/embedded/metrics-api for more details.
+ */
+
+MEMFAULT_METRICS_KEY_DEFINE(GpsTimeToFix, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(GPSFixSatellitesTracked, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(GpsTimeoutSatellitesTracked, kMemfaultMetricType_Unsigned)
+MEMFAULT_METRICS_KEY_DEFINE(GpsTimeoutSearchTime, kMemfaultMetricType_Unsigned)
