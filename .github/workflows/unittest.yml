@@ -1,0 +1,41 @@
+name: Unit test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+      - 'v*-branch'
+  push:
+    branches:
+      - main
+      - 'v*-branch'
+    tags:
+      - v*
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+        with:
+          path: ncs/nrf
+          fetch-depth: 0
+
+      - name: Pull Docker image
+        run: docker pull coderbyheart/fw-nrfconnect-nrf-docker:main
+
+      - name: Unit test run
+        continue-on-error: true
+        run: |
+          docker run --rm -v ${PWD}:/workdir/project coderbyheart/fw-nrfconnect-nrf-docker:main /bin/bash -c 'apt install -y lcov gcc-multilib && cd ncs/nrf && west init -l && west update --narrow -o=--depth=1 && source ../zephyr/zephyr-env.sh && ../zephyr/scripts/twister -C -T . -p native_posix'
+
+      - name: Uploade twister output
+        uses: actions/upload-artifact@v2
+        with:
+          name: twister-out
+          path: ncs/nrf/twister-out/
+
+
