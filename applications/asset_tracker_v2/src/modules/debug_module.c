@@ -16,7 +16,7 @@
 
 #define MODULE debug_module
 
-#include "watchdog.h"
+#include "watchdog_app.h"
 #include "modules_common.h"
 #include "events/app_module_event.h"
 #include "events/cloud_module_event.h"
@@ -50,6 +50,7 @@ static void message_handler(struct debug_msg_data *msg);
 static struct module_data self = {
 	.name = "debug",
 	.msg_q = NULL,
+	.supports_shutdown = true,
 };
 
 /* Handlers */

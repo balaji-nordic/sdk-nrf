@@ -8,7 +8,7 @@
 #include <device.h>
 #include <drivers/watchdog.h>
 
-#include "watchdog.h"
+#include "watchdog_app.h"
 
 #include <logging/log.h>
 LOG_MODULE_REGISTER(watchdog, CONFIG_WATCHDOG_LOG_LEVEL);
