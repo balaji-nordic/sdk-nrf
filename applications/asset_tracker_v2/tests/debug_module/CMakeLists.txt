@@ -6,6 +6,7 @@
 
 cmake_minimum_required(VERSION 3.13.1)
 
+set(UNITY_CONFIG_FILE unity_cfg.yaml CACHE STRING "")
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(debug_module_test)
 
@@ -23,6 +24,7 @@ cmock_handle(${MEMFAULT_SDK_DIR}/ports/zephyr/include/memfault/ports/zephyr/http
 cmock_handle(${MEMFAULT_SDK_DIR}/components/include/memfault/core/data_packetizer.h memfault/core)
 cmock_handle(${MEMFAULT_SDK_DIR}/components/include/memfault/core/trace_event.h memfault/core)
 cmock_handle(${MEMFAULT_SDK_DIR}/ports/include/memfault/ports/watchdog.h memfault/ports)
+cmock_handle(${ZEPHYR_BASE}/../zephyr/include/sys/reboot.h sys)
 
 # Create mock for nRF SDK
 cmock_handle(${NRF_SDK_DIR}/include/event_manager.h)
