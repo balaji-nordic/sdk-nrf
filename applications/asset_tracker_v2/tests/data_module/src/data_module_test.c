@@ -7,9 +7,14 @@
 #include <stdlib.h>
 #include <mock_modules_common.h>
 #include <mock_event_manager.h>
+#include <mock_cJSON_os.h>
+#include <mock_date_time.h>
+#include <settings/mock_settings.h>
 
 extern struct event_listener __event_listener_data_module;
-extern struct _static_thread_data  _k_thread_data_data_module_thread;
+extern struct _static_thread_data _k_thread_data_data_module_thread;
+
+static k_tid_t data_module_thread_id;
 
 #define DATA_MODULE_EVT_HANDLER(eh) __event_listener_data_module.notification(eh)
 #define DATA_MODULE_INIT_ENTRY _k_thread_data_data_module_thread.init_entry
@@ -26,19 +31,11 @@ void *k_malloc(size_t size)
 	return malloc(size);
 }
 
-int settings_subsys_init(void)
-{
-	/* Due to NCSDK-10918, this function is not mocked automatically by the
-	 * CMock framework. Hence it is defined as a stub here.
-	 */
-	return 0;
-}
-
 /* Dummy structs to please linker. The EVENT_SUBSCRIBE macros in gps_module.c
  * depend on these to exist. But since we are unit testing, we dont need
  * these subscriptions and hence these structs can remain uninitialized.
  */
-const struct event_type __event_type_gps_module_event;
+const struct event_type __event_type_gnss_module_event;
 const struct event_type __event_type_app_module_event;
 const struct event_type __event_type_data_module_event;
 const struct event_type __event_type_util_module_event;
@@ -74,9 +71,32 @@ void tearDown(void)
 	mock_event_manager_Verify();
 }
 
+int module_start_callback(struct module_data *module, int number_of_calls)
+{
+	data_module_thread_id = module->thread_id;
+
+	printf("Thread ID known!!");
+	//k_thread_suspend(data_module_thread_id);
+	return 0;
+}
+
 void test_data_module_start(void)
 {
-	DATA_MODULE_INIT_ENTRY();
+	__wrap_module_start_ExpectAnyArgsAndReturn(9);
+	__wrap_module_start_AddCallback(&module_start_callback);
+	__wrap_settings_load_subtree_ExpectAnyArgsAndReturn(0);
+	__wrap_settings_subsys_init_ExpectAndReturn(0);
+	__wrap_cJSON_Init_Expect();
+	__wrap_module_get_next_msg_ExpectAnyArgsAndReturn(0);
+	__wrap_date_time_register_handler_ExpectAnyArgs();
+
+	/* Stimulus: Simulate a call to spawn the data module thread. */
+	DATA_MODULE_INIT_ENTRY(NULL, NULL, NULL);
+
+	/* Now that the thread ID of the data module should be available in the unit test, suspend the
+	 * thread in order to avoid the kernel spawing the thread unnecessarily. */
+	//k_thread_suspend(data_module_thread_id);
+	//k_thread_abort(data_module_thread_id);
 }
 
 void main(void)

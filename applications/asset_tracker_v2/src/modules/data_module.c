@@ -1421,6 +1421,11 @@ static void module_thread_fn(void)
 		}
 
 		on_all_states(&msg);
+
+#ifdef CONFIG_UNITY
+		/* Break out of infinite loop when running unit test. */
+		break;
+#endif
 	}
 }
 
