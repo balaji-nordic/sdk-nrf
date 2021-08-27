@@ -9,8 +9,10 @@
 #include <mock_event_manager.h>
 
 extern struct event_listener __event_listener_data_module;
+extern struct _static_thread_data  _k_thread_data_data_module_thread;
 
 #define DATA_MODULE_EVT_HANDLER(eh) __event_listener_data_module.notification(eh)
+#define DATA_MODULE_INIT_ENTRY _k_thread_data_data_module_thread.init_entry
 
 /* Dummy functions and objects. */
 
@@ -74,7 +76,7 @@ void tearDown(void)
 
 void test_data_module_start(void)
 {
-
+	DATA_MODULE_INIT_ENTRY();
 }
 
 void main(void)
