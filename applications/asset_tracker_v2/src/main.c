@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <event_manager.h>
 #include <modem/nrf_modem_lib.h>
+#include "nrf_modem_trace.h"
 
 #if defined(CONFIG_WATCHDOG_APPLICATION)
 #include "watchdog.h"
@@ -543,6 +544,11 @@ void main(void)
 	}
 }
 
+void nrf_modem_trace_handler(const uint8_t * const data, uint32_t len)
+{
+	LOG_WRN("T");
+}
+
 EVENT_LISTENER(MODULE, event_handler);
 EVENT_SUBSCRIBE_EARLY(MODULE, cloud_module_event);
 EVENT_SUBSCRIBE(MODULE, app_module_event);
@@ -551,3 +557,4 @@ EVENT_SUBSCRIBE(MODULE, util_module_event);
 EVENT_SUBSCRIBE_FINAL(MODULE, ui_module_event);
 EVENT_SUBSCRIBE_FINAL(MODULE, sensor_module_event);
 EVENT_SUBSCRIBE_FINAL(MODULE, modem_module_event);
+

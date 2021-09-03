@@ -45,6 +45,10 @@ config NRF_MODEM_LIB_TRACE_MEDIUM_RTT
 	bool "Send modem trace over SEGGER RTT"
 	select USE_SEGGER_RTT
 
+config NRF_MODEM_LIB_TRACE_MEDIUM_CUSTOM
+	bool "Send modem trace to the application for further handling"
+
+
 endchoice # NRF_MODEM_LIB_TRACE_MEDIUM
 
 if NRF_MODEM_LIB_TRACE_MEDIUM_RTT

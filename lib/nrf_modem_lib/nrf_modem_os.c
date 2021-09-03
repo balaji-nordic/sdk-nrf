@@ -25,6 +25,10 @@
 #include <SEGGER_RTT.h>
 #endif
 
+#ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_CUSTOM
+#include "nrf_modem_trace.h"
+#endif
+
 #ifndef ENOKEY
 #define ENOKEY 2001
 #endif
@@ -707,6 +711,10 @@ int32_t nrf_modem_os_trace_put(const uint8_t * const data, uint32_t len)
 			transfer_len);
 		remaining_bytes -= transfer_len;
 	}
+#endif
+
+#ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_CUSTOM
+	nrf_modem_trace_handler(data, len);
 #endif
 	return 0;
 }

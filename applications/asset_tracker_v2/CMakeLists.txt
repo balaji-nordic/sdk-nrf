@@ -16,6 +16,7 @@ target_sources(app PRIVATE src/main.c)
 # Include source directory
 target_include_directories(app PRIVATE src)
 target_include_directories(app PRIVATE boards/${BOARD}/)
+target_include_directories(app PRIVATE ${ZEPHYR_BASE}/../nrf/lib/nrf_modem_lib )
 
 # Application directories
 add_subdirectory(src/modules)
