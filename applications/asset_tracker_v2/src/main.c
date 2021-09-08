@@ -10,7 +10,9 @@
 #include <stdlib.h>
 #include <event_manager.h>
 #include <modem/nrf_modem_lib.h>
+#include <sys/util.h>
 #include "nrf_modem_trace.h"
+#include "cloud_wrapper.h"
 
 #if defined(CONFIG_WATCHDOG_APPLICATION)
 #include "watchdog.h"
@@ -475,11 +477,62 @@ static void on_all_events(struct app_msg_data *msg)
 	}
 }
 
+
+static bool initialized = false;
+//static struct k_work modem_trace_work;
+struct trace_info {
+    struct k_work modem_trace_work;
+    char trace_msg[200];
+} modem_trace_info;
+
+static void modem_trace_handle(struct k_work *item)
+{
+	//char trace1_buf[] = "{\"state\":{\"reported\":{\"message\":\"This is my messsage!\"}}}";
+
+	struct trace_info *cur_trace_info =
+		CONTAINER_OF(item, struct trace_info, modem_trace_work);
+
+	char * trace1_buf = cur_trace_info->trace_msg;
+
+	uint32_t trace1_len = strlen(trace1_buf);
+
+	int err = cloud_wrap_ui_send(trace1_buf, trace1_len);
+	if (err) {
+		LOG_ERR("cloud_wrap_ui_send, err: %d", err);
+		return;
+	}
+	else
+	{
+		LOG_INF("cloud_wrap_ui_send, Success");
+	}
+}
+
+//char test_buf[] = "{\"state\":{\"reported\":{\"message\":\"This is my messsage!\"}}}";
+char test_buf[] = "{\"trace\":\"This is a trace\"}";
+
+
+//#define TRACE_FMT_STR "{\"trace\":\"%d\"}"
+
+void nrf_modem_trace_handler(const uint8_t * const data, uint32_t len)
+{
+	if (initialized)
+	{
+		static int i;
+		//strncpy(modem_trace_info.trace_msg, test_buf, strlen(test_buf));
+		sprintf(modem_trace_info.trace_msg, "{\"trace\":\"%d\"}", i++);
+		LOG_INF("Sending %s", modem_trace_info.trace_msg);
+		k_work_submit(&modem_trace_info.modem_trace_work);
+	}
+}
+
+
 void main(void)
 {
 	int err;
 	struct app_msg_data msg;
 
+	k_work_init(&modem_trace_info.modem_trace_work, modem_trace_handle);
+	initialized = true;
 	handle_nrf_modem_lib_init_ret();
 
 	if (event_manager_init()) {
@@ -544,10 +597,8 @@ void main(void)
 	}
 }
 
-void nrf_modem_trace_handler(const uint8_t * const data, uint32_t len)
-{
-	LOG_WRN("T");
-}
+
+
 
 EVENT_LISTENER(MODULE, event_handler);
 EVENT_SUBSCRIBE_EARLY(MODULE, cloud_module_event);

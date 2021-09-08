@@ -745,6 +745,7 @@ static void on_sub_state_cloud_connected(struct cloud_msg_data *msg)
 		neighbor_cells_data_send(&msg->module.data);
 	}
 
+
 	/* To properly initialize the nRF Cloud PGPS library we need to be connected to cloud and
 	 * date time must be obtained.
 	 */
@@ -811,6 +812,7 @@ static void on_all_states(struct cloud_msg_data *msg)
 		agps_request_convert(&agps_request, &msg->module.gps.data.agps_request);
 	}
 #endif
+
 }
 
 static void module_thread_fn(void)
