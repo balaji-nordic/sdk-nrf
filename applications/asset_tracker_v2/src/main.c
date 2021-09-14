@@ -11,6 +11,7 @@
 #include <event_manager.h>
 #include <modem/nrf_modem_lib.h>
 #include <sys/util.h>
+#include <sys/ring_buffer.h>
 #include "nrf_modem_trace.h"
 #include "cloud_wrapper.h"
 
@@ -478,60 +479,60 @@ static void on_all_events(struct app_msg_data *msg)
 }
 
 
-static bool initialized = false;
-//static struct k_work modem_trace_work;
-struct trace_info {
-    struct k_work modem_trace_work;
-    char trace_msg[200];
-} modem_trace_info;
+#define RING_BUFFER_SIZE 4096
+RING_BUF_DECLARE(trace_ring_buf, RING_BUFFER_SIZE);
 
 static void modem_trace_handle(struct k_work *item)
 {
-	//char trace1_buf[] = "{\"state\":{\"reported\":{\"message\":\"This is my messsage!\"}}}";
-
-	struct trace_info *cur_trace_info =
-		CONTAINER_OF(item, struct trace_info, modem_trace_work);
-
-	char * trace1_buf = cur_trace_info->trace_msg;
-
-	uint32_t trace1_len = strlen(trace1_buf);
-
-	int err = cloud_wrap_ui_send(trace1_buf, trace1_len);
-	if (err) {
-		LOG_ERR("cloud_wrap_ui_send, err: %d", err);
-		return;
-	}
-	else
+	uint8_t trace_data[512];
+	size_t bytes;
+	while (ring_buf_space_get(&trace_ring_buf) != RING_BUFFER_SIZE)
 	{
-		LOG_INF("cloud_wrap_ui_send, Success");
+		bytes = ring_buf_get(&trace_ring_buf, trace_data, sizeof(trace_data));
+		LOG_INF("Thread: Fetched %d bytes from ring buf", bytes);
 	}
 }
 
-//char test_buf[] = "{\"state\":{\"reported\":{\"message\":\"This is my messsage!\"}}}";
-char test_buf[] = "{\"trace\":\"This is a trace\"}";
+
+static bool initialized = false;
+
+#define MODEM_TRACE_STACK_SIZE 4096
+#define MODEM_TRACE_THREAD_PRIORITY 5
+
+K_THREAD_STACK_DEFINE(modem_trace_stack_area, MODEM_TRACE_STACK_SIZE);
+
+static struct k_work_q modem_trace_work_q;
+K_WORK_DEFINE(modem_trace_work, modem_trace_handle);
 
 
-//#define TRACE_FMT_STR "{\"trace\":\"%d\"}"
 
 void nrf_modem_trace_handler(const uint8_t * const data, uint32_t len)
 {
 	if (initialized)
 	{
-		static int i;
-		//strncpy(modem_trace_info.trace_msg, test_buf, strlen(test_buf));
-		sprintf(modem_trace_info.trace_msg, "{\"trace\":\"%d\"}", i++);
-		LOG_INF("Sending %s", modem_trace_info.trace_msg);
-		k_work_submit(&modem_trace_info.modem_trace_work);
+		uint32_t ret;
+		uint32_t free_space = ring_buf_space_get(&trace_ring_buf);
+		LOG_INF("IRQ: Placing  %d bytes in ring buffer. Free space = %d", len, free_space);
+		ret = ring_buf_put(&trace_ring_buf, data, len);
+		if (ret != len) {
+			/* not enough room, partial copy. */
+			LOG_ERR("Not enough room in ring buf");
+		}
+		k_work_submit_to_queue(&modem_trace_work_q, &modem_trace_work);
 	}
 }
-
 
 void main(void)
 {
 	int err;
 	struct app_msg_data msg;
 
-	k_work_init(&modem_trace_info.modem_trace_work, modem_trace_handle);
+	k_work_init(&modem_trace_work, &modem_trace_handle);
+
+	k_work_queue_start(&modem_trace_work_q, modem_trace_stack_area,
+                   K_THREAD_STACK_SIZEOF(modem_trace_stack_area), MODEM_TRACE_THREAD_PRIORITY,
+                   NULL);
+
 	initialized = true;
 	handle_nrf_modem_lib_init_ret();
 
