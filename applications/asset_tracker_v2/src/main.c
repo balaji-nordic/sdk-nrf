@@ -479,7 +479,7 @@ static void on_all_events(struct app_msg_data *msg)
 }
 
 
-#define RING_BUFFER_SIZE 4096
+#define RING_BUFFER_SIZE (4096 * 2)
 RING_BUF_DECLARE(trace_ring_buf, RING_BUFFER_SIZE);
 
 static void modem_trace_handle(struct k_work *item)
@@ -489,7 +489,7 @@ static void modem_trace_handle(struct k_work *item)
 	while (ring_buf_space_get(&trace_ring_buf) != RING_BUFFER_SIZE)
 	{
 		bytes = ring_buf_get(&trace_ring_buf, trace_data, sizeof(trace_data));
-		LOG_INF("Thread: Fetched %d bytes from ring buf", bytes);
+		//LOG_INF("Thread: Fetched %d bytes from ring buf", bytes);
 	}
 }
 
@@ -512,7 +512,7 @@ void nrf_modem_trace_handler(const uint8_t * const data, uint32_t len)
 	{
 		uint32_t ret;
 		uint32_t free_space = ring_buf_space_get(&trace_ring_buf);
-		LOG_INF("IRQ: Placing  %d bytes in ring buffer. Free space = %d", len, free_space);
+		//LOG_INF("IRQ: Placing  %d bytes in ring buffer. Free space = %d", len, free_space);
 		ret = ring_buf_put(&trace_ring_buf, data, len);
 		if (ret != len) {
 			/* not enough room, partial copy. */
