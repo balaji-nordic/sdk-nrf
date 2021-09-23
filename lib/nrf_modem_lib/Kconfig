@@ -47,6 +47,8 @@ config NRF_MODEM_LIB_TRACE_MEDIUM_RTT
 
 config NRF_MODEM_LIB_TRACE_MEDIUM_CUSTOM
 	bool "Send modem trace to the application for further handling"
+	#select USE_SEGGER_RTT
+	select NRFX_UARTE1
 
 
 endchoice # NRF_MODEM_LIB_TRACE_MEDIUM
