@@ -14,6 +14,7 @@
 #include <sys/ring_buffer.h>
 #include "nrf_modem_trace.h"
 #include "cloud_wrapper.h"
+#include "pm_config.h"
 
 #if defined(CONFIG_WATCHDOG_APPLICATION)
 #include "watchdog.h"
@@ -478,21 +479,30 @@ static void on_all_events(struct app_msg_data *msg)
 	}
 }
 
+#define MAX_NUM_OF_TRACE_MSGS_IN_RING_BUF 50
 
-#define RING_BUFFER_SIZE (4096 * 2)
+#define RING_BUFFER_SIZE (5 + MAX_NUM_OF_TRACE_MSGS_IN_RING_BUF * sizeof(uint32_t *))
 RING_BUF_DECLARE(trace_ring_buf, RING_BUFFER_SIZE);
+
+#define TRACE_HEADER_SIZE 5
+#define TRACE_BUFFER_SIZE (1 + TRACE_HEADER_SIZE + sizeof(uint32_t))
+
+BUILD_ASSERT((TRACE_BUFFER_SIZE >= (sizeof(uint8_t) + sizeof(uint8_t *) + sizeof(uint32_t))));
+
+enum {
+	TRACE_HEADER = 0,
+	TRACE_DATA
+};
 
 static void modem_trace_handle(struct k_work *item)
 {
-	uint8_t trace_data[512];
+	uint8_t trace_data[TRACE_BUFFER_SIZE];
 	size_t bytes;
-	while (ring_buf_space_get(&trace_ring_buf) != RING_BUFFER_SIZE)
-	{
+	while (ring_buf_space_get(&trace_ring_buf) != RING_BUFFER_SIZE) {
 		bytes = ring_buf_get(&trace_ring_buf, trace_data, sizeof(trace_data));
-		//LOG_INF("Thread: Fetched %d bytes from ring buf", bytes);
+		LOG_INF("Thread: Fetched %d bytes from ring buf", bytes);
 	}
 }
-
 
 static bool initialized = false;
 
@@ -504,17 +514,35 @@ K_THREAD_STACK_DEFINE(modem_trace_stack_area, MODEM_TRACE_STACK_SIZE);
 static struct k_work_q modem_trace_work_q;
 K_WORK_DEFINE(modem_trace_work, modem_trace_handle);
 
+#define IN_SHARED_TRACE_MEMORY(ptr)                                                                \
+	((uint32_t)ptr <=                                                                          \
+		 (PM_NRF_MODEM_LIB_TRACE_ADDRESS + CONFIG_NRF_MODEM_LIB_SHMEM_TRACE_SIZE) &&       \
+	 (uint32_t)ptr >= (PM_NRF_MODEM_LIB_TRACE_ADDRESS))
 
-
-void nrf_modem_trace_handler(const uint8_t * const data, uint32_t len)
+void nrf_modem_trace_handler(const uint8_t *const data, uint32_t len)
 {
-	if (initialized)
-	{
+	if (initialized) {
+		uint8_t trace_buf[TRACE_BUFFER_SIZE];
+		if (IN_SHARED_TRACE_MEMORY(data)) {
+			LOG_INF("Received ptr from shared mem %d bytes", len);
+			trace_buf[0] = TRACE_DATA;
+			BUILD_ASSERT(sizeof(uint8_t *) == 4);
+			/* Copy the pointer instead of the data pointed to. */
+			memcpy(trace_buf + 1, &data, 4);
+			/* Encode Length. */
+			memcpy(&trace_buf[1 + (sizeof(uint8_t *))], &len, sizeof(len));
+		} else {
+			LOG_INF("Received ptr from static mem %d bytes", len);
+			__ASSERT_NO_MSG(len == 5);
+			trace_buf[0] = TRACE_HEADER;
+			memcpy(trace_buf + 1, data, len);
+		}
 		uint32_t ret;
 		uint32_t free_space = ring_buf_space_get(&trace_ring_buf);
-		//LOG_INF("IRQ: Placing  %d bytes in ring buffer. Free space = %d", len, free_space);
-		ret = ring_buf_put(&trace_ring_buf, data, len);
-		if (ret != len) {
+		LOG_INF("IRQ: Placing  %d bytes in ring buffer. Free space = %d", sizeof(trace_buf),
+			free_space);
+		ret = ring_buf_put(&trace_ring_buf, trace_buf, sizeof(trace_buf));
+		if (ret != sizeof(trace_buf)) {
 			/* not enough room, partial copy. */
 			LOG_ERR("Not enough room in ring buf");
 		}
@@ -530,8 +558,8 @@ void main(void)
 	k_work_init(&modem_trace_work, &modem_trace_handle);
 
 	k_work_queue_start(&modem_trace_work_q, modem_trace_stack_area,
-                   K_THREAD_STACK_SIZEOF(modem_trace_stack_area), MODEM_TRACE_THREAD_PRIORITY,
-                   NULL);
+			   K_THREAD_STACK_SIZEOF(modem_trace_stack_area),
+			   MODEM_TRACE_THREAD_PRIORITY, NULL);
 
 	initialized = true;
 	handle_nrf_modem_lib_init_ret();
