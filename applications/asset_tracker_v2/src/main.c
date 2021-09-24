@@ -532,6 +532,9 @@ void main(void)
 	k_work_queue_start(&modem_trace_work_q, modem_trace_stack_area,
                    K_THREAD_STACK_SIZEOF(modem_trace_stack_area), MODEM_TRACE_THREAD_PRIORITY,
                    NULL);
+	// Set work queue thread name to help debug
+	k_tid_t modem_trace_wq_tid = k_work_queue_thread_get(&modem_trace_work_q);
+	k_thread_name_set(modem_trace_wq_tid, "modem_trace");
 
 	initialized = true;
 	handle_nrf_modem_lib_init_ret();
