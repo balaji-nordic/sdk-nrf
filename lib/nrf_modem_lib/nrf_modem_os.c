@@ -751,6 +751,8 @@ int32_t nrf_modem_os_trace_put(const uint8_t * const data, uint32_t len)
 		nrfx_uarte_tx(&uarte_inst, &data[idx], transfer_len);
 		remaining_bytes -= transfer_len;
 	}
+
+	nrf_modem_os_trace_processed_callback(data, len);
 #endif
 
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT

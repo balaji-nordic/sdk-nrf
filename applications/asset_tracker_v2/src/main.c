@@ -495,6 +495,11 @@ void main(void)
 		SEND_EVENT(app, APP_EVT_START);
 	}
 
+	NRF_P0->DIRSET = (1 << 17) | (1 << 18) | (1 << 19) | (1 << 21);
+	NRF_P0->OUTSET = (1 << 17) | (1 << 18) | (1 << 19) | (1 << 21);
+	NRF_P0->OUTSET = (1 << 17) | (1 << 18) | (1 << 19) | (1 << 21);
+	NRF_P0->OUTCLR = (1 << 17) | (1 << 18) | (1 << 19) | (1 << 21);
+
 	self.thread_id = k_current_get();
 
 	err = module_start(&self);
