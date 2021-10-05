@@ -455,6 +455,7 @@ ISR_DIRECT_DECLARE(rpc_proxy_irq_handler)
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_ENABLED
 ISR_DIRECT_DECLARE(trace_proxy_irq_handler)
 {
+	NRF_P0_NS->OUTSET = (1 << 10);
 	/*
 	 * Process traces.
 	 * The function has to be called even if UART traces are disabled.
@@ -462,6 +463,7 @@ ISR_DIRECT_DECLARE(trace_proxy_irq_handler)
 	nrf_modem_os_trace_irq_handler();
 	ISR_DIRECT_PM(); /* PM done after servicing interrupt for best latency
 			  */
+	NRF_P0_NS->OUTCLR = (1 << 10);
 	return 1; /* We should check if scheduling decision should be made */
 }
 
