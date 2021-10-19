@@ -484,6 +484,19 @@ void read_task_create(void)
 }
 
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART
+void uarte_event_handler(nrfx_uarte_event_t const * p_event,
+                                           void * p_context) {
+	LOG_INF("UART done %d", p_event->type);
+	nrfx_uarte_evt_type_t type = p_event->type;
+	
+	if (type == NRFX_UARTE_EVT_TX_DONE)
+	{
+		NRF_P0->OUTSET = (1 << 20);
+		nrf_modem_os_trace_processed_callback(p_event->data.rxtx.p_data, p_event->data.rxtx.bytes);
+		NRF_P0->OUTCLR = (1 << 20);
+	}
+}
+
 void trace_uart_init(void)
 {
 	/* UART pins are defined in "nrf9160dk_nrf9160.dts". */
@@ -505,7 +518,8 @@ void trace_uart_init(void)
 
 	/* Initialize nrfx UARTE driver in blocking mode. */
 	/* TODO: use UARTE in non-blocking mode with IRQ handler. */
-	nrfx_uarte_init(&uarte_inst, &config, NULL);
+	nrfx_uarte_init(&uarte_inst, &config, &uarte_event_handler);
+	IRQ_DIRECT_CONNECT(UARTE1_SPIM1_SPIS1_TWIM1_TWIS1_IRQn, 0, nrfx_uarte_1_irq_handler, 0);
 }
 #endif
 
@@ -750,11 +764,12 @@ int32_t nrf_modem_os_trace_put(const uint8_t * const data, uint32_t len)
 		uint8_t transfer_len = MIN(remaining_bytes, UINT8_MAX);
 		uint32_t idx = len - remaining_bytes;
 
-		nrfx_uarte_tx(&uarte_inst, &data[idx], transfer_len);
+		nrfx_err_t err = nrfx_uarte_tx(&uarte_inst, &data[idx], transfer_len);
+		if (err != NRFX_SUCCESS) {
+			// LOG_ERR("UARTE TX Error %d", NRFX_ERROR_BASE_NUM - err);
+		}
 		remaining_bytes -= transfer_len;
 	}
-
-	nrf_modem_os_trace_processed_callback(data, len);
 #endif
 
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT
