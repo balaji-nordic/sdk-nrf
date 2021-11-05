@@ -1,0 +1,4 @@
+tests:
+  unity.modem_trace:
+    platform_allow: qemu_cortex_m3 native_posix
+    tags: modem_trace
