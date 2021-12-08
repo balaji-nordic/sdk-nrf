@@ -16,3 +16,6 @@ target_include_directories(app PRIVATE src)
 
 # add test file
 target_sources(app PRIVATE src/modem_trace_test.c)
+
+# add unit under test
+target_sources(app PRIVATE ../../../lib/modem_trace/modem_trace.c)
