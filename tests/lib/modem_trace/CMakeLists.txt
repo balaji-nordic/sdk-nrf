@@ -31,5 +31,7 @@ target_include_directories(app PRIVATE ${ZEPHYR_BASE}/modules/hal_nordic/nrfx)
 
 # Define the device. Otherwise an "unknown device" warning will be triggered when compiling
 # nrfx_config.h
-target_compile_options(app PRIVATE -DNRF9160_XXAA)
+# Define NRFX_DECLARE_ONLY to simplify generation of mocks. If this is not done, then the
+# the compiler would be unable to compile the generated mocks for nrfx uart driver.
+target_compile_options(app PRIVATE -DNRF9160_XXAA -DNRFX_DECLARE_ONLY)
 
