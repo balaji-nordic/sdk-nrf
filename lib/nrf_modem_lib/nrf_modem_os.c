@@ -32,11 +32,6 @@
 #define TRACE_IRQ EGU2_IRQn
 #define TRACE_IRQ_PRIORITY 6
 
-#ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART
-/* Use UARTE1 as a dedicated peripheral to print traces. */
-static const nrfx_uarte_t uarte_inst = NRFX_UARTE_INSTANCE(1);
-#endif
-
 #define THREAD_MONITOR_ENTRIES 10
 
 LOG_MODULE_REGISTER(nrf_modem_lib, CONFIG_NRF_MODEM_LIB_LOG_LEVEL);
@@ -350,31 +345,6 @@ void read_task_create(void)
 	irq_enable(NRF_MODEM_APPLICATION_IRQ);
 }
 
-#ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART
-void trace_uart_init(void)
-{
-	/* UART pins are defined in "nrf9160dk_nrf9160.dts". */
-	const nrfx_uarte_config_t config = {
-		/* Use UARTE1 pins routed on VCOM2. */
-		.pseltxd = DT_PROP(DT_NODELABEL(uart1), tx_pin),
-		.pselrxd = DT_PROP(DT_NODELABEL(uart1), rx_pin),
-		.pselcts = NRF_UARTE_PSEL_DISCONNECTED,
-		.pselrts = NRF_UARTE_PSEL_DISCONNECTED,
-
-		.hal_cfg.hwfc = NRF_UARTE_HWFC_DISABLED,
-		.hal_cfg.parity = NRF_UARTE_PARITY_EXCLUDED,
-		.baudrate = NRF_UARTE_BAUDRATE_1000000,
-
-		/* IRQ handler not used. Blocking mode.*/
-		.interrupt_priority = NRFX_UARTE_DEFAULT_CONFIG_IRQ_PRIORITY,
-		.p_context = NULL,
-	};
-
-	/* Initialize nrfx UARTE driver in blocking mode. */
-	/* TODO: use UARTE in non-blocking mode with IRQ handler. */
-	nrfx_uarte_init(&uarte_inst, &config, NULL);
-}
-#endif
 
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT
 #define RTT_BUF_SZ		(CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT_BUF_SIZE)

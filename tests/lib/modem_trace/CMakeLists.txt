@@ -31,7 +31,17 @@ target_include_directories(app PRIVATE ${ZEPHYR_BASE}/modules/hal_nordic/nrfx)
 
 # Define the device. Otherwise an "unknown device" warning will be triggered when compiling
 # nrfx_config.h
+target_compile_options(app PRIVATE -DNRF9160_XXAA)
 # Define NRFX_DECLARE_ONLY to simplify generation of mocks. If this is not done, then the
 # the compiler would be unable to compile the generated mocks for nrfx uart driver.
-target_compile_options(app PRIVATE -DNRF9160_XXAA -DNRFX_DECLARE_ONLY)
+target_compile_options(app PRIVATE -DNRFX_DECLARE_ONLY)
+# Since Device Tree is not available when running unit tests, we need to provide the hardware
+# details that otherwise would be fetched by the UUT from the Device Tree.
+target_compile_options(app PRIVATE -DDT_N_S_uart_1_P_rx_pin=17)
+target_compile_options(app PRIVATE -DDT_N_S_uart_1_P_tx_pin=18)
+target_compile_options(app PRIVATE -DNRFX_UARTE1_ENABLED)
 
+# Preinclude file to the module under test to redefine IS_ENABLED() macro
+# which is used in the module.
+set_property(SOURCE ../../../lib/modem_trace/modem_trace.c PROPERTY COMPILE_FLAGS
+    "-include modem_trace_test.h")
