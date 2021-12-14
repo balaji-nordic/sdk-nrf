@@ -347,15 +347,9 @@ void read_task_create(void)
 
 
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT
-#define RTT_BUF_SZ		(CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT_BUF_SIZE)
-static int trace_rtt_channel;
-static char rtt_buffer[RTT_BUF_SZ];
 
 static void trace_rtt_init(void)
 {
-	trace_rtt_channel = SEGGER_RTT_AllocUpBuffer("modem_trace", rtt_buffer,
-		sizeof(rtt_buffer), SEGGER_RTT_MODE_NO_BLOCK_SKIP);
-
 	if (trace_rtt_channel < 0) {
 		LOG_ERR("Could not allocated RTT channel for modem trace (%d)",
 			trace_rtt_channel);

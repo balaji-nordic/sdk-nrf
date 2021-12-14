@@ -46,6 +46,10 @@ target_compile_options(app PRIVATE -DNRFX_UARTE1_ENABLED)
 target_compile_options(app PRIVATE -DCONFIG_SEGGER_RTT_MAX_NUM_UP_BUFFERS=3
         -DCONFIG_SEGGER_RTT_MAX_NUM_DOWN_BUFFERS=3)
 
+target_compile_options(app PRIVATE -DCONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART
+        -DCONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT
+        -DCONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT_BUF_SIZE=255)
+
 # Preinclude file to the module under test to redefine IS_ENABLED() macro
 # which is used in the module.
 set_property(SOURCE ../../../lib/modem_trace/modem_trace.c PROPERTY COMPILE_FLAGS

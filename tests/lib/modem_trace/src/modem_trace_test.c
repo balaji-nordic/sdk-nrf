@@ -8,6 +8,7 @@
 
 #include "modem/modem_trace.h"
 #include "mock_nrfx_uarte.h"
+#include "mock_SEGGER_RTT.h"
 
 extern int unity_main(void);
 
@@ -17,11 +18,13 @@ bool runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT = false;
 void setUp(void)
 {
 	mock_nrfx_uarte_Init();
+	mock_SEGGER_RTT_Init();
 }
 
 void tearDown(void)
 {
 	mock_nrfx_uarte_Verify();
+	mock_SEGGER_RTT_Verify();
 
 	runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART = false;
 	runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT = false;
@@ -40,6 +43,7 @@ static nrfx_err_t nrfx_uarte_init_callback(nrfx_uarte_t const *p_instance,
 					   int no_of_calls)
 {
 	TEST_ASSERT(runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART == true);
+	TEST_ASSERT(runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT == false);
 
 	TEST_ASSERT_NOT_EQUAL(NULL, p_config);
 	TEST_ASSERT_EQUAL(DT_N_S_uart_1_P_tx_pin, p_config->pseltxd);
@@ -70,9 +74,31 @@ void test_modem_trace_init_uart_transport_medium(void)
 	TEST_ASSERT_EQUAL(modem_trace_init(), 0);
 }
 
+int rtt_init_callback(const char* sName,
+					  void* pBuffer,
+					  unsigned BufferSize,
+					  unsigned Flags,
+					  int no_of_calls)
+{
+	TEST_ASSERT(runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT == true);
+	TEST_ASSERT(runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART == false);
+
+	char * exp_sName = "modem_trace";
+
+	TEST_ASSERT_EQUAL_CHAR_ARRAY(exp_sName, sName, sizeof(exp_sName));
+	TEST_ASSERT_NOT_EQUAL(NULL, pBuffer);
+	TEST_ASSERT_EQUAL(255, BufferSize);
+	TEST_ASSERT_EQUAL(SEGGER_RTT_MODE_NO_BLOCK_SKIP, Flags);
+
+	return 0;
+}
+
 void test_modem_trace_init_rtt_transport_medium(void)
 {
 	runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT = true;
+
+	SEGGER_RTT_AllocUpBuffer_ExpectAnyArgsAndReturn(1);
+	SEGGER_RTT_AllocUpBuffer_AddCallback(&rtt_init_callback);
 
 	TEST_ASSERT_EQUAL(modem_trace_init(), 0);
 }
