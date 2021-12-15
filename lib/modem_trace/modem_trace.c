@@ -6,6 +6,7 @@
 
 #include "modem_trace.h"
 #include "nrf_modem_at.h"
+#include <stdio.h>
 
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART
 #include "nrfx_uarte.h"
@@ -55,7 +56,11 @@ int modem_trace_init(void)
 
 int modem_trace_start(enum modem_trace_mode trace_mode, uint16_t duration, uint32_t max_size)
 {
-	nrf_modem_at_printf("AT%%XMODEMTRACE=1,1");
+	char at_cmd[sizeof("AT%%XMODEMTRACE=1,X")];
+
+	sprintf(at_cmd, "AT%%%%XMODEMTRACE=1,%hu", trace_mode);
+
+	nrf_modem_at_printf(at_cmd);
 
 	return 0;
 }

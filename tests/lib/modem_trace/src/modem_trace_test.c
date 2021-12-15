@@ -6,7 +6,7 @@
 #include <unity.h>
 #include <stdbool.h>
 
-#include "modem/modem_trace.h"
+#include "modem_trace.h"
 #include "mock_nrfx_uarte.h"
 #include "mock_SEGGER_RTT.h"
 #include "mock_nrf_modem_at.h"
@@ -110,6 +110,24 @@ void test_modem_trace_start_coredump_only(void)
 {
 	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,1", 0);
 	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_COREDUMP_ONLY, 2, 10));
+}
+
+void test_modem_trace_start_all(void)
+{
+	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,2", 0);
+	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_ALL, 2, 10));
+}
+
+void test_modem_trace_start_ip_only(void)
+{
+	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,4", 0);
+	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_IP_ONLY, 2, 10));
+}
+
+void test_modem_trace_start_lte_ip(void)
+{
+	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,5", 0);
+	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_LTE_IP, 2, 10));
 }
 
 void main(void)
