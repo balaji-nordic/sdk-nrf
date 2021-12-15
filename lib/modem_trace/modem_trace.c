@@ -4,6 +4,9 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
+#include "modem_trace.h"
+#include "nrf_modem_at.h"
+
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART
 #include "nrfx_uarte.h"
 #endif
@@ -13,7 +16,7 @@
 
 static const nrfx_uarte_t uarte_inst = NRFX_UARTE_INSTANCE(1);
 
-static void trace_uart_init(void)
+static void uart_init(void)
 {
 	const nrfx_uarte_config_t config = {
 		.pseltxd = DT_PROP(DT_NODELABEL(uart1), tx_pin),
@@ -32,20 +35,27 @@ static void trace_uart_init(void)
 	nrfx_uarte_init(&uarte_inst, &config, NULL);
 }
 
-#define RTT_BUF_SZ (CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT_BUF_SIZE)
+
 //static int trace_rtt_channel;
-static char rtt_buffer[RTT_BUF_SZ];
+static char rtt_buffer[CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT_BUF_SIZE];
 
 int modem_trace_init(void)
 {
 	if (IS_ENABLED(CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART)) {
-		trace_uart_init();
+		uart_init();
 	}
 
 	if (IS_ENABLED(CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT)) {
-		SEGGER_RTT_AllocUpBuffer("modem_trace", rtt_buffer, RTT_BUF_SZ,
+		SEGGER_RTT_AllocUpBuffer("modem_trace", rtt_buffer, sizeof(rtt_buffer),
 					 SEGGER_RTT_MODE_NO_BLOCK_SKIP);
 	}
+
+	return 0;
+}
+
+int modem_trace_start(enum modem_trace_mode trace_mode, uint16_t duration, uint32_t max_size)
+{
+	nrf_modem_at_printf("AT%%XMODEMTRACE=1,1");
 
 	return 0;
 }

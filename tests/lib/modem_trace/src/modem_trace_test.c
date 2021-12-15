@@ -9,6 +9,7 @@
 #include "modem/modem_trace.h"
 #include "mock_nrfx_uarte.h"
 #include "mock_SEGGER_RTT.h"
+#include "mock_nrf_modem_at.h"
 
 extern int unity_main(void);
 
@@ -19,12 +20,14 @@ void setUp(void)
 {
 	mock_nrfx_uarte_Init();
 	mock_SEGGER_RTT_Init();
+	mock_nrf_modem_at_Init();
 }
 
 void tearDown(void)
 {
 	mock_nrfx_uarte_Verify();
 	mock_SEGGER_RTT_Verify();
+	mock_nrf_modem_at_Verify();
 
 	runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART = false;
 	runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT = false;
@@ -71,7 +74,7 @@ void test_modem_trace_init_uart_transport_medium(void)
 	__wrap_nrfx_uarte_init_ExpectAnyArgsAndReturn(NRFX_SUCCESS);
 	__wrap_nrfx_uarte_init_AddCallback(&nrfx_uarte_init_callback);
 
-	TEST_ASSERT_EQUAL(modem_trace_init(), 0);
+	TEST_ASSERT_EQUAL(0, modem_trace_init());
 }
 
 int rtt_init_callback(const char* sName,
@@ -87,7 +90,7 @@ int rtt_init_callback(const char* sName,
 
 	TEST_ASSERT_EQUAL_CHAR_ARRAY(exp_sName, sName, sizeof(exp_sName));
 	TEST_ASSERT_NOT_EQUAL(NULL, pBuffer);
-	TEST_ASSERT_EQUAL(255, BufferSize);
+	TEST_ASSERT_EQUAL(CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT_BUF_SIZE, BufferSize);
 	TEST_ASSERT_EQUAL(SEGGER_RTT_MODE_NO_BLOCK_SKIP, Flags);
 
 	return 0;
@@ -100,7 +103,13 @@ void test_modem_trace_init_rtt_transport_medium(void)
 	SEGGER_RTT_AllocUpBuffer_ExpectAnyArgsAndReturn(1);
 	SEGGER_RTT_AllocUpBuffer_AddCallback(&rtt_init_callback);
 
-	TEST_ASSERT_EQUAL(modem_trace_init(), 0);
+	TEST_ASSERT_EQUAL(0, modem_trace_init());
+}
+
+void test_modem_trace_start_coredump_only(void)
+{
+	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,1", 0);
+	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_COREDUMP_ONLY, 2, 10));
 }
 
 void main(void)
