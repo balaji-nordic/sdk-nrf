@@ -21,6 +21,7 @@
     :treat_externs: :include
     :callback_after_arg_check: true
     :exclude_setjmp_h: true
+
     :treat_as:
         'int8_t': 'INT8'
         'uint8_t': 'HEX8'
@@ -30,6 +31,12 @@
         'uint32_t': 'HEX32'
         'int64_t': 'INT64'
         'uint64_t': 'HEX64'
+    # When building for QEMU_CORTEX_M3, the mock for SEGGER_RTT_ASM_WriteSkipNoLock gets defined
+    # twice by CMocka. This is because of the way SEGGER_RTT.h re-defines
+    # SEGGER_RTT_WriteSkipNoLock to SEGGER_RTT_ASM_WriteSkipNoLock using pre-processor directive.
+    # Since this leads to compiler error, we safely skip generating mocks for
+    # SEGGER_RTT_ASM_WriteSkipNoLock.
+    :strippables: ['(?:SEGGER_RTT_ASM_WriteSkipNoLock\s*\(+.*?\)+)']
 
 :unity:
     :suite_teardown: >
