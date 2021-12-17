@@ -41,8 +41,17 @@ target_compile_options(app PRIVATE -DNRF9160_XXAA)
 target_compile_options(app PRIVATE -DNRFX_DECLARE_ONLY)
 # Since Device Tree is not available when running unit tests, we need to provide the hardware
 # details that otherwise would be fetched by the UUT from the Device Tree.
-target_compile_options(app PRIVATE -DDT_N_S_uart_1_P_rx_pin=17)
-target_compile_options(app PRIVATE -DDT_N_S_uart_1_P_tx_pin=18)
+if(BOARD STREQUAL native_posix)
+    target_compile_options(app PRIVATE -DDT_N_S_uart_1_P_rx_pin=17)
+    target_compile_options(app PRIVATE -DDT_N_S_uart_1_P_tx_pin=18)
+elseif(BOARD STREQUAL qemu_cortex_m3)
+    target_compile_options(app PRIVATE -DDT_N_S_uart_1_P_tx_pin=17)
+    target_compile_options(app PRIVATE -DDT_N_S_uart_1_P_rx_pin=18)
+    target_compile_options(app PRIVATE -DDT_N_S_soc_S_uart_4000d000=DT_N_S_uart_1)
+else()
+    message(FATAL_ERROR "Board not supported")
+endif()
+
 target_compile_options(app PRIVATE -DNRFX_UARTE1_ENABLED)
 # Define the Up and Down buffer count needed for compiling the Segger RTT headers.
 target_compile_options(app PRIVATE
