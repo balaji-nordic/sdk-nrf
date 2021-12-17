@@ -5,6 +5,8 @@
  */
 #include <unity.h>
 #include <stdbool.h>
+#include <kernel.h>
+#include <string.h>
 
 #include "modem_trace.h"
 #include "mock_nrfx_uarte.h"
@@ -15,6 +17,9 @@ extern int unity_main(void);
 
 bool runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART = false;
 bool runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT = false;
+
+static bool trace_abort_received;
+static int64_t trace_abort_timestamp = INT64_MAX;
 
 void setUp(void)
 {
@@ -31,6 +36,8 @@ void tearDown(void)
 
 	runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART = false;
 	runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT = false;
+	trace_abort_received = false;
+	trace_abort_timestamp = INT64_MAX;
 }
 /* Suite teardown shall finalize with mandatory call to generic_suiteTearDown. */
 extern int generic_suiteTearDown(int num_failures);
@@ -109,26 +116,63 @@ void test_modem_trace_init_rtt_transport_medium(void)
 void test_modem_trace_start_coredump_only(void)
 {
 	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,1", 0);
-	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_COREDUMP_ONLY, 2, 10));
+	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_COREDUMP_ONLY, 0, 10));
 }
 
 void test_modem_trace_start_all(void)
 {
 	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,2", 0);
-	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_ALL, 2, 10));
+	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_ALL, 0, 10));
 }
 
 void test_modem_trace_start_ip_only(void)
 {
 	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,4", 0);
-	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_IP_ONLY, 2, 10));
+	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_IP_ONLY, 0, 10));
 }
 
 void test_modem_trace_start_lte_ip(void)
 {
 	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,5", 0);
-	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_LTE_IP, 2, 10));
+	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_LTE_IP, 0, 10));
 }
+
+
+static int nrf_modem_at_printf_callback(const char *fmt, int num_calls)
+{
+	if (strcmp(fmt, "AT%%XMODEMTRACE=0") == 0 )
+	{
+		trace_abort_received = true;
+		trace_abort_timestamp = k_uptime_get();
+	}
+
+	return 0;
+}
+
+void test_modem_trace_start_with_duration(void)
+{
+	const uint16_t test_duration_in_sec = 2;
+	const uint16_t extra_allowed_time_in_ms = 20;
+
+	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,5", 0);
+
+
+	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_LTE_IP, test_duration_in_sec, 10));
+
+	int64_t trace_start_time_stamp;
+	trace_start_time_stamp = k_uptime_get();
+
+	__wrap_nrf_modem_at_printf_AddCallback(&nrf_modem_at_printf_callback);
+	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=0", 0);
+
+	k_sleep(K_MSEC(test_duration_in_sec * 1000 + extra_allowed_time_in_ms));
+
+	TEST_ASSERT_TRUE(trace_abort_received);
+	/* Verify that the trace session was aborted only after the required duration. */
+	TEST_ASSERT_GREATER_OR_EQUAL(test_duration_in_sec * 1000,
+								(trace_abort_timestamp - trace_start_time_stamp));
+}
+
 
 void main(void)
 {

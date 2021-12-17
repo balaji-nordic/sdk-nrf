@@ -16,8 +16,12 @@
 #undef IS_ENABLED
 #define IS_ENABLED(x) runtime_##x
 
+/* Booleans used for testing modem_trace module behavior */
 extern bool runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART;
 extern bool runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT;
+
+/* Booleans that help in compilation of kernel.h */
+bool runtime_CONFIG_TIMER_READS_ITS_FREQUENCY_AT_RUNTIME = true;
 
 /* Override the definition of DT_NODE_HAS_PROP defined in devicetree.h to always return true as
  * we are only doing unit testing and are not concerned with device tree properties.

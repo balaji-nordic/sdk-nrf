@@ -4,9 +4,11 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
+#include <stdio.h>
+#include <kernel.h>
+
 #include "modem_trace.h"
 #include "nrf_modem_at.h"
-#include <stdio.h>
 
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART
 #include "nrfx_uarte.h"
@@ -15,6 +17,17 @@
 #include "SEGGER_RTT.h"
 #endif
 
+static void trace_stop_timer_handler(struct k_timer *timer);
+
+K_TIMER_DEFINE(trace_stop_timer, trace_stop_timer_handler, NULL);
+
+
+static void trace_stop_timer_handler(struct k_timer *timer)
+{
+	nrf_modem_at_printf("AT%%XMODEMTRACE=0");
+}
+
+//TODO: Place these in ifdefs for UART and RTT
 static const nrfx_uarte_t uarte_inst = NRFX_UARTE_INSTANCE(1);
 
 static void uart_init(void)
@@ -62,5 +75,9 @@ int modem_trace_start(enum modem_trace_mode trace_mode, uint16_t duration, uint3
 
 	nrf_modem_at_printf(at_cmd);
 
+	if (duration != 0)
+	{
+		k_timer_start(&trace_stop_timer, K_SECONDS(duration), K_SECONDS(0));
+	}
 	return 0;
 }
