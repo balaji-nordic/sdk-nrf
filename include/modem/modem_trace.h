@@ -45,6 +45,10 @@ enum modem_trace_mode {
  *				   be stopped after receiving @ref max_size bytes. If set to 0, the trace session
  *				   will continue until @ref modem_trace_abort is called or until the duration set
  *				   via the @ref duration parameter is reached.
+ *				   To ensure the integrity of the trace output, the modem_trace module will never
+ *				   skip a trace message . For this purpose, if it detects that a received trace
+ *				   wont fit in the maximum allowed size, it will stop the trace session without
+ *				   sending out that trace to the transport medium.
  *
  * @return Zero on success, non-zero otherwise.
  */

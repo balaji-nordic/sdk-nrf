@@ -184,23 +184,31 @@ static void uart_transport_init(void)
 	TEST_ASSERT_EQUAL(0, modem_trace_init());
 }
 
+
+static void setup_trace_session_with_max_size(uint32_t max_size)
+{
+	uart_transport_init();
+
+	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,2", 0);
+
+	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_ALL, 0, max_size));
+}
+
 /* Test that verifies that the modem_trace module runs a trace session only until specified amount
  * of trace data is received when the duration parameter is set to zero (no timeout).
  * In this test case, the sizes of all individual trace sent are the same. The max size configured
  * is divisible the size of individual trace buffers.
  */
-void test_modem_trace_start_with_max_size_set_and_no_duration_set(void)
+void test_modem_trace_abort_when_max_size_reached(void)
 {
-	uart_transport_init();
+	const uint32_t test_max_data_size_bytes = 200;
+
+	setup_trace_session_with_max_size(test_max_data_size_bytes);
 
 	const uint16_t test_trace_buffer_size = 10;
 	const uint8_t test_trace_data[test_trace_buffer_size];
-	const uint32_t test_max_data_size_bytes = 200;
 	uint32_t total_trace_data_sent = 0;
 
-	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,5", 0);
-
-	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_LTE_IP, 0, test_max_data_size_bytes));
 
 	/* Simulate the reception of modem traces until just before max size is reached. */
 	while ((total_trace_data_sent + sizeof(test_trace_data) < test_max_data_size_bytes))
@@ -217,12 +225,45 @@ void test_modem_trace_start_with_max_size_set_and_no_duration_set(void)
 	 * the traces.
 	 */
 	__wrap_nrfx_uarte_tx_ExpectAndReturn(p_uarte_inst_in_use, test_trace_data,
-					sizeof(test_trace_data), NRFX_SUCCESS);
+						sizeof(test_trace_data), NRFX_SUCCESS);
 	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=0", 0);
 
 	modem_trace_process(test_trace_data, sizeof(test_trace_data));
 }
 
+/* Test that verifies that the modem_trace module aborts a trace session when it receives a trace
+ * that will not fit in the max allowed size configured.
+ */
+void test_modem_trace_abort_when_received_trace_wont_fit_in_max_size_allocated(void)
+{
+	const uint32_t test_max_data_size_bytes = 200;
+
+	setup_trace_session_with_max_size(test_max_data_size_bytes);
+
+	const uint16_t test_trace_buffer_size = test_max_data_size_bytes + 1;
+	const uint8_t test_trace_data[test_trace_buffer_size];
+	uint32_t total_trace_data_sent = 0;
+
+
+	/* Simulate the reception of modem traces until just before max size is reached. */
+	while ((total_trace_data_sent + sizeof(test_trace_data) < test_max_data_size_bytes))
+	{
+		__wrap_nrfx_uarte_tx_ExpectAndReturn(p_uarte_inst_in_use, test_trace_data,
+						sizeof(test_trace_data), NRFX_SUCCESS);
+
+		modem_trace_process(test_trace_data, sizeof(test_trace_data));
+		total_trace_data_sent += sizeof(test_trace_data);
+	}
+
+	/* In the next call to modem_trace_process(), we send trace data that will not fit in max size
+	 * configured.
+	 * Expect the module to disable traces.
+	 */
+	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=0", 0);
+	const uint8_t test_trace_data_that_wont_fit[test_trace_buffer_size + 1];
+
+	modem_trace_process(test_trace_data_that_wont_fit, sizeof(test_trace_data_that_wont_fit));
+}
 
 void main(void)
 {

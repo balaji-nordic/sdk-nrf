@@ -90,13 +90,24 @@ int modem_trace_process(const uint8_t *data, uint32_t len)
 {
 	static uint32_t total_trace_size_rcvd = 0;
 
-	nrfx_uarte_tx(&uarte_inst, data, len);
-
 	total_trace_size_rcvd += len;
 
-	if (total_trace_size_rcvd == max_trace_size_bytes)
+	if (total_trace_size_rcvd > max_trace_size_bytes)
 	{
+		/* Skip sending  to transport medium as the current trace wont fit.
+		 * Disable traces (see API doc for reasoning).
+		 */
 		nrf_modem_at_printf("AT%%XMODEMTRACE=0");
 	}
+	else if (total_trace_size_rcvd == max_trace_size_bytes)
+	{
+		nrfx_uarte_tx(&uarte_inst, data, len);
+		nrf_modem_at_printf("AT%%XMODEMTRACE=0");
+	}
+	else
+	{
+		nrfx_uarte_tx(&uarte_inst, data, len);
+	}
+
 	return 0;
 }
