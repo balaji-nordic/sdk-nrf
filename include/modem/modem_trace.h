@@ -38,10 +38,13 @@ enum modem_trace_mode {
  * This function sends AT command that requests the modem to start sending traces.
  *
  * @param trace_mode Trace mode
- * @param duration Trace duration in seconds. If set to 0, the tracing will continue until
- *					@ref modem_trace_abort is called
+ * @param duration Trace duration in seconds. If set to 0, the trace session will continue until
+ *				   @ref modem_trace_abort is called or until the required size of max trace data
+ *				   (specified by the @ref max_size parameter) is received.
  * @param max_size Maximum size (in bytes) of trace data that should be received. The tracing will
- *					be stopped after receiving @ref max_size bytes.
+ *				   be stopped after receiving @ref max_size bytes. If set to 0, the trace session
+ *				   will continue until @ref modem_trace_abort is called or until the duration set
+ *				   via the @ref duration parameter is reached.
  *
  * @return Zero on success, non-zero otherwise.
  */

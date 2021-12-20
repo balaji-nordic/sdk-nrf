@@ -18,8 +18,8 @@ extern int unity_main(void);
 bool runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART = false;
 bool runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT = false;
 
-static bool trace_abort_received;
 static int64_t trace_abort_timestamp = INT64_MAX;
+static const nrfx_uarte_t * p_uarte_inst_in_use;
 
 void setUp(void)
 {
@@ -36,8 +36,8 @@ void tearDown(void)
 
 	runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART = false;
 	runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT = false;
-	trace_abort_received = false;
 	trace_abort_timestamp = INT64_MAX;
+	p_uarte_inst_in_use = NULL;
 }
 /* Suite teardown shall finalize with mandatory call to generic_suiteTearDown. */
 extern int generic_suiteTearDown(int num_failures);
@@ -68,6 +68,7 @@ static nrfx_err_t nrfx_uarte_init_callback(nrfx_uarte_t const *p_instance,
 
 	TEST_ASSERT_NOT_EQUAL(NULL, p_instance);
 	TEST_ASSERT_EQUAL(NRFX_UARTE1_INST_IDX, p_instance->drv_inst_idx);
+	p_uarte_inst_in_use = p_instance;
 
 	TEST_ASSERT_EQUAL(NULL, event_handler);
 
@@ -137,19 +138,20 @@ void test_modem_trace_start_lte_ip(void)
 	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_LTE_IP, 0, 10));
 }
 
-
 static int nrf_modem_at_printf_callback(const char *fmt, int num_calls)
 {
 	if (strcmp(fmt, "AT%%XMODEMTRACE=0") == 0 )
 	{
-		trace_abort_received = true;
 		trace_abort_timestamp = k_uptime_get();
 	}
 
 	return 0;
 }
 
-void test_modem_trace_start_with_duration(void)
+/* Test that verifies that the modem_trace module runs a trace session only for a given duration.
+ * The max size of the trace is set to zero (i.e no limit for max size of trace data).
+ */
+void test_modem_trace_start_with_duration_and_no_max_size(void)
 {
 	const uint16_t test_duration_in_sec = 2;
 	const uint16_t extra_allowed_time_in_ms = 20;
@@ -157,7 +159,7 @@ void test_modem_trace_start_with_duration(void)
 	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,5", 0);
 
 
-	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_LTE_IP, test_duration_in_sec, 10));
+	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_LTE_IP, test_duration_in_sec, 0));
 
 	int64_t trace_start_time_stamp;
 	trace_start_time_stamp = k_uptime_get();
@@ -167,10 +169,58 @@ void test_modem_trace_start_with_duration(void)
 
 	k_sleep(K_MSEC(test_duration_in_sec * 1000 + extra_allowed_time_in_ms));
 
-	TEST_ASSERT_TRUE(trace_abort_received);
 	/* Verify that the trace session was aborted only after the required duration. */
 	TEST_ASSERT_GREATER_OR_EQUAL(test_duration_in_sec * 1000,
 								(trace_abort_timestamp - trace_start_time_stamp));
+}
+
+static void uart_transport_init(void)
+{
+	runtime_CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART = true;
+
+	__wrap_nrfx_uarte_init_ExpectAnyArgsAndReturn(NRFX_SUCCESS);
+	__wrap_nrfx_uarte_init_AddCallback(&nrfx_uarte_init_callback);
+
+	TEST_ASSERT_EQUAL(0, modem_trace_init());
+}
+
+/* Test that verifies that the modem_trace module runs a trace session only until specified amount
+ * of trace data is received when the duration parameter is set to zero (no timeout).
+ * In this test case, the sizes of all individual trace sent are the same. The max size configured
+ * is divisible the size of individual trace buffers.
+ */
+void test_modem_trace_start_with_max_size_set_and_no_duration_set(void)
+{
+	uart_transport_init();
+
+	const uint16_t test_trace_buffer_size = 10;
+	const uint8_t test_trace_data[test_trace_buffer_size];
+	const uint32_t test_max_data_size_bytes = 200;
+	uint32_t total_trace_data_sent = 0;
+
+	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=1,5", 0);
+
+	TEST_ASSERT_EQUAL(0, modem_trace_start(MODEM_TRACE_LTE_IP, 0, test_max_data_size_bytes));
+
+	/* Simulate the reception of modem traces until just before max size is reached. */
+	while ((total_trace_data_sent + sizeof(test_trace_data) < test_max_data_size_bytes))
+	{
+		__wrap_nrfx_uarte_tx_ExpectAndReturn(p_uarte_inst_in_use, test_trace_data,
+						sizeof(test_trace_data), NRFX_SUCCESS);
+
+		modem_trace_process(test_trace_data, sizeof(test_trace_data));
+		total_trace_data_sent += sizeof(test_trace_data);
+	}
+
+	/* In the next call to modem_trace_process(), we send just enough data to reach max size.
+	 * So we expect the module to send that trace data to the transport medium and then disable
+	 * the traces.
+	 */
+	__wrap_nrfx_uarte_tx_ExpectAndReturn(p_uarte_inst_in_use, test_trace_data,
+					sizeof(test_trace_data), NRFX_SUCCESS);
+	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=0", 0);
+
+	modem_trace_process(test_trace_data, sizeof(test_trace_data));
 }
 
 

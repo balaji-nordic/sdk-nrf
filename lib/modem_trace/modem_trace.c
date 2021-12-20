@@ -17,6 +17,8 @@
 #include "SEGGER_RTT.h"
 #endif
 
+static uint32_t max_trace_size_bytes;
+
 static void trace_stop_timer_handler(struct k_timer *timer);
 
 K_TIMER_DEFINE(trace_stop_timer, trace_stop_timer_handler, NULL);
@@ -78,6 +80,23 @@ int modem_trace_start(enum modem_trace_mode trace_mode, uint16_t duration, uint3
 	if (duration != 0)
 	{
 		k_timer_start(&trace_stop_timer, K_SECONDS(duration), K_SECONDS(0));
+	}
+	max_trace_size_bytes = max_size;
+
+	return 0;
+}
+
+int modem_trace_process(const uint8_t *data, uint32_t len)
+{
+	static uint32_t total_trace_size_rcvd = 0;
+
+	nrfx_uarte_tx(&uarte_inst, data, len);
+
+	total_trace_size_rcvd += len;
+
+	if (total_trace_size_rcvd == max_trace_size_bytes)
+	{
+		nrf_modem_at_printf("AT%%XMODEMTRACE=0");
 	}
 	return 0;
 }
