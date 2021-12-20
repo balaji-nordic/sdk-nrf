@@ -64,7 +64,7 @@ int modem_trace_start(enum modem_trace_mode trace_mode, uint16_t duration, uint3
  *
  * @return Zero on success, non-zero otherwise.
  */
-int modem_trace_process(const uint8_t *data, uint32_t len);
+int modem_trace_process(const uint8_t *data, const uint32_t len);
 
 /** @brief Abort an ongoing trace session
  *

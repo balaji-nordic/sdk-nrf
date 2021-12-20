@@ -240,10 +240,9 @@ void test_modem_trace_abort_when_received_trace_wont_fit_in_max_size_allocated(v
 
 	setup_trace_session_with_max_size(test_max_data_size_bytes);
 
-	const uint16_t test_trace_buffer_size = test_max_data_size_bytes + 1;
+	const uint16_t test_trace_buffer_size = 10;
 	const uint8_t test_trace_data[test_trace_buffer_size];
 	uint32_t total_trace_data_sent = 0;
-
 
 	/* Simulate the reception of modem traces until just before max size is reached. */
 	while ((total_trace_data_sent + sizeof(test_trace_data) < test_max_data_size_bytes))
@@ -262,6 +261,56 @@ void test_modem_trace_abort_when_received_trace_wont_fit_in_max_size_allocated(v
 	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=0", 0);
 	const uint8_t test_trace_data_that_wont_fit[test_trace_buffer_size + 1];
 
+	modem_trace_process(test_trace_data_that_wont_fit, sizeof(test_trace_data_that_wont_fit));
+}
+
+
+static void create_fake_trace_header(uint8_t * const header, uint16_t trace_len)
+{
+	header[0] = 0xef;
+	header[1] = 0xbe;
+	header[2] = trace_len & 0xff;
+	header[3] = (trace_len >> 8) & 0xff;
+}
+/* Test that verifies that the modem_trace module aborts a trace session when it receives a trace
+ * header which gives an indication that an upcoming trace buffer has length that wont fit in
+ * max size configured. The test verifies that both the header and trace is not sent to the
+ * transport medium
+ */
+void test_modem_trace_abort_when_header_received_with_too_high_trace_len(void)
+{
+	const uint32_t test_max_data_size_bytes = 200;
+
+	setup_trace_session_with_max_size(test_max_data_size_bytes);
+
+	const uint16_t test_trace_buffer_size = 10;
+	const uint8_t test_trace_data[test_trace_buffer_size];
+	uint32_t total_trace_data_sent = 0;
+
+	/* Simulate the reception of modem traces until just before max size is reached. */
+	while ((total_trace_data_sent + sizeof(test_trace_data) < test_max_data_size_bytes))
+	{
+		__wrap_nrfx_uarte_tx_ExpectAndReturn(p_uarte_inst_in_use, test_trace_data,
+						sizeof(test_trace_data), NRFX_SUCCESS);
+
+		modem_trace_process(test_trace_data, sizeof(test_trace_data));
+		total_trace_data_sent += sizeof(test_trace_data);
+	}
+
+	/* In the next to modem_trace_process(), send a trace header which has trace length set to
+	 * value higher than the remaining space in trace memory configured.
+	 * Expect the module to disable traces.
+	 */
+	uint8_t trace_header[5];
+	const uint8_t test_trace_data_that_wont_fit[test_trace_buffer_size + 1];
+
+	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XMODEMTRACE=0", 0);
+
+	create_fake_trace_header(trace_header, sizeof(test_trace_data_that_wont_fit));
+
+	modem_trace_process(trace_header, sizeof(trace_header));
+
+	/* Now send the trace and expect no calls to the transport medium API. */
 	modem_trace_process(test_trace_data_that_wont_fit, sizeof(test_trace_data_that_wont_fit));
 }
 

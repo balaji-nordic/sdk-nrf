@@ -18,6 +18,7 @@
 #endif
 
 static uint32_t max_trace_size_bytes;
+static uint32_t total_trace_size_rcvd;
 
 static void trace_stop_timer_handler(struct k_timer *timer);
 
@@ -73,6 +74,9 @@ int modem_trace_start(enum modem_trace_mode trace_mode, uint16_t duration, uint3
 {
 	char at_cmd[sizeof("AT%%XMODEMTRACE=1,X")];
 
+	total_trace_size_rcvd = 0;
+	max_trace_size_bytes = max_size;
+
 	sprintf(at_cmd, "AT%%%%XMODEMTRACE=1,%hu", trace_mode);
 
 	nrf_modem_at_printf(at_cmd);
@@ -81,16 +85,41 @@ int modem_trace_start(enum modem_trace_mode trace_mode, uint16_t duration, uint3
 	{
 		k_timer_start(&trace_stop_timer, K_SECONDS(duration), K_SECONDS(0));
 	}
-	max_trace_size_bytes = max_size;
 
 	return 0;
 }
 
-int modem_trace_process(const uint8_t *data, uint32_t len)
+#define HEADER_IDENTIFIER 0xBEEF
+
+static bool is_trace_header(const uint8_t * const data, uint16_t * p_trace_len)
 {
-	static uint32_t total_trace_size_rcvd = 0;
+	uint16_t trace_identifier = data[0] | (data[1] << 8);
+
+	if (trace_identifier == HEADER_IDENTIFIER)
+	{
+		*p_trace_len = data[2] | (data[3] << 8);
+		return true;
+	}
+	return false;
+}
+
+int modem_trace_process(const uint8_t *data, const uint32_t len)
+{
+	uint16_t trace_len;
 
 	total_trace_size_rcvd += len;
+
+	if (is_trace_header(data, &trace_len)
+		&&
+		(total_trace_size_rcvd + trace_len > max_trace_size_bytes))
+	{
+		/* Received header that indicates the upcoming trace wont fit in the maximum
+		 * size configured. Return without forwarding this to the transport medium.
+		 * The trace will be dropped and the trace session will be stopped when
+		 * this function is processing the upcoming trace itself.
+		 */
+		return 0;
+	}
 
 	if (total_trace_size_rcvd > max_trace_size_bytes)
 	{
