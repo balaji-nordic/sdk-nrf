@@ -1,0 +1,11 @@
+#
+# Copyright (c) 2018 Nordic Semiconductor
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+source "Kconfig.zephyr"
+
+menu "Packet Error Rate test app for nrf52840"
+
+endmenu
