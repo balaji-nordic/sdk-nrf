@@ -87,14 +87,17 @@ static struct bt_conn_cb conn_callbacks = {
 	.disconnected = disconnected
 };
 
-#define OUTPUT_PIN 17
+#define OUTPUT_PIN_LED_1 17
+#define OUTPUT_PIN_LED_2 20
+
 static void configure_gpio(void)
 {
 	/* Conect the GPIOs by writing to the control pin. */
 	NRF_P0->DIRSET = (1 << 13);
 	NRF_P0->OUTSET = (1 << 13);
 
-	NRF_P0->DIRSET = (1 << OUTPUT_PIN);
+	NRF_P0->DIRSET = ((1 << OUTPUT_PIN_LED_1) | (1 << OUTPUT_PIN_LED_2));
+	NRF_P0->OUTCLR = ((1 << OUTPUT_PIN_LED_1) | (1 << OUTPUT_PIN_LED_2));
 }
 
 void main(void)
@@ -119,13 +122,18 @@ void main(void)
 		return;
 	}
 
-	for (;;) {
-		LOG_INF("Turning ON");
-		NRF_P0->OUTSET = (1 << OUTPUT_PIN);
-		k_sleep(K_SECONDS(5));
-		LOG_INF("Turning OFF");
-		NRF_P0->OUTCLR = (1 << OUTPUT_PIN);
-		k_sleep(K_SECONDS(5));
+	LOG_INF("Advertising started");
+
+	while (1){
+		if (current_conn != NULL) {
+			NRF_P0->OUTSET = (1 << OUTPUT_PIN_LED_1);
+		}
+		else {
+			NRF_P0->OUTSET = (1 << OUTPUT_PIN_LED_1);
+			k_sleep(K_MSEC(500));
+			NRF_P0->OUTCLR = (1 << OUTPUT_PIN_LED_1);
+			k_sleep(K_MSEC(500));
+		}
 	}
 }
 
