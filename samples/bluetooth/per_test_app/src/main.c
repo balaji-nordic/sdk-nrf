@@ -120,10 +120,12 @@ void main(void)
 	}
 
 	for (;;) {
+		LOG_INF("Turning ON");
 		NRF_P0->OUTSET = (1 << OUTPUT_PIN);
-		k_sleep(K_SECONDS(1));
+		k_sleep(K_SECONDS(5));
+		LOG_INF("Turning OFF");
 		NRF_P0->OUTCLR = (1 << OUTPUT_PIN);
-		k_sleep(K_SECONDS(1));
+		k_sleep(K_SECONDS(5));
 	}
 }
 

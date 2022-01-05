@@ -10,11 +10,9 @@
 #include <nrfx_dppi.h>
 #include <helpers/nrfx_gppi.h>
 
-
 LOG_MODULE_REGISTER(app);
 
 #define INPUT_PIN 17
-//#define INPUT_PIN 6 // BUTTON 1
 #define OUTPUT_PIN 2
 
 static void inp_handler(nrfx_gpiote_pin_t pin, nrf_gpiote_polarity_t action)
@@ -33,7 +31,7 @@ void main(void)
 	}
 
 	nrfx_gpiote_in_config_t const in_config = {
-		.sense = NRF_GPIOTE_POLARITY_HITOLO,
+		.sense = NRF_GPIOTE_POLARITY_TOGGLE,
 		.pull = NRF_GPIO_PIN_PULLUP,
 		.is_watcher = false,
 		.hi_accuracy = true,
