@@ -22,6 +22,8 @@
 #include <bluetooth/services/nus.h>
 #include <settings/settings.h>
 
+#include "sdc_hci_vs.h"
+
 #include <stdio.h>
 
 #include <logging/log.h>
@@ -100,17 +102,63 @@ static void configure_gpio(void)
 	NRF_P0->OUTCLR = ((1 << OUTPUT_PIN_LED_1) | (1 << OUTPUT_PIN_LED_2));
 }
 
+
+static bool on_vs_evt(struct net_buf_simple *buf)
+{
+	LOG_INF("on_vs_evt");
+	return true;
+}
+
+static void enable_qos_reporting(void)
+{
+	int err;
+	struct net_buf *buf;
+
+	err = bt_hci_register_vnd_evt_cb(on_vs_evt);
+	if (err) {
+		LOG_ERR("Failed to register HCI VS callback");
+		return;
+	}
+
+	sdc_hci_cmd_vs_qos_conn_event_report_enable_t *cmd_enable;
+
+	buf = bt_hci_cmd_create(SDC_HCI_OPCODE_CMD_VS_QOS_CONN_EVENT_REPORT_ENABLE,
+				sizeof(*cmd_enable));
+	if (!buf) {
+		LOG_ERR("Failed to enable HCI VS QoS");
+		return;
+	}
+
+	cmd_enable = net_buf_add(buf, sizeof(*cmd_enable));
+	cmd_enable->enable = 1;
+
+	err = bt_hci_cmd_send_sync(
+		SDC_HCI_OPCODE_CMD_VS_QOS_CONN_EVENT_REPORT_ENABLE, buf, NULL);
+	if (err) {
+		LOG_ERR("Failed to enable HCI VS QoS");
+		return;
+	}
+}
+
+
 void main(void)
 {
 	int err = 0;
 
+	LOG_INF("Main");
+
 	configure_gpio();
 
+	LOG_INF("Bluetooth callbacks to be registers");
+
 	bt_conn_cb_register(&conn_callbacks);
+	LOG_INF("Bluetooth to be initialized");
 
 	err = bt_enable(NULL);
 	if (err) {
 		LOG_ERR("Bluetooth NOT initialized");
+
+		return;
 	}
 
 	LOG_INF("Bluetooth initialized");
@@ -121,6 +169,8 @@ void main(void)
 		LOG_ERR("Advertising failed to start (err %d)", err);
 		return;
 	}
+
+	enable_qos_reporting();
 
 	LOG_INF("Advertising started");
 
