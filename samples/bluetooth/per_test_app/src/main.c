@@ -87,10 +87,14 @@ static struct bt_conn_cb conn_callbacks = {
 	.disconnected = disconnected
 };
 
-
+#define OUTPUT_PIN 17
 static void configure_gpio(void)
 {
+	/* Conect the GPIOs by writing to the control pin. */
+	NRF_P0->DIRSET = (1 << 13);
+	NRF_P0->OUTSET = (1 << 13);
 
+	NRF_P0->DIRSET = (1 << OUTPUT_PIN);
 }
 
 void main(void)
@@ -116,7 +120,10 @@ void main(void)
 	}
 
 	for (;;) {
-		k_sleep(K_MSEC(1));
+		NRF_P0->OUTSET = (1 << OUTPUT_PIN);
+		k_sleep(K_SECONDS(1));
+		NRF_P0->OUTCLR = (1 << OUTPUT_PIN);
+		k_sleep(K_SECONDS(1));
 	}
 }
 
