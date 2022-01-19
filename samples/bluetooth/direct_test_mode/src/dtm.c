@@ -323,7 +323,7 @@ static struct dtm_instance {
 	bool new_event;
 
 	/* Number of valid packets received. */
-	uint16_t rx_pkt_count;
+	volatile uint32_t rx_pkt_count;
 
 	/* RX/TX PDU. */
 	struct dtm_pdu pdu[2];
@@ -1540,6 +1540,11 @@ static uint32_t antenna_set(uint8_t antenna)
 	return DTM_SUCCESS;
 }
 #endif /* DIRECTION_FINDING_SUPPORTED */
+
+uint32_t dtm_rx_pkt_cnt_get(void)
+{
+	return dtm_inst.rx_pkt_count;
+}
 
 static uint32_t transmit_power_set(int8_t parameter)
 {

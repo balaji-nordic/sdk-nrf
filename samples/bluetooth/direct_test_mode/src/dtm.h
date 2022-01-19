@@ -365,6 +365,8 @@ enum dtm_err_code dtm_cmd_put(uint16_t cmd);
  */
 bool dtm_event_get(uint16_t *dtm_event);
 
+uint32_t dtm_rx_pkt_cnt_get(void);
+
 /* @brief Function for reading the last TX/RX radio mode.
  * @return radio mode. */
 nrf_radio_mode_t dtm_radio_mode_get(void);
