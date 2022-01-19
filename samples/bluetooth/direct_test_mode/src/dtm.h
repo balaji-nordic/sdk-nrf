@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <zephyr/types.h>
 #include <devicetree.h>
+#include <hal/nrf_radio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -364,6 +365,9 @@ enum dtm_err_code dtm_cmd_put(uint16_t cmd);
  */
 bool dtm_event_get(uint16_t *dtm_event);
 
+/* @brief Function for reading the last TX/RX radio mode.
+ * @return radio mode. */
+nrf_radio_mode_t dtm_radio_mode_get(void);
 
 #ifdef __cplusplus
 }

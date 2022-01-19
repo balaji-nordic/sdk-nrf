@@ -1881,6 +1881,11 @@ static enum dtm_err_code on_test_transmit_cmd(uint32_t length, uint32_t freq)
 	return DTM_SUCCESS;
 }
 
+nrf_radio_mode_t dtm_radio_mode_get(void)
+{
+	return dtm_inst.radio_mode;
+}
+
 enum dtm_err_code dtm_cmd_put(uint16_t cmd)
 {
 	enum dtm_cmd_code cmd_code = (cmd >> 14) & 0x03;
