@@ -293,6 +293,16 @@ void nrf_modem_os_trace_irq_clear(void)
 	NVIC_ClearPendingIRQ(TRACE_IRQ);
 }
 
+void nrf_modem_os_trace_irq_disable(void)
+{
+	irq_disable(TRACE_IRQ);
+}
+
+void nrf_modem_os_trace_irq_enable(void)
+{
+	irq_enable(TRACE_IRQ);
+}
+
 ISR_DIRECT_DECLARE(rpc_proxy_irq_handler)
 {
 	atomic_inc(&rpc_event_cnt);
@@ -573,12 +583,17 @@ int32_t nrf_modem_os_trace_put(const uint8_t *const data, uint32_t len)
 	err = nrf_modem_lib_trace_process(data, len);
 	if (err) {
 		LOG_ERR("nrf_modem_lib_trace_process failed, err %d", err);
+
+		/* Since the nrf_modem_trace_processed_callback() must be called each time
+		 * nrf_modem_os_trace_put() is called, we call it even if
+		 * nrf_modem_lib_trace_process() fails.
+		 */
+		err = nrf_modem_trace_processed_callback(data, len);
+		if (err) {
+			LOG_ERR("nrf_modem_trace_processed_callback failed, err %d", err);
+		}
 	}
 
-	err = nrf_modem_trace_processed_callback(data, len);
-	if (err) {
-		LOG_ERR("nrf_modem_trace_processed_callback failed, err %d", err);
-	}
 #endif
 	return 0;
 }
