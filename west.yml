@@ -33,7 +33,8 @@ manifest:
       url-base: https://github.com/NordicSemiconductor
     - name: memfault
       url-base: https://github.com/memfault
-
+    - name: balajinrfxlib
+      url-base: https://github.com/balaji-nordic
   # If not otherwise specified, the projects below should be obtained
   # from the ncs remote.
   defaults:
@@ -107,8 +108,9 @@ manifest:
       revision: v3.0.0-ncs1
     - name: nrfxlib
       repo-path: sdk-nrfxlib
+      remote: balajinrfxlib
       path: nrfxlib
-      revision: 43c662addc3e89f7fd36a9733f6a34b5ef16b928
+      revision: 2c337ae5ffb970a40b934a4e478c729af9a8442c
     - name: trusted-firmware-m
       repo-path: sdk-trusted-firmware-m
       path: modules/tee/tf-m/trusted-firmware-m
