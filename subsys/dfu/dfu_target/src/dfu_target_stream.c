@@ -111,6 +111,8 @@ int dfu_target_stream_init(const struct dfu_target_stream_init *init)
 
 	current_id = init->id;
 
+	//TODO: Erase the entire flash and proceed
+
 	err = stream_flash_init(&stream, init->fdev, init->buf, init->len,
 				init->offset, init->size, NULL);
 	if (err) {
