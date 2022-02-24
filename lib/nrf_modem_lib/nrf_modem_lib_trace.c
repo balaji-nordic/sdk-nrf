@@ -12,6 +12,8 @@
 #include <nrf_modem.h>
 #include <nrf_modem_at.h>
 #include <logging/log.h>
+#include <storage/stream_flash.h>
+
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART
 #include <nrfx_uarte.h>
 #endif
@@ -30,6 +32,18 @@ static const nrfx_uarte_t uarte_inst = NRFX_UARTE_INSTANCE(1);
 
 /* Semaphore used to check if the last UART transfer was complete. */
 static K_SEM_DEFINE(tx_sem, 1, 1);
+
+#define WRITE_BUF_LEN 512
+#define READ_BUF_LEN 512
+#define EXT_FLASH_DEVICE DT_LABEL(DT_INST(0, jedec_spi_nor))
+
+static const struct device *flash_dev;
+static struct stream_flash_ctx stream;
+static bool is_flash_init_done;
+static uint8_t write_buf[WRITE_BUF_LEN];
+static uint8_t read_buf[READ_BUF_LEN];
+const uint32_t max_trace_size_bytes = 1 * 1024 * 1024;
+static void flash_init(void);
 #endif
 
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT
@@ -47,11 +61,59 @@ struct trace_data_t {
 
 K_FIFO_DEFINE(trace_fifo);
 
-#define TRACE_THREAD_STACK_SIZE 2048
+#define TRACE_THREAD_STACK_SIZE (2 * 1024)
 #define TRACE_THREAD_PRIORITY CONFIG_NRF_MODEM_LIB_TRACE_THREAD_PRIO
+
+void flash_to_uart(uint32_t offset, uint32_t len)
+{
+	__ASSERT(len <= READ_BUF_LEN, "len not less than READ_BUF_LEN");
+	//NRF_P0_NS->OUTSET = (1 << 19);
+	int err = flash_read(flash_dev, offset, read_buf, len);
+	//NRF_P0_NS->OUTCLR = (1 << 19);
+
+	if (err) {
+		LOG_ERR("flash_read returns error = %d", err);
+	}
+
+	//LOG_INF("Sending over UART");
+	err = nrfx_uarte_tx(&uarte_inst, read_buf, len);
+
+	if (err != NRFX_SUCCESS) {
+		LOG_ERR("nrfx_uarte_tx returns error = %d", err);
+	}
+}
+
+static void dump_trace_from_ext_flash_to_uart(void)
+{
+	uint32_t stored_trace_size = (1 * 1024 * 1024) + (500 * 1024);
+
+	LOG_INF("Going to dump %d bytes of traces over UART1", stored_trace_size);
+
+	for (uint32_t offset = 0; offset < stored_trace_size; offset += READ_BUF_LEN) {
+		flash_to_uart(offset, READ_BUF_LEN);
+	}
+}
+
+
 
 void trace_handler_thread(void)
 {
+	NRF_P0_NS->DIRSET = (1 << 17) | (1 << 18) | (1 << 19);
+	nrf_modem_lib_trace_stop();
+
+	flash_init();
+
+	dump_trace_from_ext_flash_to_uart();
+
+	LOG_INF("Erasing flash");
+	int err = flash_erase(flash_dev, 0, max_trace_size_bytes);
+
+	if (err != 0) {
+		LOG_ERR("flash_erase returns error = %d", err);
+	}
+
+	nrf_modem_lib_trace_start(NRF_MODEM_LIB_TRACE_ALL);
+
 	while (1) {
 		struct trace_data_t *trace_data = k_fifo_get(&trace_fifo, K_FOREVER);
 		const uint8_t * const data = trace_data->data;
@@ -59,29 +121,23 @@ void trace_handler_thread(void)
 
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART
 		/* Split RAM buffer into smaller chunks to be transferred using DMA. */
-		const uint32_t MAX_BUF_LEN = (1 << UARTE1_EASYDMA_MAXCNT_SIZE) - 1;
-		uint32_t remaining_bytes = len;
-		nrfx_err_t err;
+		if (is_flash_init_done) {
+			uint32_t remaining_bytes = len;
 
-		while (remaining_bytes) {
-			size_t transfer_len = MIN(remaining_bytes, MAX_BUF_LEN);
-			uint32_t idx = len - remaining_bytes;
+			while (remaining_bytes) {
+				size_t transfer_len = MIN(remaining_bytes, WRITE_BUF_LEN);
+				uint32_t idx = len - remaining_bytes;
 
-			if (k_sem_take(&tx_sem, K_MSEC(UART_TX_WAIT_TIME_MS)) != 0) {
-				LOG_WRN("UARTE TX not available!");
-				break;
+				remaining_bytes -= transfer_len;
+				NRF_P0_NS->OUTSET = (1 << 17);
+				int ret = stream_flash_buffered_write(&stream, &data[idx],
+							 transfer_len, false);
+				NRF_P0_NS->OUTCLR = (1 << 17);
+				if (ret != 0) {
+					LOG_ERR("stream_flash_buffered_write error %d", ret);
+				}
 			}
-			err = nrfx_uarte_tx(&uarte_inst, &data[idx], transfer_len);
-			if (err != NRFX_SUCCESS) {
-				LOG_ERR("nrfx_uarte_tx error: %d", err);
-				k_sem_give(&tx_sem);
-				break;
-			}
-			remaining_bytes -= transfer_len;
 		}
-		/* Wait for last UART transfer to finish */
-		k_sem_take(&tx_sem, K_FOREVER);
-		k_sem_give(&tx_sem);
 #endif
 
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT
@@ -108,20 +164,7 @@ void trace_handler_thread(void)
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_UART
 static void uarte_callback(nrfx_uarte_event_t const *p_event, void *p_context)
 {
-	if (k_sem_count_get(&tx_sem) != 0) {
-		LOG_ERR("uart semaphore not in use");
-		return;
-	}
 
-	if (p_event->type == NRFX_UARTE_EVT_ERROR) {
-		LOG_ERR("uarte error 0x%04x", p_event->data.error.error_mask);
-
-		k_sem_give(&tx_sem);
-	}
-
-	if (p_event->type == NRFX_UARTE_EVT_TX_DONE) {
-		k_sem_give(&tx_sem);
-	}
 }
 
 static bool uart_init(void)
@@ -146,7 +189,7 @@ static bool uart_init(void)
 		nrfx_isr,
 		&nrfx_uarte_1_irq_handler,
 		UNUSED_FLAGS);
-	return (nrfx_uarte_init(&uarte_inst, &config, &uarte_callback) ==
+	return (nrfx_uarte_init(&uarte_inst, &config, NULL) ==
 		NRFX_SUCCESS);
 }
 #endif
@@ -160,6 +203,23 @@ static bool rtt_init(void)
 	return (trace_rtt_channel > 0);
 }
 #endif
+
+static void flash_init(void)
+{
+	int err;
+
+	flash_dev = device_get_binding(EXT_FLASH_DEVICE);
+	if (flash_dev == NULL) {
+		LOG_ERR("Failed to get flash device: %s", EXT_FLASH_DEVICE);
+		return;
+	}
+
+	err = stream_flash_init(&stream, flash_dev, write_buf, WRITE_BUF_LEN, 0, 0, NULL);
+	if (err) {
+		LOG_ERR("stream_flash_init failed (err %d)", err);
+	}
+	is_flash_init_done = true;
+}
 
 int nrf_modem_lib_trace_init(void)
 {
@@ -207,8 +267,9 @@ int nrf_modem_lib_trace_process(const uint8_t *data, uint32_t len)
 
 	memcpy(mem_ptr, &trace_data, size);
 
+	NRF_P0_NS->OUTSET = (1 << 18);
 	k_fifo_put(&trace_fifo, mem_ptr);
-
+	NRF_P0_NS->OUTCLR = (1 << 18);
 	return 0;
 }
 
