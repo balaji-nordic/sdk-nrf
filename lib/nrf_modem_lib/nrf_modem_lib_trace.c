@@ -18,6 +18,9 @@
 #ifdef CONFIG_NRF_MODEM_LIB_TRACE_MEDIUM_RTT
 #include <SEGGER_RTT.h>
 #endif
+#ifdef CONFIG_MEMFAULT
+#include "memfault/panics/assert.h"
+#endif
 
 LOG_MODULE_REGISTER(nrf_modem_lib_trace, CONFIG_NRF_MODEM_LIB_LOG_LEVEL);
 
@@ -50,8 +53,58 @@ K_FIFO_DEFINE(trace_fifo);
 #define TRACE_THREAD_STACK_SIZE 2048
 #define TRACE_THREAD_PRIORITY CONFIG_NRF_MODEM_LIB_TRACE_THREAD_PRIO
 
+#ifdef CONFIG_MEMFAULT
+
+static struct {
+	uint8_t modem_trace_data[2048 /* size of modem trace buffer to capture */];
+	int offset;
+} s_modem_trace_data;
+
+void memfault_capture_modem_trace(void)
+{
+	// Copy trace data into `s_modem_trace_data`
+	//  or if that's already the buffer being used, there is
+	// nothing to do here!
+
+	// trigger the capture of a coredump which includes the modem trace buffer
+	MEMFAULT_ASSERT(0);
+}
+
+void store_to_memfault(const uint8_t *data, const uint32_t len)
+{
+	static bool copy_trace;
+
+	if (!copy_trace) {
+		if (data[0] == 0xef && data[1] == 0xbe) {
+			/* Ensure that we also start storing from a header. */
+			copy_trace = true;
+		}
+	}
+	if (copy_trace) {
+		NRF_P0_NS->DIRSET = (1 << 17);
+		if (s_modem_trace_data.offset + len <=
+			sizeof(s_modem_trace_data.modem_trace_data)) {
+			NRF_P0_NS->OUTSET = (1 << 17);
+			memcpy(
+				&s_modem_trace_data.modem_trace_data[s_modem_trace_data.offset],
+				data,
+				len);
+			s_modem_trace_data.offset += len;
+			NRF_P0_NS->OUTCLR = (1 << 17);
+		} else {
+			LOG_INF("Calling memfault_capture_modem_trace");
+			memfault_capture_modem_trace();
+		}
+	}
+}
+#endif
+
 void trace_handler_thread(void)
 {
+#ifdef CONFIG_MEMFAULT
+	s_modem_trace_data.offset = 0;
+	int skip_cnt = 0;
+#endif
 	while (1) {
 		struct trace_data_t *trace_data = k_fifo_get(&trace_fifo, K_FOREVER);
 		const uint8_t * const data = trace_data->data;
@@ -63,6 +116,14 @@ void trace_handler_thread(void)
 		uint32_t remaining_bytes = len;
 		nrfx_err_t err;
 
+#ifdef CONFIG_MEMFAULT
+		/* Delay until lte gets connected and memfault comm is established. */
+		if (skip_cnt > 10000) {
+			store_to_memfault(data, len);
+		} else {
+			skip_cnt++;
+		}
+#endif
 		while (remaining_bytes) {
 			size_t transfer_len = MIN(remaining_bytes, MAX_BUF_LEN);
 			uint32_t idx = len - remaining_bytes;
