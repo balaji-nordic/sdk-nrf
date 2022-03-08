@@ -5,40 +5,54 @@
  */
 
 #include <stdlib.h>
-
-#include <zephyr.h>
-#include <device.h>
-#include <pm/device.h>
+#include <stdbool.h>
+#include "zephyr.h"
 #include "uart.h"
+#include "mosh_print.h"
+
+/* During startup the uarts are always enabled. */
+static bool uarts_enabled = true;
 
 void disable_uarts(void)
 {
-	const struct device *uart_dev;
+	NRF_UARTE0_NS->TASKS_STOPRX = 1;
+	NRF_UARTE0_NS->TASKS_STOPTX = 1;
+	NRF_UARTE0_NS->ENABLE = UARTE_ENABLE_ENABLE_Disabled;
 
-	uart_dev = device_get_binding(DT_LABEL(DT_NODELABEL(uart0)));
-	if (uart_dev) {
-		pm_device_action_run(uart_dev, PM_DEVICE_ACTION_SUSPEND);
-	}
+	NRF_UARTE1_NS->TASKS_STOPRX = 1;
+	NRF_UARTE1_NS->TASKS_STOPTX = 1;
+	NRF_UARTE1_NS->ENABLE = UARTE_ENABLE_ENABLE_Disabled;
 
-	uart_dev = device_get_binding(DT_LABEL(DT_NODELABEL(uart1)));
-	if (uart_dev) {
-		pm_device_action_run(uart_dev, PM_DEVICE_ACTION_SUSPEND);
-	}
+	uarts_enabled = false;
 }
 
 void enable_uarts(void)
 {
-	const struct device *uart_dev;
+	NRF_UARTE0_NS->ENABLE = UARTE_ENABLE_ENABLE_Enabled;
+	NRF_UARTE0_NS->TASKS_STARTRX = 1;
+	NRF_UARTE0_NS->TASKS_STARTTX = 1;
 
-	uart_dev = device_get_binding(DT_LABEL(DT_NODELABEL(uart0)));
-	if (uart_dev) {
-		pm_device_action_run(uart_dev, PM_DEVICE_ACTION_RESUME);
+	NRF_UARTE1_NS->ENABLE = UARTE_ENABLE_ENABLE_Enabled;
+	NRF_UARTE1_NS->TASKS_STARTRX = 1;
+	NRF_UARTE1_NS->TASKS_STARTTX = 1;
+
+	uarts_enabled = true;
+}
+
+void toggle_uarts_state(void)
+{
+	if (!uarts_enabled) {
+		enable_uarts();
+		if (!k_is_in_isr()) {
+			/* most_print uses mutex. And hence cant be used from an ISR. */
+			mosh_print("Enabled UARTs");
+		}
+	} else {
+		if (!k_is_in_isr()) {
+			/* most_print uses mutex. And hence cant be used from an ISR. */
+			mosh_print("Disabling UARTs");
+		}
+		k_sleep(K_MSEC(500)); /* allow little time for printing the notification */
+		disable_uarts();
 	}
-
-	uart_dev = device_get_binding(DT_LABEL(DT_NODELABEL(uart1)));
-	if (uart_dev) {
-		pm_device_action_run(uart_dev, PM_DEVICE_ACTION_RESUME);
-	}
-
-	printk("UARTs enabled\n");
 }

@@ -9,5 +9,6 @@
 
 void disable_uarts(void);
 void enable_uarts(void);
+void toggle_uarts_state(void);
 
 #endif /* MOSH_UART_H */
