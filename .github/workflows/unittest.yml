@@ -24,14 +24,14 @@ jobs:
           path: ncs/nrf
           fetch-depth: 0
 
-      - name: Install dependencies
-        run: |
-          sudo apt install -y lcov gcc-multilib
+      #- name: Install dependencies
+      #  run: |
+      #    sudo apt install -y lcov gcc-multilib
 
       - name: West init and update
         uses: docker://coderbyheart/fw-nrfconnect-nrf-docker:main
         with:
-          args: ls
+          args: bash -c "cd ncs/nrf && west init -l && west update --narrow -o=--depth=1"
 
         #run: |
         #  cd ncs/nrf
@@ -40,22 +40,13 @@ jobs:
 
       - name: Run unit tests with twister
         uses: docker://coderbyheart/fw-nrfconnect-nrf-docker:main
-        #continue-on-error: true
+        continue-on-error: true
         with:
-          args: pwd && ls
+          args: bash -c "apt install -y lcov gcc-multilib && cd ncs/nrf && source ../zephyr/zephyr-env.sh && ../zephyr/scripts/twister -C -T . -p native_posix"
           #ls
           #cd ncs/nrf
           #source ../zephyr/zephyr-env.sh
           #../zephyr/scripts/twister -C -T . -p native_posix
-
-      - name: Report code coverage
-        uses: zgosalvez/github-actions-report-lcov@main
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          coverage-files: twister-out/coverage.info
-          minimum-coverage: 90
-          artifact-name: code-coverage-report
-          working-directory: ncs/nrf
 
       - name: 'Tar twister output'
         run: tar -cvf twister_out.tar ncs/nrf/twister-out/
@@ -65,4 +56,15 @@ jobs:
         with:
           name: twister-out
           path: twister_out.tar
+
+      - name: Report code coverage
+        uses: zgosalvez/github-actions-report-lcov@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          coverage-files: twister-out/*.info
+          minimum-coverage: 90
+          artifact-name: code-coverage-report
+          working-directory: ncs/nrf
+
+
 
