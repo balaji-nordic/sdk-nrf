@@ -29,10 +29,14 @@ jobs:
           sudo apt install -y lcov gcc-multilib
 
       - name: West init and update
-        run: |
-          cd ncs/nrf
-          west init -l
-          west update --narrow -o=--depth=1
+        uses: docker://coderbyheart/fw-nrfconnect-nrf-docker:main
+        with:
+          args: ls
+
+        #run: |
+        #  cd ncs/nrf
+        #  west init -l
+        #  west update --narrow -o=--depth=1
 
       - name: Run unit tests with twister
         uses: docker://coderbyheart/fw-nrfconnect-nrf-docker:main
