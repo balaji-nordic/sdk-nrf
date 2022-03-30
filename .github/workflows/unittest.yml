@@ -26,7 +26,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          apt install -y lcov gcc-multilib
+          sudo apt install -y lcov gcc-multilib
 
       - name: West init and update
         run: |
