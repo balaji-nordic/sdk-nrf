@@ -4,7 +4,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
-      - disable
+      - main
       - 'v*-branch'
   push:
     branches:
@@ -16,9 +16,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    container:
-      image:  coderbyheart/fw-nrfconnect-nrf-docker:main
 
     steps:
       - name: Checkout the code
@@ -38,9 +35,12 @@ jobs:
           west update --narrow -o=--depth=1
 
       - name: Run unit tests with twister
+        uses: docker://coderbyheart/fw-nrfconnect-nrf-docker:main
         continue-on-error: true
         shell: bash
         run: |
+          pwd
+          ls
           cd ncs/nrf
           source ../zephyr/zephyr-env.sh
           ../zephyr/scripts/twister -C -T . -p native_posix
@@ -62,3 +62,4 @@ jobs:
         with:
           name: twister-out
           path: twister_out.tar
+
