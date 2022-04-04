@@ -24,9 +24,9 @@ jobs:
           path: ncs/nrf
           fetch-depth: 0
 
-      #- name: Install dependencies
-      #  run: |
-      #    sudo apt install -y lcov gcc-multilib
+      - name: Install dependencies
+        run: |
+          sudo apt install -y lcov
 
       - name: West init and update
         uses: docker://coderbyheart/fw-nrfconnect-nrf-docker:main
@@ -48,6 +48,27 @@ jobs:
           #source ../zephyr/zephyr-env.sh
           #../zephyr/scripts/twister -C -T . -p native_posix
 
+      - name: Get code coverage summary
+        id: codecovsum
+        shell: bash
+        working-directory: ncs/nrf/
+        run: |
+          codecov=$(genhtml --rc lcov_branch_coverage=1 twister-out/coverage.info |tail -4)
+
+      - name: Comment with code coverage in PR
+        uses: wow-actions/auto-comment@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          pullRequestOpened: |
+            Here is your code coverage summary.
+
+            ```
+
+            ${{ steps.codecovsum.outputs.codecov }}
+
+            ```
+
+
       #- name: 'Tar twister output'
       #  run: tar -cvf twister_out.tar ncs/nrf/twister-out/
 
@@ -57,14 +78,14 @@ jobs:
       #    name: twister-out
       #    path: twister_out.tar
 
-      - name: Report code coverage
-        uses: zgosalvez/github-actions-report-lcov@v1
-        with:
-          coverage-files: twister-out/*.info
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          minimum-coverage: 90
-          artifact-name: code-coverage-report
-          working-directory: ncs/nrf
+      #- name: Report code coverage
+      #  uses: zgosalvez/github-actions-report-lcov@v1
+      #  with:
+      #    coverage-files: twister-out/*.info
+      #    github-token: ${{ secrets.GITHUB_TOKEN }}
+      #    minimum-coverage: 90
+      #    artifact-name: code-coverage-report
+      #    working-directory: ncs/nrf
 
 
 
