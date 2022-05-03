@@ -1,0 +1,51 @@
+name: Unit test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+      - 'v*-branch'
+  push:
+    branches:
+      - main
+      - 'v*-branch'
+    tags:
+      - v*
+
+jobs:
+  unit_test:
+    runs-on: ubuntu-latest
+    name: Run unit tests and generate coverage report
+
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+        with:
+          path: ncs/nrf
+          fetch-depth: 0
+
+      - name: West init and update
+        uses: docker://nordicplayground/nrfconnect-sdk:main
+        with:
+          args: bash -c "cd ncs/nrf && west init -l && west update --narrow -o=--depth=1"
+
+      - name: Run unit tests with twister
+        uses: docker://nordicplayground/nrfconnect-sdk:main
+        continue-on-error: true
+        with:
+          args: bash -c "apt install -y lcov gcc-multilib && cd ncs/nrf && source ../zephyr/zephyr-env.sh && ../zephyr/scripts/twister -i -C -T ./ -p native_posix"
+
+      - name: Replace docker paths in coverage file
+        run: |
+          sudo sed -i 's/\/github\/workspace\//\/home\/runner\/work\/sdk-nrf\/sdk-nrf\//g' ncs/nrf/twister-out/coverage.info
+
+      - name: Report code coverage
+        uses: balaji-nordic/github-actions-report-lcov@86d957d9bb31703329aca98dfe6e819ee16bbf1c
+        with:
+          coverage-files: ncs/nrf/twister-out/coverage.info
+          github-token: ${{ secrets.NCS_GITHUB_TOKEN }}
+          github-comment-token : ${{ secrets.GITHUB_TOKEN }}
+          minimum-coverage: 10
+          artifact-name: code-coverage-report
+          working-directory: ncs/nrf
