@@ -45,6 +45,6 @@ jobs:
         uses: balaji-nordic/github-actions-report-lcov@remove_artifact_uploading_step
         with:
           coverage-files: ncs/nrf/twister-out/coverage.info
-          github-token: ${{ secrets.NCS_GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           minimum-coverage: 10
           working-directory: ncs/nrf
