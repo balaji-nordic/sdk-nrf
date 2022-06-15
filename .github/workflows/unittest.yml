@@ -41,11 +41,10 @@ jobs:
           sudo sed -i 's/\/github\/workspace\//\/home\/runner\/work\/sdk-nrf\/sdk-nrf\//g' ncs/nrf/twister-out/coverage.info
 
       - name: Report code coverage
-        uses: balaji-nordic/github-actions-report-lcov@86d957d9bb31703329aca98dfe6e819ee16bbf1c
+        uses: balaji-nordic/github-actions-report-lcov@remove_event_name_check
         with:
           coverage-files: ncs/nrf/twister-out/coverage.info
           github-token: ${{ secrets.NCS_GITHUB_TOKEN }}
-          github-comment-token : ${{ secrets.GITHUB_TOKEN }}
           minimum-coverage: 10
           artifact-name: code-coverage-report
           working-directory: ncs/nrf
