@@ -41,6 +41,7 @@ jobs:
           sudo sed -i 's/\/github\/workspace\//\/home\/runner\/work\/sdk-nrf\/sdk-nrf\//g' ncs/nrf/twister-out/coverage.info
 
       - name: Report code coverage
+        continue-on-error: true
         uses: balaji-nordic/github-actions-report-lcov@remove_artifact_uploading_step
         with:
           coverage-files: ncs/nrf/twister-out/coverage.info
