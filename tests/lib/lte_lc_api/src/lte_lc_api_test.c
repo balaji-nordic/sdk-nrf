@@ -12,7 +12,7 @@
 #include <modem/lte_lc.h>
 #include <nrf_errno.h>
 #include "lte_lc_helpers.h"
-#include <mock_functions_to_mock.h>
+#include <mock_nrf_modem_at.h>
 
 enum nrf_modem_at_scanf_variant_t {
 	INVALID = 0,
@@ -49,7 +49,9 @@ static struct nrf_modem_at_scanf_return_t nrf_modem_at_scanf_return = {
 	.pattern_buf = {"", "", "", ""},
 };
 
-int nrf_modem_at_scanf(const char *cmd, const char *fmt, ...)
+
+/* Custom stub because CMock does not support mocking variadic functions. */
+int __wrap_nrf_modem_at_scanf(const char *cmd, const char *fmt, ...)
 {
 	va_list args;
 	int result = -EPERM;
@@ -237,7 +239,7 @@ int nrf_modem_at_scanf(const char *cmd, const char *fmt, ...)
 	return result;
 }
 
-void wrap_lc_init(void)
+static void lc_init(void)
 {
 	nrf_modem_at_scanf_return.ltem_mode = 1;
 	nrf_modem_at_scanf_return.gps_mode = 1;
@@ -249,6 +251,7 @@ void wrap_lc_init(void)
 	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT%%XSYSTEMMODE=%s,%c", EXIT_SUCCESS);
 	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT+CEREG=5", EXIT_SUCCESS);
 	__wrap_nrf_modem_at_printf_ExpectAndReturn("AT+CSCON=1", EXIT_SUCCESS);
+
 	int ret = lte_lc_init();
 
 	TEST_ASSERT_EQUAL(EXIT_SUCCESS, ret);
@@ -256,8 +259,8 @@ void wrap_lc_init(void)
 
 void setUp(void)
 {
-	mock_functions_to_mock_Init();
-	wrap_lc_init();
+	mock_nrf_modem_at_Init();
+	lc_init();
 }
 
 void tearDown(void)
@@ -270,7 +273,7 @@ void tearDown(void)
 		"nrf_modem_at_scanf called fewer times than expected");
 	ret = lte_lc_deinit();
 	TEST_ASSERT_EQUAL(EXIT_SUCCESS, ret);
-	mock_functions_to_mock_Verify();
+	mock_nrf_modem_at_Verify();
 }
 
 /* This is needed because AT Monitor library is initialized in SYS_INIT. */
@@ -317,7 +320,7 @@ void test_lte_lc_deregister_handler_not_initialized(void)
 	TEST_ASSERT_EQUAL(-EINVAL, ret);
 
 	/* this is just to make the tearDown work again */
-	wrap_lc_init();
+	lc_init();
 }
 
 void test_lte_lc_deinit_twice(void)
@@ -331,7 +334,7 @@ void test_lte_lc_deinit_twice(void)
 	TEST_ASSERT_EQUAL(EXIT_SUCCESS, ret);
 
 	/* this is just to make the tearDown work again */
-	wrap_lc_init();
+	lc_init();
 }
 
 void test_lte_lc_connect_home(void)

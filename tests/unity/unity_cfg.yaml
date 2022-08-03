@@ -31,6 +31,9 @@
         'int64_t': 'INT64'
         'uint64_t': 'HEX64'
 
+    :strippables:
+        - '(?:__wrap_nrf_modem_at_scanf\s*\(+.*?\)+)'
+
 :unity:
     :suite_teardown: >
        extern int test_suiteTearDown(int); return test_suiteTearDown(num_failures);
