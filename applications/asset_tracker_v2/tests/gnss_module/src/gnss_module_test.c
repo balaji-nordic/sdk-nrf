@@ -440,64 +440,6 @@ void test_agps_request(void)
 	gnss_module_gnss_evt_handler(NRF_MODEM_GNSS_EVT_AGPS_REQ);
 }
 
-/* Test that an error event is sent when the message queue becomes full.
- */
-void test_msgq_full(void)
-{
-	/* Pre-condition. */
-	setup_gnss_module_in_running_state();
-
-	/* Make gnss_module start GNSS. */
-	/* Stop is executed before each start to ensure GNSS is in idle. */
-	__wrap_nrf_modem_gnss_stop_ExpectAndReturn(0);
-	/* Single fix mode. */
-	__wrap_nrf_modem_gnss_fix_interval_set_ExpectAndReturn(0, 0);
-	/* 60 second timeout. */
-	__wrap_nrf_modem_gnss_fix_retry_set_ExpectAndReturn(60, 0);
-	/* NMEA mask (GPGGA only). */
-	__wrap_nrf_modem_gnss_nmea_mask_set_ExpectAndReturn(NRF_MODEM_GNSS_NMEA_GGA_MASK, 0);
-	__wrap_nrf_modem_gnss_start_ExpectAndReturn(0);
-
-	/* Set callback to validate GNSS module events. */
-	__wrap__event_submit_Stub(&validate_gnss_evt);
-
-	/* Set expected GNSS module events. */
-	expected_gnss_module_event_count = 2;
-	expected_gnss_module_events[0].type = GNSS_EVT_ACTIVE;
-	expected_gnss_module_events[1].type = GNSS_EVT_ERROR_CODE;
-	expected_gnss_module_events[1].data.err = -ENOMSG;
-
-	/* Set callback to handle all reads from GNSS API. */
-	__wrap_nrf_modem_gnss_read_Stub(&gnss_read_callback);
-
-	__wrap_app_event_manager_alloc_ExpectAnyArgsAndReturn(&app_module_event_memory);
-	__wrap_app_event_manager_free_ExpectAnyArgs();
-	struct app_module_event *app_module_event = new_app_module_event();
-
-	app_module_event->type = APP_EVT_DATA_GET;
-	app_module_event->count = 1;
-	app_module_event->data_list[0] = APP_DATA_GNSS;
-
-	__wrap_app_event_manager_alloc_IgnoreAndReturn(&gnss_module_event_memory);
-	bool ret = GNSS_MODULE_EVT_HANDLER((struct app_event_header *)app_module_event);
-
-	app_event_manager_free(app_module_event);
-
-	TEST_ASSERT_EQUAL(0, ret);
-
-	/* Send so many events that the message queue becomes full. */
-	gnss_module_gnss_evt_handler(NRF_MODEM_GNSS_EVT_BLOCKED);
-	gnss_module_gnss_evt_handler(NRF_MODEM_GNSS_EVT_UNBLOCKED);
-	gnss_module_gnss_evt_handler(NRF_MODEM_GNSS_EVT_BLOCKED);
-	gnss_module_gnss_evt_handler(NRF_MODEM_GNSS_EVT_UNBLOCKED);
-	gnss_module_gnss_evt_handler(NRF_MODEM_GNSS_EVT_BLOCKED);
-	gnss_module_gnss_evt_handler(NRF_MODEM_GNSS_EVT_UNBLOCKED);
-	gnss_module_gnss_evt_handler(NRF_MODEM_GNSS_EVT_BLOCKED);
-	gnss_module_gnss_evt_handler(NRF_MODEM_GNSS_EVT_UNBLOCKED);
-	gnss_module_gnss_evt_handler(NRF_MODEM_GNSS_EVT_BLOCKED);
-	gnss_module_gnss_evt_handler(NRF_MODEM_GNSS_EVT_UNBLOCKED);
-	gnss_module_gnss_evt_handler(NRF_MODEM_GNSS_EVT_BLOCKED);
-}
 
 void main(void)
 {
