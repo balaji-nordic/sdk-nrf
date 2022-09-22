@@ -42,8 +42,12 @@ extern "C" {
  */
 #define SEND_EVENT(_mod, _type)								\
 	struct _mod ## _module_event *event = new_ ## _mod ## _module_event();		\
-	event->type = _type;								\
-	APP_EVENT_SUBMIT(event)
+	if (event) {											\
+ 		event->type = _type;								\
+		APP_EVENT_SUBMIT(event)								\
+	} else {												\
+		LOG_ERR("Not enough heap left to allocate event");	\
+	}
 
 /** @brief Macro used to submit an error event.
  *
