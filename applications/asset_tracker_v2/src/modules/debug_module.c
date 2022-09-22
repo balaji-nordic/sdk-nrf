@@ -96,6 +96,10 @@ entry:
 
 		struct debug_module_event *debug_module_event = new_debug_module_event();
 
+		if (debug_module_event == NULL) {
+			__ASSERT(false, "Not enough heap left to allocate event");
+		}
+
 		debug_module_event->type = DEBUG_EVT_MEMFAULT_DATA_READY;
 		debug_module_event->data.memfault.len = len;
 		debug_module_event->data.memfault.buf = message;

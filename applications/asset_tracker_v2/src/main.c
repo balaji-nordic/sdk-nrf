@@ -413,6 +413,10 @@ static void active_mode_timers_start_all(void)
 static void data_get(void)
 {
 	struct app_module_event *app_module_event = new_app_module_event();
+
+	if (app_module_event == NULL) {
+		__ASSERT(false, "Not enough heap left to allocate event");
+	}
 	size_t count = 0;
 
 	/* Set a low sample timeout. If GNSS is requested, the sample timeout will be increased to

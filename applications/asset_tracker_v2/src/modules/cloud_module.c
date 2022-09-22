@@ -478,6 +478,10 @@ static void send_config_received(void)
 	struct cloud_module_event *cloud_module_event =
 			new_cloud_module_event();
 
+	if (cloud_module_event == NULL) {
+		__ASSERT(false, "Not enough heap left to allocate event");
+	}
+
 	cloud_module_event->type = CLOUD_EVT_CONFIG_RECEIVED;
 	cloud_module_event->data.config = copy_cfg;
 
@@ -634,6 +638,10 @@ static void qos_event_handler(const struct qos_evt *evt)
 		LOG_DBG("QOS_EVT_MESSAGE_NEW");
 		struct cloud_module_event *cloud_module_event = new_cloud_module_event();
 
+		if (cloud_module_event == NULL) {
+			__ASSERT(false, "Not enough heap left to allocate event");
+		}
+
 		cloud_module_event->type = CLOUD_EVT_DATA_SEND_QOS;
 		cloud_module_event->data.message = evt->message;
 
@@ -644,6 +652,10 @@ static void qos_event_handler(const struct qos_evt *evt)
 		LOG_DBG("QOS_EVT_MESSAGE_TIMER_EXPIRED");
 
 		struct cloud_module_event *cloud_module_event = new_cloud_module_event();
+
+		if (cloud_module_event == NULL) {
+			__ASSERT(false, "Not enough heap left to allocate event");
+		}
 
 		cloud_module_event->type = CLOUD_EVT_DATA_SEND_QOS;
 		cloud_module_event->data.message = evt->message;
