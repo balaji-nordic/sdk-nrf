@@ -127,8 +127,7 @@ See :ref:`nRF Cloud A-GPS and P-GPS <nrfcloud_agps_pgps>` for further details.
 To enable support for P-GPS, add the parameter ``-DOVERLAY_CONFIG=overlay-pgps.conf`` to your build command.
 
 .. test::
-  t
-  his is a test
+  t  his is a test
 
 .. note::
    |gps_tradeoffs|
