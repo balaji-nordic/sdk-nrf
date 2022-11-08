@@ -1,0 +1,14 @@
+name: Cancel previous workflow
+on:
+  workflow_run:
+    # List long running github workflows here.
+    workflows: ["Documentation Build"]
+    types:
+      - requested
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: styfle/cancel-workflow-action@v0.11.0
+      with:
+        workflow_id: ${{ github.event.workflow.id }}
