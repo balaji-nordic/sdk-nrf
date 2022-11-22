@@ -440,22 +440,6 @@ void test_lwm2m_integration_fota_unexpected_event(void)
 	TEST_ASSERT_EQUAL(CLOUD_WRAP_EVT_FOTA_ERROR, last_cb_type);
 }
 
-void test_lwm2m_integration_fota_done(void)
-{
-	__wrap_lwm2m_firmware_apply_update_ExpectAndReturn(0, 0);
-
-	firmware_update_cb(0, NULL, 0);
-	TEST_ASSERT_EQUAL(CLOUD_WRAP_EVT_FOTA_DONE, last_cb_type);
-}
-
-void test_lwm2m_integration_fota_done_error(void)
-{
-	__wrap_lwm2m_firmware_apply_update_ExpectAndReturn(0, -1);
-
-	firmware_update_cb(0, NULL, 0);
-	TEST_ASSERT_EQUAL(CLOUD_WRAP_EVT_FOTA_ERROR, last_cb_type);
-}
-
 void main(void)
 {
 	(void)unity_main();

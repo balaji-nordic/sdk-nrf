@@ -875,20 +875,6 @@ static int write_dl_uri(uint16_t obj_inst_id, uint16_t res_id, uint16_t res_inst
 	return 0;
 }
 
-int lwm2m_firmware_apply_update(uint16_t obj_inst_id)
-{
-	int ret = 0;
-
-	if (get_state(obj_inst_id) == STATE_UPDATING) {
-		ret = firmware_update_cb(obj_inst_id, NULL, 0);
-	} else {
-		LOG_ERR("No updates scheduled for instance %d", obj_inst_id);
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-
 void lwm2m_firmware_set_update_state_cb(lwm2m_firmware_get_update_state_cb_t cb)
 {
 	update_state_cb = cb;
