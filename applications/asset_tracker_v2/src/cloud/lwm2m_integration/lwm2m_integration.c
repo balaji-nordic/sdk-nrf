@@ -263,6 +263,14 @@ static int modem_mode_request_cb(enum lte_lc_func_mode new_mode, void *user_data
 	return CONFIG_LWM2M_INTEGRATION_MODEM_MODE_REQUEST_RETRY_SECONDS;
 }
 
+static void send_firmware_update_done_event(void)
+{
+	struct cloud_wrap_event cloud_wrap_evt = {
+		.type = CLOUD_WRAP_EVT_FOTA_DONE
+	};
+	cloud_wrapper_notify_event(&cloud_wrap_evt);
+}
+
 static int firmware_update_state_cb(uint8_t update_state)
 {
 	int err;
@@ -295,31 +303,12 @@ static int firmware_update_state_cb(uint8_t update_state)
 		return 0;
 	case STATE_UPDATING:
 		LOG_DBG("STATE_UPDATING, result: %d", update_result);
+		send_firmware_update_done_event();
 		return 0;
 	default:
 		LOG_ERR("Unknown state: %d", update_state);
 		cloud_wrap_evt.type = CLOUD_WRAP_EVT_FOTA_ERROR;
 		break;
-	}
-
-	cloud_wrapper_notify_event(&cloud_wrap_evt);
-	return 0;
-}
-
-static int firmware_update_cb(uint16_t obj_inst_id, uint8_t *args, uint16_t args_len)
-{
-	ARG_UNUSED(args);
-	ARG_UNUSED(args_len);
-
-	int err;
-	struct cloud_wrap_event cloud_wrap_evt = {
-		.type = CLOUD_WRAP_EVT_FOTA_DONE
-	};
-
-	err = lwm2m_firmware_apply_update(obj_inst_id);
-	if (err) {
-		LOG_ERR("lwm2m_firmware_apply_update, error: %d", err);
-		cloud_wrap_evt.type = CLOUD_WRAP_EVT_FOTA_ERROR;
 	}
 
 	cloud_wrapper_notify_event(&cloud_wrap_evt);
@@ -441,7 +430,6 @@ int cloud_wrap_init(cloud_wrap_evt_handler_t event_handler)
 	}
 
 	lwm2m_firmware_set_update_state_cb(firmware_update_state_cb);
-	lwm2m_firmware_set_update_cb(firmware_update_cb);
 
 	wrapper_evt_handler = event_handler;
 	state = DISCONNECTED;
