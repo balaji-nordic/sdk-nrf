@@ -19,7 +19,7 @@ jobs:
         run: |
           git remote add  ncs https://github.com/nrfconnect/sdk-nrf
           git fetch ncs
-          git rebase ncs/main
+          git rebase --ff ncs/main
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v4
