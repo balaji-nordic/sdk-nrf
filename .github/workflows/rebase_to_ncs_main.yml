@@ -19,6 +19,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git remote add  ncs https://github.com/nrfconnect/sdk-nrf
           git fetch ncs
+          git rev-parse HEAD
           git rebase --verbose ncs/main
 
       - name: Check if changes were made
