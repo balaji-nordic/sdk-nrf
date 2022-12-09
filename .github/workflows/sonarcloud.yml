@@ -80,6 +80,12 @@ jobs:
           source ncs/zephyr/zephyr-env.sh
           ncs/zephyr/scripts/twister -v -i -C -T ncs/nrf/applications/asset_tracker_v2/tests/lwm2m_codec -p native_posix --test-only --coverage-tool gcovr
 
+      - name: Collect coverage into one XML report
+        shell: bash
+        run: |
+          cd twister-out
+          gcovr --sonarqube > coverage.xml
+
       - name: Run sonar-scanner
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -92,4 +98,4 @@ jobs:
                         --define sonar.exclusions="**/*.py,**twister-out**,**/*.java,**/*.html,**/*.php" \
                         --define sonar.cpd.exclusions="**CMakeFiles**" \
                         --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}" \
-                        --define sonar.cfamily.gcov.reportsPath="twister-out"
+                        --define sonar.coverageReportPaths=twister-out/coverage.xml
