@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           source ncs/zephyr/zephyr-env.sh
-          ncs/zephyr/scripts/twister -v -i -C -T ncs/nrf/applications/asset_tracker_v2/tests/ -p native_posix
+          ncs/zephyr/scripts/twister -v -i -C -T ncs/nrf/applications/asset_tracker_v2/tests/lwm2m_codec -p native_posix
 
       - name: Set up JDK 11
         uses: actions/setup-java@v1
@@ -72,13 +72,13 @@ jobs:
         shell: bash
         run: |
           source ncs/zephyr/zephyr-env.sh
-          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister -b -v -i -T ncs/nrf/applications/asset_tracker_v2/ -p native_posix
+          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister -b -v -i -T ncs/nrf/applications/asset_tracker_v2/tests/lwm2m_codec/ -p native_posix
 
-      - name: Build asset tracker v2 configurations with sonarcloud build wrapper
-        shell: bash
-        run: |
-          source ncs/zephyr/zephyr-env.sh
-          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister -b -v -i -T ncs/nrf/applications/asset_tracker_v2/ -t ci_build -G
+      #- name: Build asset tracker v2 configurations with sonarcloud build wrapper
+      #  shell: bash
+      #  run: |
+      #    source ncs/zephyr/zephyr-env.sh
+      #    build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister -b -v -i -T ncs/nrf/applications/asset_tracker_v2/ -t ci_build -G
 
       - name: Run sonar-scanner
         env:
