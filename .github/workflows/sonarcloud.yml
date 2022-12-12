@@ -66,7 +66,7 @@ jobs:
         shell: bash
         run: |
           source ncs/zephyr/zephyr-env.sh
-          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister -b -v -i -T ncs/nrf/applications/asset_tracker_v2/tests/lwm2m_codec/ -p native_posix
+          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister -b -C -v -i -T ncs/nrf/applications/asset_tracker_v2/tests/lwm2m_codec/ -p native_posix --coverage-tool gcovr
 
       #- name: Build asset tracker v2 configurations with sonarcloud build wrapper
       #  shell: bash
@@ -78,18 +78,13 @@ jobs:
         shell: bash
         run: |
           source ncs/zephyr/zephyr-env.sh
-          ncs/zephyr/scripts/twister -v -i -C -T ncs/nrf/applications/asset_tracker_v2/tests/lwm2m_codec -p native_posix --coverage-tool gcovr
+          ncs/zephyr/scripts/twister --test-only -v -i -C -T ncs/nrf/applications/asset_tracker_v2/tests/lwm2m_codec -p native_posix
 
       - name: Collect coverage into one XML report
         shell: bash
         run: |
-          gcovr --exclude=twister-out --exclude=twister-out.1 --exclude=twister-out.2 --exclude=tests/unity --sonarqube coverage.xml
+          gcovr --exclude=twister-out --exclude=tests/unity --sonarqube coverage.xml
           cat coverage.xml
-
-      - name: Cleanup twister output
-        shell: bash
-        run: |
-          rm -rf twister-out*
 
       - name: Run sonar-scanner
         env:
@@ -99,7 +94,7 @@ jobs:
           sonar-scanner --define sonar.projectKey=balaji-nordic_sdk-nrf \
                         --define sonar.organization=balaji-nordic \
                         --define sonar.host.url="${{ env.SONAR_SERVER_URL }}" \
-                        --define sonar.exclusions="**/*.py,**twister-out.**,**/*.java,**/*.html,**/*.php" \
+                        --define sonar.exclusions="**/*.py,**twister-out.**,**/*.java,**/*.html,**/*.xml,**/*.php" \
                         --define sonar.cpd.exclusions="**CMakeFiles**" \
                         --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}" \
                         --define sonar.coverageReportPaths=coverage.xml
