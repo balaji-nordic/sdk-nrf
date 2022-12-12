@@ -62,23 +62,17 @@ jobs:
           unzip -o $HOME/.sonar/build-wrapper-linux-x86.zip -d $HOME/.sonar/
           echo "$HOME/.sonar/build-wrapper-linux-x86" >> $GITHUB_PATH
 
-      - name: Build native_posix tests with sonarcloud build wrapper
+      - name: Build native_posix tests with coverage enabled (via sonarcloud build wrapper)
         shell: bash
         run: |
           source ncs/zephyr/zephyr-env.sh
-          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister -b -C -v -i -T ncs/nrf/applications/asset_tracker_v2/tests/lwm2m_codec/ -p native_posix --coverage-tool gcovr
+          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister -b -C -v -i -T ncs/nrf/applications/asset_tracker_v2/ -p native_posix --coverage-tool gcovr
 
-      #- name: Build asset tracker v2 configurations with sonarcloud build wrapper
-      #  shell: bash
-      #  run: |
-      #    source ncs/zephyr/zephyr-env.sh
-      #    build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister -b -v -i -T ncs/nrf/applications/asset_tracker_v2/ -t ci_build -G
-
-      - name: Run native_posix tests without sonar cloud build wrapper (with code coverage enabled)
+      - name: Run native_posix tests
         shell: bash
         run: |
           source ncs/zephyr/zephyr-env.sh
-          ncs/zephyr/scripts/twister --test-only -v -i -C -T ncs/nrf/applications/asset_tracker_v2/tests/lwm2m_codec -p native_posix
+          ncs/zephyr/scripts/twister --test-only -v -i -C -T ncs/nrf/applications/asset_tracker_v2/ -p native_posix
 
       - name: Collect coverage into one XML report
         shell: bash
