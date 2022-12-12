@@ -83,7 +83,8 @@ jobs:
       - name: Collect coverage into one XML report
         shell: bash
         run: |
-          gcovr --exclude=twister-out --exclude=tests/unity --sonarqube coverage.xml
+          gcovr --exclude=twister-out --exclude=twister-out.1 --exclude=twister-out.2 --exclude=tests/unity --sonarqube coverage.xml
+          cat coverage.xml
 
       - name: Run sonar-scanner
         env:
