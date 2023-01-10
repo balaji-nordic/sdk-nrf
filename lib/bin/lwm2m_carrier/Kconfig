@@ -6,7 +6,7 @@
 
 menuconfig LWM2M_CARRIER
 	bool "LwM2M carrier library"
-	depends on NEWLIB_LIBC
+	depends on PICOLIBC || NEWLIB_LIBC || EXTERNAL_LIBC
 	depends on NRF_MODEM_LIB
 	depends on PDN
 	# Only have hard-float variant
@@ -97,6 +97,12 @@ config LWM2M_CARRIER_T_MOBILE
 	default y
 	help
 	  Enable Carrier Library when the SIM Subscriber ID is T-Mobile.
+
+config LWM2M_CARRIER_SOFTBANK
+	bool "SoftBank"
+	default y
+	help
+	  Enable Carrier Library when the SIM Subscriber ID is SoftBank.
 
 endmenu
 
