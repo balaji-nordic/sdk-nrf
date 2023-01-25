@@ -38,6 +38,7 @@ jobs:
           rm -rf /workdir/.west/
           west init -l ncs/nrf
           cd ncs
+          west config manifest.group-filter +homekit,+find-my
           west update --narrow -o=--depth=1
 
       - name: Set up JDK 11
@@ -100,7 +101,7 @@ jobs:
           sonar-scanner --define sonar.projectKey=balaji-nordic_sdk-nrf \
                         --define sonar.organization=balaji-nordic \
                         --define sonar.host.url="${{ env.SONAR_SERVER_URL }}" \
-                        --define sonar.exclusions="ncs/modules/**,ncs/nrf/ext/**,**/*.py,**twister-out**,**/*.java,**/*.html,**/*.xml,**/*.php" \
+                        --define sonar.exclusions="ncs/zephyr/**,ncs/modules/**,ncs/nrf/ext/**,**/*.py,**twister-out**,**/*.java,**/*.html,**/*.xml,**/*.php" \
                         --define sonar.cpd.exclusions="**CMakeFiles**" \
                         --define sonar.coverageReportPaths=coverage.xml \
                         --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}" \
