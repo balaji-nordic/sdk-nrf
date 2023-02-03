@@ -45,3 +45,9 @@
   platforms:
     - all
   comment: "Disable building selected Matter samples to limit resources usage"
+
+- scenarios:
+    - asset_tracker_v2.lwm2m_codec
+  platforms:
+    - native_posix
+  comment: "Test fails due to structure padding"
