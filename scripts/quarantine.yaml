@@ -48,6 +48,9 @@
 
 - scenarios:
     - asset_tracker_v2.lwm2m_codec
+    - asset_tracker_v2.azure
   platforms:
     - native_posix
-  comment: "Test fails due to structure padding"
+  comment: "lwm2m_codec: Test fails due to structure padding.
+            azure: Test fail compilation"
+
