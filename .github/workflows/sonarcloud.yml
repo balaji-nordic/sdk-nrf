@@ -75,11 +75,11 @@ jobs:
         shell: bash
         run: |
           gcovr twister-out  \
-            --exclude=twister-out \
-            --exclude=tests/unity \
-            --exclude=ncs/zephyr/ \
-            --exclude=ncs/nrf/tests/subsys/dfu/dfu_target_stream/ \
-            --exclude=ncs/nrf/lib/hw_id/ \
+            --exclude-directories=twister-out \
+            --exclude-directories=tests/unity \
+            --exclude-directories=ncs/zephyr/ \
+            --exclude-directories=ncs/nrf/tests/subsys/dfu/dfu_target_stream/ \
+            --exclude-directories=ncs/nrf/lib/hw_id/ \
             --sonarqube coverage.xml
 
       - name: Invoke build wrapper with twister command to build with integrations scope
