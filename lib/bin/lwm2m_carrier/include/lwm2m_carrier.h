@@ -370,7 +370,7 @@ typedef struct {
  *       application has to make sure that the provided parameters are valid throughout the
  *       application lifetime (i.e. placed in static memory or in flash).
  *
- * @retval  0      If library main function exited at modem shutdown.
+ * @retval  0      If library main function exited on an unrecoverable error or a deferred reboot.
  * @retval -EINVAL If configuration parameters are invalid. See @c lwm2m_carrier_config_t
  * @retval -EFAULT If library failed due to an internal error.
  */

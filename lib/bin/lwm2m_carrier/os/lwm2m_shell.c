@@ -538,9 +538,9 @@ static int cmd_portfolio_create(const struct shell *shell, size_t argc, char **a
 		shell_print(shell, "Portfolio object not initialized");
 		break;
 	case -ENOMEM:
-		shell_print(shell, "No slots available or already created");
+		shell_print(shell, "No slots available");
 		break;
-	case -EINVAL:
+	case -EBADR:
 		shell_print(shell, "Instance %d already in use", instance_id);
 		break;
 	default:
