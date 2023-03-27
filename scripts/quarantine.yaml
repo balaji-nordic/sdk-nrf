@@ -52,6 +52,7 @@
 - scenarios:
     - applications.asset_tracker_v2.nrf7002ek_wifi-debug
     - applications.asset_tracker_v2.nrf7002ek_wifi-release
+    - bluetooth.mesh.scheduler_model.message_validity
     - asset_tracker_v2.lwm2m_codec
   platforms:
     - all
