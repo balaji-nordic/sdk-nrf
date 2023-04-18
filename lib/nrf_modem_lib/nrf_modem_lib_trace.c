@@ -210,6 +210,14 @@ static int trace_fragment_write(struct nrf_modem_trace_data *frag)
 
 		if (ret == 0) {
 			LOG_WRN("trace_backend wrote 0 bytes.");
+			/* On fault, modem reinitialization depends on the trace thread to complete
+			 * the processing of traces. In this case we want to prevent processing
+			 * traces forever. Therefore we abort if the trace backend write returns
+			 * zero when the modem is not initialized.
+			 */
+			if (!nrf_modem_is_initialized()) {
+				return -ESHUTDOWN;
+			}
 		}
 
 		remaining -= ret;
