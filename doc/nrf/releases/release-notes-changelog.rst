@@ -183,6 +183,8 @@ nRF5340 Audio
 * Added Kconfig options for setting periodic and extended advertising intervals.
   Search :ref:`Kconfig Reference <kconfig-search>` for ``BLE_ACL_PER_ADV_INT_`` and ``BLE_ACL_EXT_ADV_INT_`` to list all of them.
 
+* Implemented :ref:`zephyr:zbus` for handling events from buttons and LE Audio.
+
 nRF Machine Learning (Edge Impulse)
 -----------------------------------
 
@@ -300,7 +302,9 @@ nRF9160 samples
 Trusted Firmware-M (TF-M) samples
 ---------------------------------
 
-|no_changes_yet_note|
+* :ref:`provisioning_image` sample:
+
+  * Thet network core logic is now moved to the new sample :ref:`provisioning_image_net_core` instead of being a Zephyr module..
 
 Thread samples
 --------------
