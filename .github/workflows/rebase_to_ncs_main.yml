@@ -22,12 +22,17 @@ jobs:
           git remote add  ncs https://github.com/nrfconnect/sdk-nrf
           git fetch ncs
           git rev-parse HEAD
-          git rebase --verbose ncs/main
+          version_to_rebase_from=`git rev-parse ncs/main`
+          git rebase --verbose $version_to_rebase_from
+          echo "VERSION_TO_REBASE_FROM=$version_to_rebase_from" >> $GITHUB_ENV
 
       - name: Check if changes were made
         run: |
           if [[ `git diff origin/main --exit-code` ]]; then
             echo "HAS_CHANGES=1" >> $GITHUB_ENV
+            git reset origin/main # Loose all commit history
+            git add . # Merge all changes to one commit
+            git commit -s -m "DNM: All new commits from ncs/main"
           else
             echo "HAS_CHANGES=0" >> $GITHUB_ENV
           fi
@@ -37,7 +42,7 @@ jobs:
         uses: peter-evans/create-pull-request@v4
         with:
           token: ${{ secrets.PR_CREATOR_TOKEN }} # Personal access token of balaji-nordic with contents:write and pull requestes:write permission
-          title: 'Updates from upstream ncs'
+          title: 'Updates from upstream ncs version ${{ env.VERSION_TO_REBASE_FROM }}'
           assignees: balaji-nordic
           reviewers: balaji-nordic
           draft: true
