@@ -55,6 +55,16 @@ Build system
 
 * When using :kconfig:option:`CONFIG_SB_SIGNING_KEY_FILE` with relative paths, the relative path is now located at the application configuration directory instead of the application source directory (these are the same if the application configuration directory is not set).
 
+Working with nRF91 Series
+=========================
+
+* Added support for :ref:`nrf91_modem_trace_uart_snippet`.
+  Snippet is used for nRF91 modem tracing with the UART backend for the following applications and samples:
+
+  * :ref:`asset_tracker_v2`
+  * :ref:`serial_lte_modem`
+  * All samples that use nRF9160 DK except for nRF9160: SLM Shell, nRF9160: Modem trace external flash backend, and nRF9160: Modem trace backend samples
+
 Working with nRF52 Series
 =========================
 
@@ -757,6 +767,14 @@ This section provides detailed lists of changes by :ref:`script <scripts>`.
       The option provides device's Vendor ID, Product ID and generation.
     * Support for devices using MCUboot bootloader built in the direct-xip mode (``MCUBOOT+XIP``).
       In this mode, the image is booted directly from the secondary slot without moving it to the primary slot.
+
+Snippets
+========
+
+* Added:
+
+  * Support for nRF built-in snippets :ref:`nRF built-in snippets <nrf_snippets>`.
+  * Snippet for nRF91 modem tracing with the UART backend.
 
 MCUboot
 =======

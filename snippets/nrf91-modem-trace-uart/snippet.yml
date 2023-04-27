@@ -1,0 +1,4 @@
+name: nrf91-modem-trace-uart
+append:
+  DTC_OVERLAY_FILE: modem-trace-uart.overlay
+  OVERLAY_CONFIG: overlay-modem-trace-uart.conf
