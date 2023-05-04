@@ -13,6 +13,7 @@ zephyr_library_sources_ifdef(CONFIG_NET_SOCKETS nrf91_sockets.c)
 if(CONFIG_NRF_MODEM_LIB_TRACE)
   zephyr_library_sources(nrf_modem_lib_trace.c)
   add_subdirectory(trace_backends)
+  add_subdirectory(shell)
 endif()
 
 zephyr_library_sources(fault.c)

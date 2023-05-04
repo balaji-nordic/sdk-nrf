@@ -466,6 +466,7 @@ Modem libraries
     * The function :c:func:`nrf_modem_lib_fault_strerror` to retrieve a statically allocated textual description of a given modem fault.
       The function can be enabled using the new Kconfig option :kconfig:option:`CONFIG_NRF_MODEM_LIB_FAULT_STRERROR`.
     * The :c:func:`nrf_modem_lib_bootloader_init` function to initialize the Modem library in bootloader mode.
+    * Moved modem_trace shell command from modem_shell sample into nrf_modem_lib to be used in any app with :kconfig:option:`CONFIG_SHELL` and :kconfig:option:`CONFIG_NRF_MODEM_LIB_TRACE` enabled.
 
   * Updated:
 

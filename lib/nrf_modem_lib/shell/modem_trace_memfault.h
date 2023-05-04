@@ -10,6 +10,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-void modem_trace_memfault_send(uint32_t trace_duration_ms);
+void modem_trace_memfault_send(const struct shell *sh, size_t size, uint32_t trace_duration_ms);
 
 #endif /* MOSH_MODEM_TRACE_MEMFAULT_H */
