@@ -43,7 +43,7 @@ manifest:
   defaults:
     remote: ncs
 
-  group-filter: [-homekit, -nrf-802154, -dragoon, -find-my, -ant, -babblesim]
+  group-filter: [-homekit, -nrf-802154, -dragoon, -find-my, -ant, -babblesim, -bsec]
 
   # "projects" is a list of git repositories which make up the NCS
   # source code.
@@ -246,6 +246,16 @@ manifest:
       revision: 384a091445c57b44ac8cbd18ebd245b47c71db94
       import:
         path-prefix: tools
+    - name: bme68x
+      url: https://github.com/boschsensortec/Bosch-BME68x-Library
+      path: modules/lib/bme68x
+      revision: v1.1.40407
+    - name: bsec
+      url: https://github.com/boschsensortec/Bosch-BSEC2-Library
+      path: modules/lib/bsec
+      revision: v1.5.2400
+      groups:
+        - bsec
 
 
   # West-related configuration for the nrf repository.
