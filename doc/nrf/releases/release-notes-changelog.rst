@@ -250,7 +250,8 @@ nRF Desktop
     If a configuration supports both Fast Pair and a dedicated dongle peer (:ref:`CONFIG_DESKTOP_BLE_DONGLE_PEER_ENABLE <config_desktop_app_options>`), the `Swift Pair`_ payload is, by default, included only for the dongle peer.
   * Set the max compiled-in log level to ``warning`` for the Bluetooth HCI core (:kconfig:option:`CONFIG_BT_HCI_CORE_LOG_LEVEL`).
     This is done to avoid flooding logs during application boot.
-  * The documentation with debug Fast Pair provisioning data obtained for development purposes.
+  * Disabled ``CONFIG_BOOT_SERIAL_IMG_GRP_HASH`` in MCUboot bootloader release configurations of boards that use nRF52820 SoC.
+    This is done to reduce the memory consumption.
 
 Samples
 =======
