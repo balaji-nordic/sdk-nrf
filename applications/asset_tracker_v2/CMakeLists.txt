@@ -39,3 +39,9 @@ if (CONFIG_BOARD_QEMU_X86 OR CONFIG_BOARD_NATIVE_POSIX)
         target_compile_options(app PRIVATE
 	        -DCONFIG_LTE_NEIGHBOR_CELLS_MAX=10)
 endif()
+
+# Some unreferenced functions are linked to final image what results in exceeding FLASH memory.
+# This link-time optimization strips final image from unreferenced functions.
+if (CONFIG_LWM2M_INTEGRATION)
+        target_compile_options(app PRIVATE -flto)
+endif()
