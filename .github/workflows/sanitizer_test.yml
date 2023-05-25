@@ -1,0 +1,44 @@
+name: Run native_posix tests with sanitizers enabled
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    name: Native posix run with sanitizers
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    container: ghcr.io/zephyrproject-rtos/ci:v0.26.6
+    env:
+      CMAKE_PREFIX_PATH: /opt/toolchains
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+        with:
+          path: ncs/nrf
+
+      # Install more dependencies that are not part of the docker image but are needed by the workflow
+      - name: Install more deps
+        run: |
+          apt update
+          apt install -y gcc-multilib ruby
+
+      # The docker image comes pre-initialized with west dependencies. We want to do west update ourselves to to be sure that we get the latest changes in all repos.
+      # The docker image is built nightly. So it may contain slightly out of date repos.
+      # Hence we remove the .west folder and do a re-init
+      - name: West init and update
+        run: |
+          rm -rf /workdir/.west/
+          west init -l ncs/nrf
+          cd ncs
+          west update --narrow -o=--depth=1
+
+      - name: Build native_posix tests with sanitizers enabled
+        shell: bash
+        run: |
+          source ncs/zephyr/zephyr-env.sh
+          ncs/zephyr/scripts/twister -v -i -T ncs/nrf/ -p native_posix --quarantine-list ncs/nrf/scripts/quarantine_downstream_sanitizers.yaml --extra-args "CONFIG_UBSAN=y" --extra-args="CONFIG_ASAN=y"
