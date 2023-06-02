@@ -1,0 +1,41 @@
+name: Build and run on native_posix
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: nordicplayground/nrfconnect-sdk:main
+    strategy:
+      matrix:
+        # Parrallelize the build by running using twister's subset parameter
+        # The size of this should match the environment variable SUBSET_SIZE below.
+        subset: [1, 2, 3, 4, 5]
+    env:
+      # Size of the subset array above.
+      SUBSET_SIZE: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          path: ncs/nrf
+
+      # The docker image comes pre-initialized with west dependencies. Since the docker image
+      # is built and published every night, it may contain a slightly out dated version of the
+      # the dependent repos. Also we need to care for any possible west dependency update in the
+      # PR. Hence we remove the .west folder and do a re-init.
+      - name: West init and update
+        run: |
+          rm -rf /workdir/.west/
+          west init -l ncs/nrf
+          cd ncs
+          west update --narrow -o=--depth=1
+
+      - name: Build and run on native_posix
+        shell: bash
+        run: |
+          source ncs/zephyr/zephyr-env.sh
+          ncs/zephyr/scripts/twister -p native_posix --subset ${{ matrix.subset }}/${{ env.SUBSET_SIZE }} -v -i -T ncs/nrf/
