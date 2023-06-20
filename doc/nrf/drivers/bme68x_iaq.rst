@@ -1,7 +1,7 @@
 .. _bme68x_iaq:
 
 BME68X IAQ driver
-#############
+#################
 
 .. contents::
    :local:
@@ -13,9 +13,10 @@ You can use the BME68X IAQ driver to run the Bosch Sensor Environmental Cluster 
    Using the BSEC library requires accepting a separate license agreement.
    For details, see `BSEC`_.
 
-After you have read and accepted the terms of BSEC, you can enable and download it using following commands:
+After you have read and accepted the terms of BSEC, you can enable and download it using the following commands:
 
-..code-block::
+.. code-block::
+
    west config manifest.group-filter +bsec
    west update
 
@@ -24,11 +25,13 @@ See `BME680`_ for more information about BME680.
 The :ref:`bme68x` sample demonstrates how to run this driver in an application.
 
 Configuration
-#############
+*************
 
-1. The :ref:`bme680` Zephyr driver has to be disabled, set the :kconfig:option:`CONFIG_BME680` Kconfig option to false.
-#. Configure :kconfig:option:`CONFIG_SETTINGS` and a settings backend to save the persistent state of the BSEC library.
-#. To enable this driver, use the :ref:`CONFIG_BME68X_IAQ <CONFIG_BME68X_IAQ>` Kconfig option.
+To use the driver, configure the following Kconfig option:
+
+* :kconfig:option:`CONFIG_BME680`- Set to false to disable the :ref:`bme680` Zephyr driver.
+* :kconfig:option:`CONFIG_SETTINGS` - Configure the Kconfig option and a settings backend to save the persistent state of the BSEC library.
+* :ref:`CONFIG_BME68X_IAQ <CONFIG_BME68X_IAQ>` - To enable this driver.
 
 API documentation
 *****************

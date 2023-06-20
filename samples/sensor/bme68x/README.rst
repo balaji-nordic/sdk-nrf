@@ -12,8 +12,9 @@ This sample application sets up the BME68X gas sensor with the Bosch Sensor Envi
 Requirements
 ************
 
-To use the BME68X driver, you must manually download the BSEC library.
+To use the BME68X IAQ driver, you must manually download the BSEC library.
 See the :ref:`bme68x_iaq` documentation for more details.
+
 The sample supports the following devices:
 
 .. table-from-sample-yaml::
@@ -47,8 +48,7 @@ After programming the sample to your development kit, test it by performing the 
       [00:00:13.315,124] <inf> app: temp: 28.188013; press: 100040.007812; humidity: 20.015941; iaq: 50
 
 .. note::
-
-    BSEC takes about 24 hours to calibrate the indoor air quality (IAQ) output.
+   BSEC takes about 24 hours to calibrate the indoor air quality (IAQ) output.
 
 References
 **********
