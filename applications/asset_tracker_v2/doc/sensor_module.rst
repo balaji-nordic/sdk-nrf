@@ -104,6 +104,7 @@ Bosch Software Environmental Cluster (BSEC) library
 The sensor module supports integration with the BSEC signal processing library using the external sensors, internal convenience API.
 If enabled, the BSEC library is used instead of the BME680 Zephyr driver to provide sensor readings from the BME680 for temperature, humidity, and atmospheric pressure.
 In addition, the BSEC driver provides an additional sensor reading, indoor air quality (IAQ), which is a metric given in between 0-500 range, which estimates the air quality of the environment.
+In the beginning, the IAQ will show as 50 (good air), but is automatically calibrated over time.
 
 .. note::
    Using the BSEC library requires accepting a separate license agreement.
