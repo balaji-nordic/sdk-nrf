@@ -16,6 +16,6 @@ rsource "sensor_sim/Kconfig"
 rsource "sensor_stub/Kconfig"
 rsource "pmw3360/Kconfig"
 rsource "paw3212/Kconfig"
-rsource "bme68x/Kconfig"
+rsource "bme68x_iaq/Kconfig"
 
 endif # SENSOR
