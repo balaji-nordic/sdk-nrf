@@ -1,0 +1,108 @@
+name: Sonarcloud analysis (Select Platforms only)
+on:
+  push:
+    branches:
+      - main
+  pull_request: # TODO: this should be pull_request_target
+
+jobs:
+  build:
+    name: Sonar cloud analysis on select platforms
+    runs-on: ubuntu-latest
+    container: nordicplayground/nrfconnect-sdk:main
+    env:
+      BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory # Directory where build-wrapper output will be placed
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+        if: github.event_name == 'pull_request_target'
+        with:
+          ref: ${{ github.event.pull_request.head.sha  }} # Checkout the PR's head sha instead of the target branch's sha
+          path: ncs/nrf
+          fetch-depth: 0
+
+      - name: Checkout the code
+        uses: actions/checkout@v2
+        if: github.event_name != 'pull_request_target'
+        with:
+          path: ncs/nrf
+          fetch-depth: 0
+
+      # Install more dependencies that are not part of the docker image but are needed by the workflow
+      - name: Install more deps
+        run: |
+          apt install -y lcov curl
+
+      - name: Install sonar-scanner and build-wrapper
+        uses: sonarsource/sonarcloud-github-c-cpp@v1.3.2
+
+      # The docker image comes pre-initialized with west dependencies. We want to do west update ourselves to to be sure that we get the latest changes in all repos.
+      # The docker image is built nightly. So it may contain slightly out of date repos.
+      # Hence we remove the .west folder and do a re-init
+      - name: West init and update
+        run: |
+          rm -rf /workdir/.west/
+          west init -l ncs/nrf
+          cd ncs
+          west update --narrow -o=--depth=1
+
+      - name: Build on nrf9160dk_nrf9160_ns (via sonarcloud build wrapper)
+        shell: bash
+        run: |
+          source ncs/zephyr/zephyr-env.sh
+          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister --cmake-only -v -i -T ncs/nrf/ --board-root ncs/nrf/boards  -p nrf9160dk_nrf9160_ns
+
+      - name: Build on nrf5340dk_nrf5340_cpuapp (via sonarcloud build wrapper)
+        shell: bash
+        run: |
+          source ncs/zephyr/zephyr-env.sh
+          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister --cmake-only -v -i -T ncs/nrf/ --board-root ncs/nrf/boards -p nrf5340dk_nrf5340_cpuapp
+
+      - name: Build on nrf5340dk_nrf5340_cpunet (via sonarcloud build wrapper)
+        shell: bash
+        run: |
+          source ncs/zephyr/zephyr-env.sh
+          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister --cmake-only -v -i -T ncs/nrf/ --board-root ncs/nrf/boards -p nrf5340dk_nrf5340_cpunet
+
+      - name: Build on nrf7002dk_nrf5340_cpuapp (via sonarcloud build wrapper)
+        shell: bash
+        run: |
+          source ncs/zephyr/zephyr-env.sh
+          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister --cmake-only -v -i -T ncs/nrf/ --board-root ncs/nrf/boards -p nrf7002dk_nrf5340_cpuapp
+
+      - name: Debug
+        shell: bash
+        run: |
+          ls -l ${{ env.BUILD_WRAPPER_OUT_DIR }}
+          cat ${{ env.BUILD_WRAPPER_OUT_DIR }}/build-wrapper-dump.json
+
+      - name: Run sonar-scanner on main
+        if: github.event_name != 'pull_request_target'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          sonar-scanner -X \
+                        --define project.settings=ncs/nrf/sonar-project.properties \
+                        --define sonar.coverageReportPaths=coverage.xml \
+                        --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
+
+      - name: Run sonar-scanner on PR
+        if: github.event_name == 'pull_request_target'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          wget https://raw.githubusercontent.com/balaji-nordic/sdk-nrf/main/sonar-project.properties -P ncs/nrf
+          sonar-scanner -X \
+                        --define project.settings=ncs/nrf/sonar-project.properties \
+                        --define sonar.coverageReportPaths=coverage.xml \
+                        --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}" \
+                        --define sonar.scm.revision=${{ env.HEAD_SHA }} \
+                        --define sonar.pullrequest.key=${{ env.PR_NUMBER }} \
+                        --define sonar.pullrequest.branch=${{ env.PR_BRANCH }} \
+                        --define sonar.pullrequest.base=${{ env.BASE_REF }}
