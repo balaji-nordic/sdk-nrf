@@ -1,7 +1,7 @@
 .. _https_client:
 
-Cellular: HTTPS Client
-######################
+HTTPS Client
+############
 
 .. contents::
    :local:
@@ -33,7 +33,7 @@ Obtaining a certificate
 =======================
 
 The sample connects to ``www.example.com``, which requires an X.509 certificate.
-This certificate is provided in the :file:`samples/cellular/https_client/cert` folder.
+This certificate is provided in the :file:`samples/net/https_client/cert` folder.
 
 To connect to other servers, you might need to provision a different certificate.
 See :ref:`cert_dwload` for more information.
@@ -55,7 +55,7 @@ When using TF-M and Mbed TLS with PSA crypto, all the crypto operations are run 
 Building and running
 ********************
 
-.. |sample path| replace:: :file:`samples/cellular/https_client`
+.. |sample path| replace:: :file:`samples/net/https_client`
 
 .. include:: /includes/build_and_run_ns.txt
 
