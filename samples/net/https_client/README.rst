@@ -9,6 +9,7 @@ HTTPS Client
 
 The HTTPS Client sample demonstrates a minimal implementation of HTTP communication.
 It shows how to set up a TLS session towards an HTTPS server and how to send an HTTP request.
+The sample connects to an LTE network using an nRF91 Series DK or to Wi-Fi using the nRF7002 DK through the connection manager API.
 
 Requirements
 ************
@@ -24,9 +25,9 @@ Overview
 
 The sample first initializes the :ref:`nrfxlib:nrf_modem` and AT communications.
 Next, it provisions a root CA certificate to the modem using the :ref:`modem_key_mgmt` library.
-Provisioning must be done before connecting to the LTE network, because the certificates can only be provisioned when the device is not connected.
+When using an nRF91 Series device, the provisioning must be done before connecting to the LTE network, because the certificates can only be provisioned when the device is not connected.
 
-The sample then establishes a connection to the LTE network, sets up the necessary TLS socket options, and connects to an HTTPS server.
+The sample then establishes a connection to the network, sets up the necessary TLS socket options, and connects to an HTTPS server.
 It sends an HTTP HEAD request and prints the response code in the terminal.
 
 Obtaining a certificate
@@ -78,8 +79,8 @@ Testing
 
 After programming the sample to your development kit, test it by performing the following steps:
 
-1. Connect the USB cable and power on or reset your nRF91 Series DK.
-#. Open a terminal emulator and observe that the sample starts, provisions certificates, connects to the LTE network and to example.com, and then sends an HTTP HEAD request.
+1. Connect the USB cable and power on or reset your DK.
+#. Open a terminal emulator and observe that the sample starts, provisions certificates, connects to the network and to example.com, and then sends an HTTP HEAD request.
 #. Observe that the HTTP HEAD request returns ``HTTP/1.1 200 OK``.
 
 Sample output
@@ -99,7 +100,7 @@ Output for the default configuration (dual stack, IPV4V6) where the carrier does
    Resolved 93.184.216.34 (AF_INET)
    Connecting to example.com:443
    Sent 61 bytes
-   Received 347 bytes
+   Received 370 bytes
 
    >        HTTP/1.1 200 OK
 
@@ -111,16 +112,15 @@ Output for the default configuration, where the carrier does support IPv6:
 .. code-block:: console
 
    HTTPS client sample started
+   Bringing network interface up
    Provisioning certificate
-   Waiting for network.. PDP context 0 activated
-   OK
-   Waiting for IPv6..
-   PDP context 0 IPv6 up
+   Certificate match
+   Connecting to the network
    Looking up example.com
    Resolved 2606:2800:220:1:248:1893:25c8:1946 (AF_INET6)
    Connecting to example.com:443
    Sent 61 bytes
-   Received 347 bytes
+   Received 370 bytes
 
    >        HTTP/1.1 200 OK
 
@@ -132,19 +132,17 @@ Output where you override the default packet data network (PDN) configuration to
 .. code-block:: console
 
    HTTPS client sample started
-   Certificate match
-   Waiting for network.. PDP context 0 activated
-   OK
+   Bringing network interface up
+   Provisioning certificate
    Looking up example.com
    Resolved 93.184.216.34 (AF_INET)
    Connecting to example.com:443
    Sent 61 bytes
-   Received 347 bytes
+   Received 370 bytes
 
    >        HTTP/1.1 200 OK
 
    Finished, closing socket.
-   PDP context 0 deactivated
 
 Dependencies
 ************

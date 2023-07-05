@@ -17,7 +17,6 @@
 #endif
 
 #define HTTPS_PORT		"443"
-
 #define HTTPS_HOSTNAME		"example.com"
 #define HTTP_HEAD		\
 				"HEAD / HTTP/1.1\r\n"	\
@@ -25,7 +24,6 @@
 				"Connection: close\r\n\r\n"
 
 #define HTTP_HEAD_LEN		(sizeof(HTTP_HEAD) - 1)
-
 #define HTTP_HDR_END		"\r\n\r\n"
 
 #define RECV_BUF_SIZE		2048
@@ -33,7 +31,6 @@
 
 /* Macros used to subscribe to specific Zephyr NET management events. */
 #define L4_EVENT_MASK		(NET_EVENT_L4_CONNECTED | NET_EVENT_L4_DISCONNECTED)
-#define IP_EVENT_MASK		(NET_EVENT_IPV4_ADDR_ADD | NET_EVENT_IPV6_ADDR_ADD)
 #define CONN_LAYER_EVENT_MASK	(NET_EVENT_CONN_IF_FATAL_ERROR)
 
 static const char send_buf[] = HTTP_HEAD;
@@ -47,7 +44,6 @@ static const char cert[] = {
 /* Zephyr NET management event callback structures. */
 static struct net_mgmt_event_callback l4_cb;
 static struct net_mgmt_event_callback conn_cb;
-
 
 BUILD_ASSERT(sizeof(cert) < KB(4), "Certificate too large");
 
@@ -157,7 +153,7 @@ int tls_setup(int fd)
 
 static void on_net_event_l4_disconnected(void)
 {
-	printk("Disconnected from network\n");
+	printk("Disconnected from the network\n");
 }
 
 static void on_net_event_l4_connected(void)
@@ -171,11 +167,11 @@ static void l4_event_handler(struct net_mgmt_event_callback *cb,
 {
 	switch (event) {
 	case NET_EVENT_L4_CONNECTED:
-		printk("IP Up\n");
+		printk("Network connectivity established and IP address assigned\n");
 		on_net_event_l4_connected();
 		break;
 	case NET_EVENT_L4_DISCONNECTED:
-		printk("IP down\n");
+		printk("Network connectivity lost\n");
 		on_net_event_l4_disconnected();
 		break;
 	default:
@@ -188,7 +184,7 @@ static void connectivity_event_handler(struct net_mgmt_event_callback *cb,
 				       struct net_if *iface)
 {
 	if (event == NET_EVENT_CONN_IF_FATAL_ERROR) {
-		printk("Fatal error received from the connectivity layer, rebooting\n");
+		printk("Fatal error received from the connectivity layer\n");
 		return;
 	}
 }
@@ -314,7 +310,7 @@ int main(void)
 		return err;
 	}
 
-	/* Provision certificates before connecting to the LTE network */
+	 /* Provision certificates before connecting to the network */
 	err = cert_provision();
 	if (err) {
 		return 0;
@@ -331,6 +327,9 @@ int main(void)
 	k_sem_take(&network_connected_sem, K_FOREVER);
 
 	send_http_request();
+
+	/* A small delay for the TCP connection teardown */
+	k_sleep(K_SECONDS(1));
 
 	/* The HTTP transaction is done, take the network connection down */
 	err = conn_mgr_all_if_disconnect(true);
