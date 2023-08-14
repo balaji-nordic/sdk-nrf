@@ -1,4 +1,4 @@
-name: Sonarcloud analysis (native_posix only)
+name: Sonarcloud analysis (audio application only)
 on:
   push:
     branches:
@@ -52,34 +52,12 @@ jobs:
         run: |
           wget https://raw.githubusercontent.com/balaji-nordic/sdk-nrf/master/scripts/quarantine_downstream.yaml -P ncs/nrf/scripts/
 
-      - name: Build native_posix tests with coverage enabled (via sonarcloud build wrapper)
+      - name: Build audio app  (via sonarcloud build wrapper)
         shell: bash
         run: |
           source ncs/zephyr/zephyr-env.sh
-          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister -b -C -v -i -T ncs/nrf/ -p native_posix --quarantine-list ncs/nrf/scripts/quarantine_downstream.yaml --coverage-tool gcovr
+          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister -b -v -i -T ncs/nrf/applications/nrf5340_audio -p nrf5340_audio_dk_nrf5340_cpuapp
 
-      - name: Run native_posix tests
-        shell: bash
-        run: |
-          source ncs/zephyr/zephyr-env.sh
-          ncs/zephyr/scripts/twister --test-only -v -i -C -T ncs/nrf/ -p native_posix
-
-      # Exclude twister-out because we dont need coverage reports for mocks and generated files.
-      # Exclude tests/unity because it is not interesting
-      # Exclude folders that contain source code with multiple definitions of the same function
-      # depending on preprocessor macros. gcovr misbehaves due to this.
-      # Issue: https://github.com/gcovr/gcovr/issues/586
-      - name: Collect coverage into one XML report
-        shell: bash
-        run: |
-          gcovr twister-out -v \
-            --exclude=twister-out \
-            --exclude=tests/unity \
-            --exclude=ncs/nrf/tests/subsys/dfu/dfu_target_stream/src/main.c \
-            --exclude=ncs/zephyr/subsys/net/ip \
-            --exclude=ncs/nrf/lib/hw_id/hw_id.c \
-            --exclude=ncs/zephyr/subsys/net/lib/sockets/sockets_tls.c \
-            --sonarqube coverage.xml
 
       - name: Run sonar-scanner on main
         if: github.event_name != 'pull_request_target'
