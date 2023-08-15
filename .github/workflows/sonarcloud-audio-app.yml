@@ -25,6 +25,7 @@ jobs:
         run: |
           apt-get update
           apt install -y curl
+          pip install ecdsa
 
       - name: Install sonar-scanner and build-wrapper
         uses: sonarsource/sonarcloud-github-c-cpp@v1.3.2
