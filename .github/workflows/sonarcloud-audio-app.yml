@@ -22,6 +22,7 @@ jobs:
       # Install more dependencies that are not part of the docker image but are needed by the workflow
       - name: Install more deps
         run: |
+          apt-get update
           apt install -y curl
 
       - name: Install sonar-scanner and build-wrapper
