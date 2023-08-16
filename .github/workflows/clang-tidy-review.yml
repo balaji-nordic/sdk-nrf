@@ -14,7 +14,12 @@ jobs:
         uses: actions/checkout@v2
         with:
           path: ncs/nrf
-          fetch-depth: 2
+          fetch-depth: 0
+
+      - name: Debug
+        working-directory: ncs/nrf/
+        run: |
+          git diff -U0  ${{ github.event.pull_request.base.sha }}
 
       - name: Install deps
         run: |
