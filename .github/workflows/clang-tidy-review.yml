@@ -6,7 +6,7 @@ jobs:
   build:
     name: Clang tidy review
     runs-on: ubuntu-latest
-    #container: zephyrprojectrtos/ci:v0.26.4
+    container: zephyrprojectrtos/ci:v0.26.4
     env:
       CMAKE_PREFIX_PATH: /opt/toolchains
     steps:
@@ -15,12 +15,6 @@ jobs:
         with:
           path: ncs/nrf
           fetch-depth: 0
-
-      - name: Debug
-        working-directory: ncs/nrf/
-        run: |
-          git fetch origin ${{ github.event.pull_request.base.sha }}
-          git diff -U0 ${{ github.event.pull_request.base.sha }}
 
       - name: Install deps
         run: |
@@ -50,6 +44,7 @@ jobs:
         working-directory: ncs/nrf/
         run: |
           mkdir clang-tidy-result
+          git fetch origin ${{ github.event.pull_request.base.sha }}
           git diff -U0  ${{ github.event.pull_request.base.sha }} | clang-tidy-diff -p1 -path ../../twister-out/native_posix/applications.asset_tracker_v2.aws -export-fixes clang-tidy-result/fixes.yml
 
       - name: Run clang-tidy-pr-comments action
