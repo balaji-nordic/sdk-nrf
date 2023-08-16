@@ -6,7 +6,7 @@ jobs:
   build:
     name: Clang tidy review
     runs-on: ubuntu-latest
-    container: zephyrprojectrtos/ci:v0.26.4
+    #container: zephyrprojectrtos/ci:v0.26.4
     env:
       CMAKE_PREFIX_PATH: /opt/toolchains
     steps:
@@ -19,7 +19,8 @@ jobs:
       - name: Debug
         working-directory: ncs/nrf/
         run: |
-          git diff -U0  ${{ github.event.pull_request.base.sha }}
+          git fetch origin ${{ github.event.pull_request.base.sha }}
+          git diff -U0 ${{ github.event.pull_request.base.sha }}
 
       - name: Install deps
         run: |
