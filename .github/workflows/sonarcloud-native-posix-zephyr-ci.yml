@@ -1,0 +1,115 @@
+name: Sonarcloud analysis (native_posix only)
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build:
+    name: Sonar cloud analysis
+    runs-on: ubuntu-latest
+    container: zephyrprojectrtos/ci:v0.26.4
+    env:
+      BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory # Directory where build-wrapper output will be placed
+      CMAKE_PREFIX_PATH: /opt/toolchains
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+        if: github.event_name == 'pull_request_target'
+        with:
+          ref: ${{ github.event.pull_request.head.sha  }} # Checkout the PR's head sha instead of the target branch's sha
+          path: ncs/nrf
+          fetch-depth: 0
+
+      - name: Checkout the code
+        uses: actions/checkout@v2
+        if: github.event_name != 'pull_request_target'
+        with:
+          path: ncs/nrf
+          fetch-depth: 0
+
+      # Install more dependencies that are not part of the docker image but are needed by the workflow
+      - name: Install more deps
+        run: |
+          apt-get update
+          apt install -y lcov curl
+
+      - name: Install sonar-scanner and build-wrapper
+        uses: sonarsource/sonarcloud-github-c-cpp@v1.3.2
+
+      # The docker image comes pre-initialized with west dependencies. We want to do west update ourselves to to be sure that we get the latest changes in all repos.
+      # The docker image is built nightly. So it may contain slightly out of date repos.
+      # Hence we remove the .west folder and do a re-init
+      - name: West init and update
+        run: |
+          rm -rf /workdir/.west/
+          west init -l ncs/nrf
+          cd ncs
+          west update --narrow -o=--depth=1
+
+      # Download the quarantine file base branch. This is needed to build and run the tests.
+      - name: Download quarentine file from nrf (PR only)
+        if: github.event_name == 'pull_request_target'
+        run: |
+          wget https://raw.githubusercontent.com/balaji-nordic/sdk-nrf/master/scripts/quarantine_downstream.yaml -P ncs/nrf/scripts/
+
+      - name: Build native_posix tests with coverage enabled (via sonarcloud build wrapper)
+        shell: bash
+        run: |
+          source ncs/zephyr/zephyr-env.sh
+          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} ncs/zephyr/scripts/twister -b -C -v -i -T ncs/nrf/ -p native_posix --quarantine-list ncs/nrf/scripts/quarantine_downstream.yaml --coverage-tool gcovr
+
+      - name: Run native_posix tests
+        shell: bash
+        run: |
+          source ncs/zephyr/zephyr-env.sh
+          ncs/zephyr/scripts/twister --test-only -v -i -C -T ncs/nrf/ -p native_posix
+
+      # Exclude twister-out because we dont need coverage reports for mocks and generated files.
+      # Exclude tests/unity because it is not interesting
+      # Exclude folders that contain source code with multiple definitions of the same function
+      # depending on preprocessor macros. gcovr misbehaves due to this.
+      # Issue: https://github.com/gcovr/gcovr/issues/586
+      - name: Collect coverage into one XML report
+        shell: bash
+        run: |
+          gcovr twister-out -v \
+            --exclude=twister-out \
+            --exclude=tests/unity \
+            --exclude=ncs/nrf/tests/subsys/dfu/dfu_target_stream/src/main.c \
+            --exclude=ncs/zephyr/subsys/net/ip \
+            --exclude=ncs/nrf/lib/hw_id/hw_id.c \
+            --exclude=ncs/zephyr/subsys/net/lib/sockets/sockets_tls.c \
+            --sonarqube coverage.xml
+
+      - name: Run sonar-scanner on main
+        if: github.event_name != 'pull_request_target'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          sonar-scanner -X \
+                        --define project.settings=ncs/nrf/sonar-project.properties \
+                        --define sonar.coverageReportPaths=coverage.xml \
+                        --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
+
+      - name: Run sonar-scanner on PR
+        if: github.event_name == 'pull_request_target'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          wget https://raw.githubusercontent.com/balaji-nordic/sdk-nrf/main/sonar-project.properties -P ncs/nrf
+          sonar-scanner -X \
+                        --define project.settings=ncs/nrf/sonar-project.properties \
+                        --define sonar.coverageReportPaths=coverage.xml \
+                        --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}" \
+                        --define sonar.scm.revision=${{ env.HEAD_SHA }} \
+                        --define sonar.pullrequest.key=${{ env.PR_NUMBER }} \
+                        --define sonar.pullrequest.branch=${{ env.PR_BRANCH }} \
+                        --define sonar.pullrequest.base=${{ env.BASE_REF }}
