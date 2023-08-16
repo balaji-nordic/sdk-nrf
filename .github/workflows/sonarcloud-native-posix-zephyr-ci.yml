@@ -33,7 +33,8 @@ jobs:
       - name: Install more deps
         run: |
           apt-get update
-          apt install -y lcov curl
+          apt install -y lcov curl ruby-full
+          pip3 install zcbor==0.5.1
 
       - name: Install sonar-scanner and build-wrapper
         uses: sonarsource/sonarcloud-github-c-cpp@v1.3.2
