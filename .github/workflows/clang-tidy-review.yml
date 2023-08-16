@@ -34,6 +34,7 @@ jobs:
       - name: Build native_posix tests (via sonarcloud build wrapper)
         shell: bash
         run: |
+          export ZEPHYR_TOOLCHAIN_VARIANT=llvm
           source ncs/zephyr/zephyr-env.sh
           ncs/zephyr/scripts/twister -b -v -i -s applications.asset_tracker_v2.aws -T ncs/nrf/applications/asset_tracker_v2 -p native_posix
 
