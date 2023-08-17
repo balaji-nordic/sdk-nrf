@@ -66,3 +66,5 @@ jobs:
           # to avoid GitHub API timeouts for heavily loaded
           # pull requests
           suggestions_per_comment: 10
+          # Since we run this action inside a docker container, the path must be prefixed with /__w/
+          repo_path_prefix: '/__w/'
