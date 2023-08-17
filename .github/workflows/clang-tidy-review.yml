@@ -67,4 +67,4 @@ jobs:
           # pull requests
           suggestions_per_comment: 10
           # Since we run this action inside a docker container, the path must be prefixed with /__w/
-          repo_path_prefix: '/__w/sdk-nrf/'
+          repo_path_prefix: '/__w/sdk-nrf/sdk-nrf/ncs/nrf/'
