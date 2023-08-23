@@ -21,12 +21,12 @@ jobs:
     #      apt-get update
     #      apt-get install -y jq clang clang-tidy ruby-full
 
-      - name: West init and update
-        working-directory: nrf
-        run: |
-          west init -l .
-          west update --narrow -o=--depth=1
-
+    #  - name: West init and update
+    #    working-directory: nrf
+    #    run: |
+    #      west init -l .
+    #      west update --narrow -o=--depth=1
+#
   #    - name: Build for native_posix
   #      shell: bash
   #      working-directory: nrf
@@ -72,14 +72,19 @@ jobs:
       - name: Checkout the code
         uses: actions/checkout@v2
         with:
-          path: nrf
           fetch-depth: 0
 
       - name: Download artifacts
         uses: actions/download-artifact@v2
         with:
           name: clang-tidy-result
-          path: nrf/clang-tidy-result
+          path: clang-tidy-result
+
+      - name: Debug
+        shell: bash
+        run: |
+          ls clang-tidy-result
+          cat clang-tidy-result/fixes.yml
 
       - name: Run clang-tidy-pr-comments action
         uses: platisd/clang-tidy-pr-comments@master
@@ -87,7 +92,7 @@ jobs:
           # The GitHub token (or a personal access token)
           github_token: ${{ secrets.GITHUB_TOKEN }}
           # The path to the clang-tidy fixes generated previously
-          clang_tidy_fixes: nrf/clang-tidy-result/fixes.yml
+          clang_tidy_fixes: clang-tidy-result/fixes.yml
           # Optionally set the number of comments per review
           # to avoid GitHub API timeouts for heavily loaded
           # pull requests
