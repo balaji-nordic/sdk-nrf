@@ -425,11 +425,11 @@ static void on_state_init(struct app_msg_data *msg)
 	}
 }
 
-static void foobar(uint32_t foo, uint8_t *bar)
+static void foobar2(uint32_t  foo1, uint8_t *bar1)
 {
 	/* Introduce an error that will be caught by clang-tidy.*/
 
-	*bar = (uint8_t) foo;
+	*bar1 = (uint8_t) foo1;
 
 }
 /* Message handler for STATE_RUNNING. */
@@ -454,7 +454,7 @@ static void on_state_running(struct app_msg_data *msg)
 /* Message handler for SUB_STATE_PASSIVE_MODE. */
 void on_sub_state_passive(struct app_msg_data *msg)
 {
-	foobar(0,0);
+	foobar1(0,0);
 	if (IS_EVENT(msg, data, DATA_EVT_CONFIG_READY)) {
 		/* Keep a copy of the new configuration. */
 		app_cfg = msg->module.data.data.cfg;
