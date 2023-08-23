@@ -55,16 +55,9 @@ jobs:
           ls clang-tidy-result
           cat clang-tidy-result/fixes.yml
 
-      - name: Run clang-tidy-pr-comments action
-        uses: platisd/clang-tidy-pr-comments@master
+      - name: Process clang-tidy warnings
+        uses: asarium/clang-tidy-action@v1
         with:
-          # The GitHub token (or a personal access token)
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          # The path to the clang-tidy fixes generated previously
-          clang_tidy_fixes: ncs/nrf/clang-tidy-result/fixes.yml
-          # Optionally set the number of comments per review
-          # to avoid GitHub API timeouts for heavily loaded
-          # pull requests
-          suggestions_per_comment: 10
-          # Since we run this action inside a docker container, the path must be prefixed with /__w/
-          repo_path_prefix: '/__w/sdk-nrf/sdk-nrf/ncs/nrf/'
+          fixesFile: clang-tidy-result/fixes.yml
+
+
