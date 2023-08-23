@@ -1,0 +1,127 @@
+Diagnostics:
+- BuildDirectory: /__w/sdk-nrf/sdk-nrf/nrf/twister-out/native_posix/applications.asset_tracker_v2.aws
+  DiagnosticMessage:
+    FileOffset: 12447
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Dereference of null pointer (loaded from variable 'bar')
+    Replacements: []
+  DiagnosticName: clang-analyzer-core.NullDereference
+  Level: Warning
+  Notes:
+  - FileOffset: 15541
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Assuming the condition is false
+    Ranges:
+    - FileOffset: 15541
+      FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+      Length: 24
+    Replacements: []
+  - FileOffset: 15537
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Taking false branch
+    Replacements: []
+  - FileOffset: 15901
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: '''event'' is non-null'
+    Ranges:
+    - FileOffset: 0
+      FilePath: ''
+      Length: 0
+    Replacements: []
+  - FileOffset: 1149
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/modules/./modules_common.h
+    Message: expanded from macro 'SEND_EVENT'
+    Ranges:
+    - FileOffset: 1149
+      FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/modules/./modules_common.h
+      Length: 5
+    Replacements: []
+  - FileOffset: 3307
+    FilePath: /__w/sdk-nrf/sdk-nrf/zephyr/include/zephyr/sys/__assert.h
+    Message: expanded from macro '__ASSERT'
+    Ranges:
+    - FileOffset: 3307
+      FilePath: /__w/sdk-nrf/sdk-nrf/zephyr/include/zephyr/sys/__assert.h
+      Length: 4
+    Replacements: []
+  - FileOffset: 15901
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Taking false branch
+    Replacements: []
+  - FileOffset: 1140
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/modules/./modules_common.h
+    Message: expanded from macro 'SEND_EVENT'
+    Replacements: []
+  - FileOffset: 3301
+    FilePath: /__w/sdk-nrf/sdk-nrf/zephyr/include/zephyr/sys/__assert.h
+    Message: expanded from macro '__ASSERT'
+    Replacements: []
+  - FileOffset: 15901
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Loop condition is false.  Exiting loop
+    Replacements: []
+  - FileOffset: 1140
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/modules/./modules_common.h
+    Message: expanded from macro 'SEND_EVENT'
+    Replacements: []
+  - FileOffset: 3231
+    FilePath: /__w/sdk-nrf/sdk-nrf/zephyr/include/zephyr/sys/__assert.h
+    Message: expanded from macro '__ASSERT'
+    Replacements: []
+  - FileOffset: 16064
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Assuming 'err' is 0
+    Ranges:
+    - FileOffset: 16064
+      FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+      Length: 3
+    Replacements: []
+  - FileOffset: 16060
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Taking false branch
+    Replacements: []
+  - FileOffset: 16168
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Loop condition is true.  Entering loop body
+    Replacements: []
+  - FileOffset: 16222
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Control jumps to 'case STATE_RUNNING:'  at line 588
+    Replacements: []
+  - FileOffset: 16317
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Control jumps to 'case SUB_STATE_PASSIVE_MODE:'  at line 593
+    Replacements: []
+  - FileOffset: 16448
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Calling 'on_sub_state_passive'
+    Ranges:
+    - FileOffset: 16448
+      FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+      Length: 26
+    Replacements: []
+  - FileOffset: 13083
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Passing null pointer value via 2nd parameter 'bar'
+    Ranges:
+    - FileOffset: 13083
+      FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+      Length: 1
+    Replacements: []
+  - FileOffset: 13074
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Calling 'foobar'
+    Ranges:
+    - FileOffset: 13074
+      FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+      Length: 11
+    Replacements: []
+  - FileOffset: 12447
+    FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+    Message: Dereference of null pointer (loaded from variable 'bar')
+    Ranges:
+    - FileOffset: 12443
+      FilePath: /__w/sdk-nrf/sdk-nrf/nrf/applications/asset_tracker_v2/src/main.c
+      Length: 3
+    Replacements: []
+MainSourceFile: ''

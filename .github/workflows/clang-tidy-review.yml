@@ -6,7 +6,7 @@ jobs:
   build:
     name: Clang tidy review
     runs-on: ubuntu-latest
-    container: zephyrprojectrtos/ci:v0.26.4
+    container: zephyrprojectrtos/ci-base:v0.26.4
     env:
       CMAKE_PREFIX_PATH: /opt/toolchains
     steps:
@@ -27,24 +27,24 @@ jobs:
           west init -l .
           west update --narrow -o=--depth=1
 
-      - name: Build for native_posix
-        shell: bash
-        working-directory: nrf
-        continue-on-error: true # The llvm build fails with a non-zero exit code due to link stage error. But we still want to run clang-tidy. The clang-tidy will catch compile errors anyway. The point here is to get the compile_commands.json file generated with clang as the compiler.
-        run: |
-          export ZEPHYR_TOOLCHAIN_VARIANT=llvm
-          source ../zephyr/zephyr-env.sh
-          ../zephyr/scripts/twister -b -v -i -s applications.asset_tracker_v2.aws -T applications/asset_tracker_v2 -p native_posix
+  #    - name: Build for native_posix
+  #      shell: bash
+  #      working-directory: nrf
+  #      continue-on-error: true # The llvm build fails with a non-zero exit code due to link stage error. But we still want to run clang-tidy. The clang-tidy will catch compile errors anyway. The point here is to get the compile_commands.json file generated with clang as the compiler.
+  #      run: |
+  #        export ZEPHYR_TOOLCHAIN_VARIANT=llvm
+  #        source ../zephyr/zephyr-env.sh
+  #        ../zephyr/scripts/twister -b -v -i -s applications.asset_tracker_v2.aws -T applications/asset_tracker_v2 -p native_posix
 
-      - name: Analyze
-        shell: bash
-        working-directory: nrf
-        run: |
-          mkdir clang-tidy-result
-          git fetch origin ${{ github.event.pull_request.base.sha }}
-          git diff -U0  ${{ github.event.pull_request.base.sha }} | clang-tidy-diff -p1 -path twister-out/native_posix/applications.asset_tracker_v2.aws -export-fixes clang-tidy-result/fixes.yml
-          cat clang-tidy-result/fixes.yml
-
+   #   - name: Analyze
+   #     shell: bash
+   #     working-directory: nrf
+   #     run: |
+   #       mkdir clang-tidy-result
+   #       git fetch origin ${{ github.event.pull_request.base.sha }}
+   #       git diff -U0  ${{ github.event.pull_request.base.sha }} | clang-tidy-diff -p1 -path twister-out/native_posix/applications.asset_tracker_v2.aws -export-fixes clang-tidy-result/fixes.yml
+   #       cat clang-tidy-result/fixes.yml
+#
       - name: Debug
         shell: bash
         working-directory: nrf
@@ -64,4 +64,4 @@ jobs:
           # pull requests
           suggestions_per_comment: 10
           # Since we run this action inside a docker container, the path must be prefixed with /__w/
-          repository_path: /__w/nrf/
+          repo_path_prefix: nrf/
