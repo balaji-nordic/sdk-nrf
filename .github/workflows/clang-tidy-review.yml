@@ -16,10 +16,10 @@ jobs:
           path: nrf
           fetch-depth: 0
 
-      - name: Install deps
-        run: |
-          apt-get update
-          apt-get install -y jq clang clang-tidy ruby-full
+    #  - name: Install deps
+    #    run: |
+    #      apt-get update
+    #      apt-get install -y jq clang clang-tidy ruby-full
 
       - name: West init and update
         working-directory: nrf
@@ -52,6 +52,35 @@ jobs:
           ls clang-tidy-result
           cat clang-tidy-result/fixes.yml
 
+      - name: Replace docker paths
+        shell: bash
+        working-directory: nrf
+        run: |
+          sed -i "s/\/__w\/sdk-nrf\/sdk-nrf\/nrf\///g" clang-tidy-result/fixes.yml
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: clang-tidy-result
+          path: nrf/clang-tidy-result
+
+  publish-review:
+    name: Publish clang tidy review
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+        with:
+          path: nrf
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: clang-tidy-result
+          path: nrf/clang-tidy-result
+
       - name: Run clang-tidy-pr-comments action
         uses: platisd/clang-tidy-pr-comments@master
         with:
@@ -63,5 +92,4 @@ jobs:
           # to avoid GitHub API timeouts for heavily loaded
           # pull requests
           suggestions_per_comment: 10
-          # Since we run this action inside a docker container, the path must be prefixed with /__w/
-          repo_path_prefix: nrf/
+
