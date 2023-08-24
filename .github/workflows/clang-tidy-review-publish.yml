@@ -1,0 +1,36 @@
+name: Clang-tidy publish
+on:
+  workflow_run:
+    workflows: ["Clang-tidy review"]
+    types:
+      - completed
+
+jobs:
+  publish-review:
+    name: Publish clang tidy review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Download artifact from clang-tidy review workflow
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: clang-tidy-review.yml
+          workflow_conclusion: success
+          run_id: ${{ github.event.workflow_run.id }}
+          name: clang-tidy-result
+
+      - name: Run clang-tidy-pr-comments action
+        uses: platisd/clang-tidy-pr-comments@master
+        with:
+          # The GitHub token (or a personal access token)
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # The path to the clang-tidy fixes generated previously
+          clang_tidy_fixes: clang-tidy-result/fixes.yml
+          # Set the number of comments per review to avoid GitHub API timeouts for heavily loaded
+          # pull requests
+          suggestions_per_comment: 10
+
