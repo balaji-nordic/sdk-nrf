@@ -1,0 +1,4 @@
+Checks: '*'
+HeaderFilterRegex: '.*'
+ExtraArgs:
+  - -std=c99
