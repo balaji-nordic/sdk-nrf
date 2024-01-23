@@ -35,9 +35,23 @@ When the connection is established, it starts collecting data from two sensors:
 The sample aggregates the data from both sensors in memory.
 You can then trigger an alarm that sends the aggregated data over LTE to `nRF Cloud`_ by flipping the Thingy:52, which causes a change in the flip state to ``UPSIDE_DOWN``.
 
-This sample is also supported on the Thingy:91.
+Working with Thingy:91
+======================
+This sample is also supported on the Thingy:91
 However, it must be programmed using a debugger and a 10-pin SWD cable.
 Serial communication and firmware updates over serial using MCUboot are not supported in this configuration.
+
+Working with Thingy:91x v0.9.x
+==============================
+This sample is also supported on the Thingy:91x v0.9.x.
+However, it must be programmed using a debugger and a 10-pin SWD cable.
+
+The overlay file for the `thingy91x_nrf9151_ns` target included in this sample, re-purpose the VCOM1 pins of the nRF9161 for HCI communication over Low Power UART to the nRF5340 SoC.
+The overlay file for the `thingy91x_nrf5340_cpuapp` included in :ref:`bluetooth-hci-lpuart-sample`, re-purpose the VCOM1 pins of the nRF5340 for HCI communication over Low Power UART to the nRF9161 SiP.
+
+This means that the serial communication and firmware updates over serial using MCUboot are not supported in this configuration.
+RTT can be used as an alternative to serial port to view logs, if need be.
+
 
 Configuration
 *************
@@ -85,8 +99,8 @@ Building and running
 
 .. include:: /includes/build_and_run_ns.txt
 
-Programming the sample
-======================
+Programming the sample on nRF9160DK
+===================================
 
 When you connect the nRF9160 development kit to your computer, three virtual serial ports of the USB CDC class should become available:
 
@@ -134,8 +148,46 @@ Program the main controller as follows:
    To do so, use a terminal emulator, like PuTTY, to connect to the first serial port and check the output.
    See :ref:`putty` for the required settings.
 
+Programming the sample on Thingy 91X v0.9.x
+===========================================
+
+First you will need to replace the segger firmware on the nRF5340 SoC with the :ref:`bluetooth-hci-lpuart-sample`
+sample. This will enable the main MCU (nRF9161) to act as BLE host. The UART1 peripheral of the
+nRF9161 will be used for sending HCI commands to the nRF5340 chip thereby enabling BLE.
+
+
+#. Set the **SWD** switch to the **NRF52** position.
+#. Build the :ref:`bluetooth-hci-lpuart-sample` sample for the thingy91x_nrf5340_cpuapp build target and program it using `west flash --recover` command.
+#. Verify that the programming was successful.
+   To do so, use a Segger RTT Viewer desktop application and see that the application is booting up.
+
+   .. note::
+      The 5340 chip on the thingy91x comes pre-programmed with segger firmware. The above operation
+      erases the segger firmware. This means that the on-board debugging functionality is removed
+      by this operation. To be able to restore to factory settings, you will need to flash the
+      segger firmware again to the 5340.
+
+Now must program the main controller (nRF9161) with the LTE Sensor Gateway sample.
+Program the main controller as follows:
+
+#. Set the **SWD** switch in the **NRF91** position.
+#. Build the LTE Sensor Gateway sample (this sample) for the `thingy91_nrf9151_ns`` build target and program the main controller with it.
+#. Verify that the programming was successful.
+   To do so, use a Segger RTT Viewer desktop application and connect to main controller using JLink.
+
+
+.. note::
+   Note that you can program any application that needs to be a BLE host to the nRF9161 chip. You will
+   only need to copy the :file:`samples/cellular/lte_ble_gateway/boards/thingy91_nrf9160_ns.overlay`
+   and  :file:`samples/cellular/lte_ble_gateway/boards/thingy91_nrf9160_ns.conf` files into your
+   application's board folder and re-build your application for `thingy91x_nrf9151_ns` board.
+
 Testing
 =======
+
+.. note::
+   The Thingy 91x do not come pre-provisioned with nrfCloud certificates. They need to be
+   provisioned manually.
 
 After programming the main controller with the sample, test it by performing the following steps:
 
@@ -144,7 +196,7 @@ After programming the main controller with the sample, test it by performing the
    Follow the instructions to set up your account and to add an LTE device.
    See :ref:`creating_cloud_account` for more information.
 #. Power on or reset the DK.
-#. Observe in the terminal window connected to the first serial port that the DK starts up.
+#. Observe in the terminal window connected to the first serial port (or Segger RTT Viewer if using Thingy 91X) that the DK/Thingy 91x starts up.
    This is indicated by an output similar to the following line:
 
    .. code-block:: console
@@ -152,12 +204,12 @@ After programming the main controller with the sample, test it by performing the
       ***** Booting Zephyr OS build v3.0.99-ncs1-9-g8ffc2ab25eaa *****
 
 #. Observe that the message ``LTE Sensor Gateway sample started`` is shown in the terminal window, to ensure that the application has started.
-#. The nRF9160 DK now connects to the network. This might take several minutes.
-#. Observe that **LED 3** starts blinking as the connection to nRF Cloud is established.
+#. The LTE sensor Gateway sample now connects to the network. This might take several minutes.
+#. In case of nRF9160DK, observe that **LED 3** starts blinking as the connection to nRF Cloud is established.
 #. The first time you start the sample the device will be paired to your account.
-#. Observe that **LED 4** is turned on to indicate that the connection to nRF Cloud is established.
+#. In case of nRF9160DK, observe that **LED 4** is turned on to indicate that the connection to nRF Cloud is established.
 #. In the nRF Cloud portal, select :guilabel:`Device Management` in the left pane and select :guilabel:`Devices`.
-#. Observe that the device is shown as connected in the Devices screen.
+#  Observe that the device is shown as connected in the Devices screen.
 #. Set **Switch 2** in the position marked as **N.C.**.
    If a GNSS position fix is acquired, GNSS data is now added to the sensor data.
 #. Make sure that the Thingy:52 has established a connection to the application.
