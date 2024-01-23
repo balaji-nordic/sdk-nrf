@@ -10,3 +10,5 @@ if(CONFIG_BOARD_THINGY91X_NRF9151 OR CONFIG_BOARD_THINGY91X_NRF9151_NS)
 	# because it is used in other CMake files.
 	set(PM_STATIC_YML_FILE ${CMAKE_CURRENT_LIST_DIR}/thingy91x_pm_static.yml CACHE INTERNAL "")
 endif()
+
+zephyr_library_sources(nrf5340_reset.c)
