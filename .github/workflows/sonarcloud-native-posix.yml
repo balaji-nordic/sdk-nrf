@@ -36,6 +36,12 @@ jobs:
           apt install -y lcov curl ruby-full
           pip3 install zcbor
 
+      # Install newer java version for sonarscanner to work.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Install sonar-scanner and build-wrapper
         uses: sonarsource/sonarcloud-github-c-cpp@v1.3.2
 
