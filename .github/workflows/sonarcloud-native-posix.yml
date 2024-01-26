@@ -91,7 +91,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           sonar-scanner -X \
-                        --define project.settings=ncs/nrf/sonar-project.properties \
+                        --define project.settings=ncs/nrf/sonar-project-nativeposix.properties \
                         --define sonar.coverageReportPaths=coverage.xml \
                         --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}"
 
@@ -107,7 +107,7 @@ jobs:
         run: |
           wget https://raw.githubusercontent.com/balaji-nordic/sdk-nrf/main/sonar-project.properties -P ncs/nrf
           sonar-scanner -X \
-                        --define project.settings=ncs/nrf/sonar-project-oncommit.properties \
+                        --define project.settings=ncs/nrf/sonar-project-nativeposix.properties \
                         --define sonar.coverageReportPaths=coverage.xml \
                         --define sonar.cfamily.build-wrapper-output="${{ env.BUILD_WRAPPER_OUT_DIR }}" \
                         --define sonar.scm.revision=${{ env.HEAD_SHA }} \
