@@ -60,10 +60,7 @@ jobs:
       - name: Combine compilation database.
         shell: bash
         run: |
-          jq -s . `find . -name compile_commands.json` > combined_compile_commands_unflattened.json
-          cat combined_compile_commands_unflattened.json
-          jq -c '.[] | .[]' combined_compile_commands_unflattened.json | jq -s '.' > combined_compile_commands.json
-          cat combined_compile_commands.json
+          jq -s 'map(.[])' `find . -name compile_commands.json` > combined_compile_commands.json
 
       - name: Run sonar-scanner
         env:
