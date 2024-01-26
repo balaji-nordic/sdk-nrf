@@ -9,6 +9,9 @@ jobs:
   build:
     name: Sonar cloud analysis
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     container: zephyrprojectrtos/ci:v0.26.4
     env:
       BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory # Directory where build-wrapper output will be placed

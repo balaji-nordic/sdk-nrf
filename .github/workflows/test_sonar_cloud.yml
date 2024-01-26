@@ -1,0 +1,58 @@
+name: Sonarcloud analysis scratch
+on:
+  pull_request:
+  workflow_dispatch:  # This is added to be able to trigger this manually from github's web UI.
+
+jobs:
+  build:
+    name: Sonar cloud analysis Scratch
+    runs-on: ubuntu-latest
+    container: zephyrprojectrtos/ci:v0.26.4
+    env:
+      BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory # Directory where build-wrapper output will be placed
+      CMAKE_PREFIX_PATH: /opt/toolchains
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v2
+        with:
+          path: ncs/nrf
+          fetch-depth: 0
+
+      # Install more dependencies that are not part of the docker image but are needed by the workflow
+      - name: Install more deps
+        run: |
+          apt-get update
+          apt install -y curl ruby-full jq
+
+      - name: Install sonar-scanner and build-wrapper
+        uses: sonarsource/sonarcloud-github-c-cpp@v2.0.2
+
+      # The docker image comes pre-initialized with west dependencies. We want to do west update ourselves to to be sure that we get the latest changes in all repos.
+      # The docker image is built nightly. So it may contain slightly out of date repos.
+      # Hence we remove the .west folder and do a re-init
+      - name: West init and update
+        run: |
+          rm -rf /workdir/.west/
+          west init -l ncs/nrf
+          cd ncs
+          west update --narrow -o=--depth=1
+
+      - name: Invoke build wrapper with twister command to build with integrations scope
+        shell: bash
+        run: |
+          source ncs/zephyr/zephyr-env.sh
+          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} west twister --ninja --integration --quarantine-list ncs/nrf/scripts/quarantine.yaml --clobber-output --cmake-only -v -i -T ncs/nrf/applications/asset_tracker_v2/tests/debug_module/
+
+      - name: Combine compilation database
+        shell: bash
+        run: |
+          jq -s . `find . -name compile_commands.json` > combined_compile_commands.json
+          pwd
+          ls
+
+      - name: Run sonar-scanner
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          sonar-scanner -X --define project.settings=ncs/nrf/sonar-project.properties
