@@ -9,7 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     container: zephyrprojectrtos/ci:v0.26.4
     env:
-      BUILD_WRAPPER_OUT_DIR: build_wrapper_output_directory # Directory where build-wrapper output will be placed
       CMAKE_PREFIX_PATH: /opt/toolchains
     steps:
       - name: Checkout the code
@@ -37,11 +36,11 @@ jobs:
           cd ncs
           west update --narrow -o=--depth=1
 
-      - name: Invoke build wrapper with twister command to build with integrations scope
+      - name: Invoke twister
         shell: bash
         run: |
           source ncs/zephyr/zephyr-env.sh
-          build-wrapper-linux-x86-64 --out-dir ${{ env.BUILD_WRAPPER_OUT_DIR }} west twister --ninja --integration --quarantine-list ncs/nrf/scripts/quarantine.yaml --clobber-output --cmake-only -v -i -T ncs/nrf/applications/asset_tracker_v2/tests/debug_module/
+          west twister --ninja --integration --quarantine-list ncs/nrf/scripts/quarantine.yaml --clobber-output --cmake-only -v -i -T ncs/nrf/applications/asset_tracker_v2/tests/debug_module/
 
       - name: Combine compilation database
         shell: bash
