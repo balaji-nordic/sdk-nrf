@@ -6,7 +6,7 @@ jobs:
   build:
     name: Clang tidy review
     runs-on: ubuntu-latest
-    container: zephyrprojectrtos/ci-base:v0.26.4
+    container: zephyrprojectrtos/ci-base:v0.26.6
     env:
       CMAKE_PREFIX_PATH: /opt/toolchains
     steps:
@@ -46,6 +46,7 @@ jobs:
         working-directory: nrf
         run: |
           mkdir clang-tidy-result
+          touch clang-tidy-result/fixes.yml
           git fetch origin ${{ github.event.pull_request.base.sha }}
           git diff -U0  ${{ github.event.pull_request.base.sha }} | clang-tidy-diff -p1 -path . -export-fixes clang-tidy-result/fixes.yml
 
@@ -78,11 +79,21 @@ jobs:
     name: Publish clang tidy review
     runs-on: ubuntu-latest
     needs: build
+    container: zephyrprojectrtos/ci-base:v0.26.6
+    env:
+      CMAKE_PREFIX_PATH: /opt/toolchains
     steps:
       - name: Checkout the code
         uses: actions/checkout@v2
         with:
+          path: nrf
           fetch-depth: 0
+
+      - name: West init and update
+        working-directory: nrf
+        run: |
+          west init -l .
+          west update --narrow -o=--depth=1
 
       - name: Download artifacts
         uses: actions/download-artifact@v2
@@ -97,7 +108,7 @@ jobs:
           cat clang-tidy-result/fixes.yml
 
       - name: Run clang-tidy-pr-comments action
-        uses: platisd/clang-tidy-pr-comments@master
+        uses: platisd/clang-tidy-pr-comments@v1.4.3
         with:
           # The GitHub token (or a personal access token)
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -107,4 +118,3 @@ jobs:
           # to avoid GitHub API timeouts for heavily loaded
           # pull requests
           suggestions_per_comment: 10
-
