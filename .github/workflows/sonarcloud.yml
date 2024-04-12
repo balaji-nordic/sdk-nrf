@@ -10,7 +10,7 @@ jobs:
   build:
     name: Sonar cloud analysis
     runs-on: self-hosted
-    container: zephyrprojectrtos/ci:v0.26.4
+    container: zephyrprojectrtos/ci:v0.26.11
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
