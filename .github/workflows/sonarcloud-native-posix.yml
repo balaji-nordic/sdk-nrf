@@ -76,6 +76,7 @@ jobs:
         shell: bash
         run: |
           gcovr twister-out -v \
+            --merge-mode-functions=separate \
             --exclude=twister-out \
             --exclude=tests/unity \
             --exclude=ncs/nrf/tests/subsys/dfu/dfu_target_stream/src/main.c \
