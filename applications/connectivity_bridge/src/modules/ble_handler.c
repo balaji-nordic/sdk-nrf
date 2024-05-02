@@ -7,6 +7,8 @@
 #include <zephyr/kernel.h>
 #include <zephyr/types.h>
 #include <zephyr/sys/ring_buffer.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/devicetree.h>
 
 #include <zephyr/bluetooth/bluetooth.h>
 #include <zephyr/bluetooth/uuid.h>
@@ -282,6 +284,17 @@ static void bt_ready(int err)
 	}
 }
 
+static void short_range_rf_front_end_enable(void)
+{
+
+	/* Set Pin 0.18 to active */
+	const struct device *gpio_dev = DEVICE_DT_GET(DT_NODELABEL(gpio0));
+
+	gpio_pin_configure(gpio_dev, 18, (GPIO_ACTIVE_LOW | GPIO_OPEN_DRAIN | GPIO_PULL_UP));
+	gpio_pin_set(gpio_dev, 18, 1);
+}
+
+
 static bool app_event_handler(const struct app_event_header *aeh)
 {
 	if (is_uart_data_event(aeh)) {
@@ -335,6 +348,7 @@ static bool app_event_handler(const struct app_event_header *aeh)
 		switch (event->cmd) {
 		case BLE_CTRL_ENABLE:
 			if (!atomic_set(&active, true)) {
+				short_range_rf_front_end_enable();
 				adv_start();
 			}
 			break;
