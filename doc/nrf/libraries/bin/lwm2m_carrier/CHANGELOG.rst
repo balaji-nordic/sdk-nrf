@@ -12,12 +12,89 @@ All notable changes to this project are documented in this file.
 Certification status
 ====================
 
-For certification status of the released versions, see `Mobile network operator certifications`_.
+For certification status of the released versions, see the `nRF9161 Mobile network operator certifications`_ or `nRF9160 Mobile network operator certifications`_, depending on the SiP you are using.
+
+liblwm2m_carrier 3.5.1
+**********************
+
+Release for modem firmware version 1.3.6 and 2.0.1.
+
+Size
+====
+
+See :ref:`lwm2m_lib_size` for an explanation of the library size in different scenarios.
+
++-------------------------+---------------+------------+
+|                         | Flash (Bytes) | RAM (Bytes)|
++-------------------------+---------------+------------+
+| Library size            | 79247         | 19691      |
+| (binary)                |               |            |
++-------------------------+---------------+------------+
+| Library size            | 99624         | 34288      |
+| (reference application) |               |            |
++-------------------------+---------------+------------+
+
+Changes
+=======
+
+* Minor fixes and improvements.
+
+liblwm2m_carrier 3.5.0
+**********************
+
+Release for modem firmware version 1.3.6 and 2.0.1.
+
+Changes
+=======
+
+* Added the new event :c:macro:`LWM2M_CARRIER_EVENT_ERROR_CODE_RESET`.
+
+  * This event allows the application to re-evaluate any error codes and issue them again.
+    The errors can be updated using the function API :c:func:`lwm2m_carrier_error_code_add` and :c:func:`lwm2m_carrier_error_code_remove`.
+
+* Added the :kconfig:option:`CONFIG_LWM2M_CARRIER_SOFTBANK_DIVIDED_FOTA` which allows the carrier to handle the proprietary SoftBank FOTA images.
+
+  * The glue layer now handles the image type :c:macro:`LWM2M_OS_DFU_IMG_TYPE_APPLICATION_FILE`, which allows an update to be split into several files.
+
+* Added a callback for the modem functional mode changes (``AT+CFUN``).
+  For more information see :ref:`mlil_callbacks`.
+
+  * This allows the LwM2M carrier library to resume AT notification subscriptions after the application powers off the modem.
+
+* Changed the ``server_binding`` parameter to use :c:macro:`LWM2M_CARRIER_SERVER_BINDING_UDP` or :c:macro:`LWM2M_CARRIER_SERVER_BINDING_NONIP` (instead of ``U`` or ``N``).
+* Changed the LwM2M carrier library Kconfig menu to clarify some the option dependencies.
+
+* Added new events related to the Binary App Data Container object:
+
+  * :c:macro:`LWM2M_CARRIER_APP_DATA_EVENT_OBSERVE_START`, :c:macro:`LWM2M_CARRIER_APP_DATA_EVENT_OBSERVE_STOP`.
+    This enables a use case in which the device wants to start and stop intensive operations (for example sampling a sensor), based on if the data is required by the server or not.
+
+  * :c:macro:`LWM2M_CARRIER_APP_DATA_EVENT_DATA_WRITE`. This allows the device to use incoming data written to the data resource by the server.
+
+* Added the new request types to the :c:func:`lwm2m_carrier_request` to allow the application to register and deregister manually. (:c:macro:`LWM2M_CARRIER_REQUEST_REGISTER`, :c:macro:`LWM2M_CARRIER_REQUEST_DEREGISTER`).
+  This functionality is only needed in the SoftBank network.
+
+* Added more error codes to :c:func:`lwm2m_carrier_request` in case the request fails to be made or is already in progress  (``EPERM``, ``EBADR``, ``EALREADY``).
+
+* Added the Kconfig option :kconfig:option:`CONFIG_LWM2M_CARRIER_AUTO_REGISTER` to stop the LwM2M carrier library from registering with the LwM2M server automatically. (added :c:macro:`disable_auto_register` to :c:macro:`lwm2m_carrier_config_t`).
+
+  * This option is meant to be used for SoftBank, but can also be toggled when operating in Generic mode (connecting to a custom URI instead of the predetermined carrier servers).
+  * The application must manually trigger the operation of disabling auto_register using the new :c:func:`lwm2m_carrier_request` API.
+    This also applies to situations where the client has been deregistered by the server, for example if network coverage is lost.
+
+* Added a new error code :c:macro:`LWM2M_CARRIER_ERROR_CONNECT` to clarify when the LwM2M carrier library has exhausted the attempts to connect to the device management server.
+  New attempts at connecting will only be made after restarting the application, for example by rebooting the device.
+
+* Added support for the Mute Send resource in the Server object.
+
+  * Added a new error ``ECANCELED`` to the function :c:func:`lwm2m_carrier_data_send`, in case send is muted by the server.
+
+* Added a dependency on :ref:`modem_key_mgmt` (:kconfig:option:`CONFIG_MODEM_KEY_MGMT`) for the LwM2M carrier library shell.
 
 liblwm2m_carrier 3.4.0
 **********************
 
-Release for modem firmware version 1.3.5, 1.3.6, 2.0.0, and 2.0.1.
+Release for modem firmware version 1.3.6 and 2.0.1.
 
 Size
 ====
@@ -52,13 +129,21 @@ Changes
 * Added a timeout to abort Push FOTA operations using the :kconfig:option:`CONFIG_LWM2M_CARRIER_FIRMWARE_DOWNLOAD_TIMEOUT` Kconfig option.
   By default (0), the timer is disabled for unknown subscriber IDs, and set to 30 minutes for the SoftBank subscriber ID.
 
-* Removed the Kconfig option ``LWM2M_CARRIER_THREAD_STACK_SIZE``, and the corresponding thread from the glue layer.
-
 * Added the function :c:func:`lwm2m_carrier_data_send`.
   This function can be used to send Binary App Data Container and Event Log object data.
 
   * Renamed the old ``lwm2m_carrier_app_data_send`` function to :c:func:`lwm2m_carrier_app_data_set` to avoid confusion with the new :c:func:`lwm2m_carrier_data_send` function.
     The name now also matches the similar function :c:func:`lwm2m_carrier_log_data_set`.
+
+* The :kconfig:option:`CONFIG_LWM2M_CARRIER_SERVER_SEC_TAG` Kconfig option can now be used to provide a PSK Identity.
+  If a PSK Identity is stored in the configured security tag, the LwM2M carrier library makes use of it alongside the PSK.
+  This behavior does not apply when the device is in the Verizon network, in which case the PSK Identity is overwritten.
+
+* The FOTA implementation was reworked to use the :ref:`lib_dfu_target` library to manage the DFU process, providing a single interface to support different types of firmware upgrades.
+  Consequently, the LwM2M carrier library can now perform generic application FOTA.
+
+* Removed the firmware update type member ``type`` from the :c:struct:`lwm2m_carrier_event_fota_start_t` structure.
+  The image type is now determined when the LwM2M carrier library calls the glue layer function :c:func:`lwm2m_os_dfu_img_type`.
 
 liblwm2m_carrier 3.3.3
 **********************
@@ -78,7 +163,7 @@ Release for modem firmware version 1.3.5 and 2.0.0.
 Changes
 =======
 
-* Fixed an issue where failed modem firmware updates would not be reported correctly to the user application and the LwM2M server.
+* Fixed an issue where failed modem firmware updates would not be reported correctly to the user application and the LwM2M Server.
 
 
 liblwm2m_carrier 3.3.1
@@ -310,7 +395,7 @@ Changes
 
   * This optional value can be left empty to use the default binding (UDP).
   * Added the new Kconfig :kconfig:option:`CONFIG_LWM2M_SERVER_BINDING_CHOICE`.
-  * The binding can be either ``U`` (UDP) or ``N`` (Non-IP).
+  * The binding can be either ``U`` (UDP) or ``N`` (non-IP).
 
 * Added the function :c:func:`lwm2m_carrier_request`.
 
@@ -497,7 +582,7 @@ Changes
 * Library can now be provided a non-bootstrap custom URI. Previously, only bootstrap custom URI was accepted.
 
   * New Kconfig :kconfig:option:`CONFIG_LWM2M_CARRIER_IS_SERVER_BOOTSTRAP` indicates if the custom URI is a Bootstrap-Server.
-  * New Kconfig :kconfig:option:`CONFIG_LWM2M_CARRIER_SERVER_LIFETIME` sets the lifetime for the (non-bootstrap) LwM2M server.
+  * New Kconfig :kconfig:option:`CONFIG_LWM2M_CARRIER_SERVER_LIFETIME` sets the lifetime for the (non-bootstrap) LwM2M Server.
 * Library will now read bootstrap information from Smartcard when applicable.
 
   * New Kconfig :kconfig:option:`CONFIG_LWM2M_CARRIER_BOOTSTRAP_SMARTCARD` can be used to disable this feature.
@@ -548,7 +633,7 @@ Changes
   * Application is now expected to store CA certificates into the modem security tags.
   * Added a new event :c:macro:`LWM2M_CARRIER_EVENT_CERTS_INIT` that instructs the application to provide the CA certificate security tags to the LwM2M carrier library.
 * Renamed the event :c:macro:`LWM2M_CARRIER_BSDLIB_INIT` to :c:macro:`LWM2M_CARRIER_EVENT_MODEM_INIT`.
-* Added a new deferred event reason :c:macro:`LWM2M_CARRIER_DEFERRED_SERVICE_UNAVAILABLE`, which indicates that the LwM2M server is unavailable due to maintenance.
+* Added a new deferred event reason :c:macro:`LWM2M_CARRIER_DEFERRED_SERVICE_UNAVAILABLE`, which indicates that the LwM2M Server is unavailable due to maintenance.
 * Added a new error code :c:macro:`LWM2M_CARRIER_ERROR_CONFIGURATION` which indicates that an illegal object configuration was detected.
 * Added new Kconfig options :kconfig:option:`CONFIG_LWM2M_CARRIER_USE_CUSTOM_APN` and :kconfig:option:`CONFIG_LWM2M_CARRIER_CUSTOM_APN` to set the ``apn`` member of :c:type:`lwm2m_carrier_config_t`.
 * It is now possible to configure a custom bootstrap URI using :kconfig:option:`CONFIG_LWM2M_CARRIER_USE_CUSTOM_BOOTSTRAP_URI` regardless of operator SIM.

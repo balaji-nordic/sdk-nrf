@@ -179,7 +179,7 @@ static int wpa_supp_supported_channels(struct wpa_supplicant *wpa_s, uint8_t ban
 	}
 
 	size = ((mode->num_channels) * CHAN_NUM_LEN) + 1;
-	_chan_list = k_malloc(size);
+	_chan_list = os_malloc(size);
 	if (!_chan_list) {
 		wpa_printf(MSG_ERROR, "Mem alloc failed for channel list\n");
 		return -ENOMEM;
@@ -237,10 +237,15 @@ static inline int chan_to_freq(int chan)
 	 * op_class for 5GHz channels as there is no user input
 	 * for these (yet).
 	 */
-	int freq  = ieee80211_chan_to_freq(NULL, 81, chan);
+	int freq = -1;
+	int op_classes[] = {81, 82, 128};
+	int op_classes_size = ARRAY_SIZE(op_classes);
 
-	if (freq <= 0) {
-		freq  = ieee80211_chan_to_freq(NULL, 128, chan);
+	for (int i = 0; i < op_classes_size; i++) {
+		freq = ieee80211_chan_to_freq(NULL, op_classes[i], chan);
+		if (freq > 0) {
+			break;
+		}
 	}
 
 	if (freq <= 0) {
@@ -289,6 +294,7 @@ static int wpas_add_and_config_network(struct wpa_supplicant *wpa_s,
 	int ret;
 	struct add_network_resp resp = {0};
 	char *chan_list = NULL;
+	struct net_eth_addr mac = {0};
 
 	_wpa_cli_cmd_v("remove_network all");
 	ret = z_wpa_ctrl_add_network(&resp);
@@ -314,8 +320,8 @@ static int wpas_add_and_config_network(struct wpa_supplicant *wpa_s,
 		}
 
 		if (chan_list) {
-			_wpa_cli_cmd_v("set_network %d freq_list%s", resp.network_id, chan_list);
-			k_free(chan_list);
+			_wpa_cli_cmd_v("set_network %d scan_freq%s", resp.network_id, chan_list);
+			os_free(chan_list);
 		}
 	}
 
@@ -359,6 +365,17 @@ static int wpas_add_and_config_network(struct wpa_supplicant *wpa_s,
 				_wpa_cli_cmd_v("set_network %d proto WPA",
 					resp.network_id);
 			}
+		} else if (params->security == WIFI_SECURITY_TYPE_WPA_AUTO_PERSONAL) {
+			if (params->sae_password) {
+				_wpa_cli_cmd_v("set_network %d sae_password \"%s\"",
+						resp.network_id, params->sae_password);
+			}
+			_wpa_cli_cmd_v("set_network %d psk \"%s\"",
+					resp.network_id, params->psk);
+			_wpa_cli_cmd_v("set_network %d key_mgmt WPA-PSK WPA-PSK-SHA256 SAE",
+					resp.network_id);
+			_wpa_cli_cmd_v("set_network %d proto WPA RSN",
+						resp.network_id);
 		} else {
 			ret = -1;
 			wpa_printf(MSG_ERROR, "Unsupported security type: %d",
@@ -398,6 +415,31 @@ static int wpas_add_and_config_network(struct wpa_supplicant *wpa_s,
 		}
 	}
 
+	memcpy((void *)&mac, params->bssid, WIFI_MAC_ADDR_LEN);
+	if (net_eth_is_addr_broadcast(&mac) ||
+	    net_eth_is_addr_multicast(&mac)) {
+		wpa_printf(MSG_ERROR, "Invalid BSSID. Configuration "
+			   "of multicast or broadcast MAC is not allowed.");
+		ret =  -EINVAL;
+		goto rem_net;
+	}
+
+	if (!net_eth_is_addr_unspecified(&mac)) {
+		char bssid_str[MAC_STR_LEN] = {0};
+
+		snprintf(bssid_str, MAC_STR_LEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+			params->bssid[0], params->bssid[1], params->bssid[2],
+			params->bssid[3], params->bssid[4], params->bssid[5]);
+		_wpa_cli_cmd_v("set_network %d bssid %s",
+				resp.network_id, bssid_str);
+	}
+
+	/* Set the default maximum inactivity time for the BSS to
+	 * as configured by user.
+	 */
+	_wpa_cli_cmd_v("set_network %d ap_max_inactivity %d",
+			resp.network_id, CONFIG_WIFI_MGMT_AP_STA_INACTIVITY_TIMEOUT);
+
 	/* enable and select network */
 	_wpa_cli_cmd_v("enable_network %d", resp.network_id);
 	_wpa_cli_cmd_v("select_network %d", resp.network_id);
@@ -431,7 +473,7 @@ static int wpas_disconnect_network(const struct device *dev, int cur_mode)
 
 	k_mutex_lock(&wpa_supplicant_mutex, K_FOREVER);
 
-	if (!wpa_s->current_ssid || wpa_s->current_ssid->mode != cur_mode) {
+	if (wpa_s->current_ssid && wpa_s->current_ssid->mode != cur_mode) {
 		ret = -EBUSY;
 		wpa_printf(MSG_ERROR, "Interface %s is not in %s mode", dev->name,
 			   cur_mode == WPAS_MODE_INFRA ? "STA" : "AP");
@@ -778,6 +820,19 @@ int z_wpa_supplicant_channel(const struct device *dev,
 	return wifi_mgmt_api->channel(dev, channel);
 }
 
+int z_wpa_supplicant_set_rts_threshold(const struct device *dev,
+				       unsigned int rts_threshold)
+{
+	const struct wifi_mgmt_ops *const wifi_mgmt_api = get_wifi_mgmt_api(dev);
+
+	if (!wifi_mgmt_api || !wifi_mgmt_api->set_rts_threshold) {
+		wpa_printf(MSG_ERROR, "Set RTS not supported");
+		return -ENOTSUP;
+	}
+
+	return wifi_mgmt_api->set_rts_threshold(dev, rts_threshold);
+}
+
 #ifdef CONFIG_AP
 int z_wpa_supplicant_ap_enable(const struct device *dev,
 			       struct wifi_connect_req_params *params)
@@ -809,6 +864,8 @@ int z_wpa_supplicant_ap_enable(const struct device *dev,
 
 	/* No need to check for existing network to join for SoftAP*/
 	wpa_s->conf->ap_scan = 2;
+	/* Set BSS parameter max_num_sta to default configured value */
+	wpa_s->conf->max_num_sta = CONFIG_WIFI_MGMT_AP_MAX_NUM_STA;
 
 	ret = wpas_add_and_config_network(wpa_s, params, true);
 	if (ret) {
@@ -879,4 +936,56 @@ out:
 	k_mutex_unlock(&wpa_supplicant_mutex);
 	return ret;
 }
+
+int z_wpa_supplicant_ap_config_params(const struct device *dev,
+				      struct wifi_ap_config_params *params)
+{
+	struct wpa_supplicant *wpa_s;
+	int ret = -1;
+	struct wpa_ssid *ssid = NULL;
+
+	k_mutex_lock(&wpa_supplicant_mutex, K_FOREVER);
+
+	if (!params) {
+		wpa_printf(MSG_ERROR, "AP config param NULL");
+		goto out;
+	}
+
+	wpa_s = get_wpa_s_handle(dev);
+	if (!wpa_s) {
+		wpa_printf(MSG_ERROR, "Interface %s not found", dev->name);
+		goto out;
+	}
+
+	ssid = wpa_s->current_ssid;
+	if (!ssid) {
+		wpa_printf(MSG_ERROR, "AP is not operational");
+		goto out;
+	}
+
+	if (params->type & WIFI_AP_CONFIG_PARAM_MAX_INACTIVITY) {
+		_wpa_cli_cmd_v("set_network %d ap_max_inactivity %d",
+			       ssid->id, params->max_inactivity);
+	}
+
+	if (params->type & WIFI_AP_CONFIG_PARAM_MAX_NUM_STA) {
+		/* Build time value has higher precedence than runtime configuration value.
+		 * Check if build time value is exceeded.
+		 */
+		if (params->max_num_sta > CONFIG_WIFI_MGMT_AP_MAX_NUM_STA) {
+			ret = -EINVAL;
+			wpa_printf(MSG_ERROR, "Invalid max_num_sta: %d",
+				   params->max_num_sta);
+			goto out;
+		} else {
+			_wpa_cli_cmd_v("set max_num_sta %d", params->max_num_sta);
+			ret = 0;
+		}
+	}
+out:
+	k_mutex_unlock(&wpa_supplicant_mutex);
+
+	return ret;
+}
+
 #endif /* CONFIG_AP */

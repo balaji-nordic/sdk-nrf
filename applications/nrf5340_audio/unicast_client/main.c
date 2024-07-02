@@ -8,7 +8,8 @@
 
 #include <zephyr/zbus/zbus.h>
 
-#include "nrf5340_audio_common.h"
+#include "unicast_client.h"
+#include "zbus_common.h"
 #include "nrf5340_audio_dk.h"
 #include "led.h"
 #include "button_assignments.h"
@@ -17,10 +18,10 @@
 #include "button_handler.h"
 #include "bt_le_audio_tx.h"
 #include "bt_mgmt.h"
-#include "bt_rend.h"
+#include "bt_rendering_and_capture.h"
 #include "bt_content_ctrl.h"
-#include "unicast_client.h"
 #include "le_audio_rx.h"
+#include "fw_info_app.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
@@ -118,9 +119,8 @@ static void button_msg_sub_thread(void)
 
 		switch (msg.button_pin) {
 		case BUTTON_PLAY_PAUSE:
-			if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL)) {
-				LOG_WRN("Play/pause not supported in walkie-talkie and "
-					"bidirectional mode");
+			if (IS_ENABLED(CONFIG_WALKIE_TALKIE_DEMO)) {
+				LOG_WRN("Play/pause not supported in walkie-talkie mode");
 				break;
 			}
 
@@ -143,7 +143,7 @@ static void button_msg_sub_thread(void)
 			break;
 
 		case BUTTON_VOLUME_UP:
-			ret = bt_rend_volume_up();
+			ret = bt_r_and_c_volume_up();
 			if (ret) {
 				LOG_WRN("Failed to increase volume: %d", ret);
 			}
@@ -151,7 +151,7 @@ static void button_msg_sub_thread(void)
 			break;
 
 		case BUTTON_VOLUME_DOWN:
-			ret = bt_rend_volume_down();
+			ret = bt_r_and_c_volume_down();
 			if (ret) {
 				LOG_WRN("Failed to decrease volume: %d", ret);
 			}
@@ -182,7 +182,7 @@ static void button_msg_sub_thread(void)
 
 		case BUTTON_5:
 			if (IS_ENABLED(CONFIG_AUDIO_MUTE)) {
-				ret = bt_rend_volume_mute(false);
+				ret = bt_r_and_c_volume_mute(false);
 				if (ret) {
 					LOG_WRN("Failed to mute, ret: %d", ret);
 				}
@@ -269,6 +269,34 @@ static void le_audio_msg_sub_thread(void)
 			break;
 
 		case LE_AUDIO_EVT_CONFIG_RECEIVED:
+			struct bt_conn_info conn_info;
+			uint16_t interval = 0;
+
+			ret = bt_conn_get_info(msg.conn, &conn_info);
+			if (ret) {
+				LOG_ERR("Failed to get conn info");
+			} else {
+				interval = conn_info.le.interval;
+			}
+
+			/* Only update conn param once */
+			if (((IS_ENABLED(CONFIG_BT_AUDIO_TX) && msg.dir == BT_AUDIO_DIR_SINK) ||
+			     (!IS_ENABLED(CONFIG_BT_AUDIO_TX) && msg.dir == BT_AUDIO_DIR_SOURCE)) &&
+			    interval != CONFIG_BLE_ACL_CONN_INTERVAL_SLOW) {
+				struct bt_le_conn_param param;
+
+				/* Set the ACL interval up to allow more time for ISO packets */
+				param.interval_min = CONFIG_BLE_ACL_CONN_INTERVAL_SLOW;
+				param.interval_max = CONFIG_BLE_ACL_CONN_INTERVAL_SLOW;
+				param.latency = CONFIG_BLE_ACL_SLAVE_LATENCY;
+				param.timeout = CONFIG_BLE_ACL_SUP_TIMEOUT;
+
+				ret = bt_conn_le_param_update(msg.conn, &param);
+				if (ret) {
+					LOG_WRN("Failed to update conn parameters: %d", ret);
+				}
+			}
+
 			LOG_DBG("LE audio config received");
 
 			ret = unicast_client_config_get(msg.conn, msg.dir, &bitrate_bps,
@@ -289,6 +317,37 @@ static void le_audio_msg_sub_thread(void)
 				ret = audio_system_config_set(VALUE_NOT_SET, VALUE_NOT_SET,
 							      sampling_rate_hz);
 				ERR_CHK(ret);
+			}
+
+			break;
+
+		case LE_AUDIO_EVT_COORD_SET_DISCOVERED:
+			uint8_t num_conn = 0;
+			uint8_t num_filled = 0;
+
+			bt_mgmt_num_conn_get(&num_conn);
+
+			if (msg.set_size > 0) {
+				/* Check how many active connections we have for the given set */
+				LOG_DBG("Setting SIRK");
+				bt_mgmt_scan_sirk_set(msg.sirk);
+				bt_mgmt_set_size_filled_get(&num_filled);
+
+				LOG_INF("Set members found: %d of %d", num_filled, msg.set_size);
+
+				if (num_filled == msg.set_size) {
+					/* All devices in set found, clear SIRK before scanning */
+					bt_mgmt_scan_sirk_set(NULL);
+				}
+			}
+
+			if (num_conn < CONFIG_BT_MAX_CONN) {
+				/* Room for more connections, start scanning again */
+				ret = bt_mgmt_scan_start(0, 0, BT_MGMT_SCAN_TYPE_CONN, NULL,
+							 BRDCAST_ID_NOT_USED);
+				if (ret) {
+					LOG_ERR("Failed to resume scanning: %d", ret);
+				}
 			}
 
 			break;
@@ -314,18 +373,22 @@ static void bt_mgmt_evt_handler(const struct zbus_channel *chan)
 {
 	int ret;
 	const struct bt_mgmt_msg *msg;
+	uint8_t num_conn = 0;
 
 	msg = zbus_chan_const_msg(chan);
+	bt_mgmt_num_conn_get(&num_conn);
 
 	switch (msg->event) {
 	case BT_MGMT_CONNECTED:
-		LOG_INF("Device connected");
+		/* NOTE: The string below is used by the Nordic CI system */
+		LOG_INF("Connection event. Num connections: %u", num_conn);
+
 		break;
 
 	case BT_MGMT_SECURITY_CHANGED:
 		LOG_INF("Security changed");
 
-		ret = bt_rend_discover(msg->conn);
+		ret = bt_r_and_c_discover(msg->conn);
 		if (ret) {
 			LOG_WRN("Failed to discover rendering services");
 		}
@@ -343,7 +406,8 @@ static void bt_mgmt_evt_handler(const struct zbus_channel *chan)
 		break;
 
 	case BT_MGMT_DISCONNECTED:
-		LOG_INF("Device disconnected");
+		/* NOTE: The string below is used by the Nordic CI system */
+		LOG_INF("Disconnection event. Num connections: %u", num_conn);
 
 		unicast_client_conn_disconnected(msg->conn);
 		break;
@@ -472,12 +536,18 @@ int main(void)
 {
 	int ret;
 
-	LOG_DBG("nRF5340 APP core started");
+	LOG_DBG("Main started");
 
 	ret = nrf5340_audio_dk_init();
 	ERR_CHK(ret);
 
-	ret = nrf5340_audio_common_init();
+	ret = fw_info_app_print();
+	ERR_CHK(ret);
+
+	ret = bt_mgmt_init();
+	ERR_CHK(ret);
+
+	ret = audio_system_init();
 	ERR_CHK(ret);
 
 	ret = zbus_subscribers_create();
@@ -489,7 +559,7 @@ int main(void)
 	ret = le_audio_rx_init();
 	ERR_CHK(ret);
 
-	ret = bt_rend_init();
+	ret = bt_r_and_c_init();
 	ERR_CHK(ret);
 
 	ret = bt_content_ctrl_init();

@@ -477,7 +477,7 @@ DTLS client
 
 The DTLS client requires connection-based UDP to trigger the DTLS establishment.
 
-Before completing this test, you must update the Pre-shared Key (PSK) and the PSK identity to be used for the TLS connection in the modem.
+Before completing this test, you must update the pre-shared key (PSK) and the PSK identity to be used for the TLS connection in the modem.
 The credentials must use the security tag 16842756.
 
 To store the credentials in the modem, enter the following AT commands:
@@ -1503,10 +1503,10 @@ Complete the following steps to test the functionality provided by the :ref:`SLM
 TWI AT commands
 ***************
 
-Complete the following steps to test the functionality provided by the i2c sensors on the Thingy:91 using the two-wire interface (TWI):
+Complete the following steps to test the functionality provided by the i2c sensors on the Thingy:91 or Thingy:91 X using the two-wire interface (TWI):
 
 1. Test the TWI list command using ``AT#XTWILS``.
-   As Thingy:91 connects to the sensors via i2c2, it shows that TWI2 is available:
+   As the device connects to the sensors through i2c2, it shows that TWI2 is available:
 
    ::
 

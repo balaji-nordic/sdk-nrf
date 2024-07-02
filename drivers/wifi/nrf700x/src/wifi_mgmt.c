@@ -732,7 +732,7 @@ out:
 	k_mutex_unlock(&vif_ctx_zep->vif_lock);
 }
 
-#ifdef CONFIG_NRF700X_SYSTEM_MODE
+#ifdef CONFIG_NRF700X_SYSTEM_WITH_RAW_MODES
 int nrf_wifi_mode(const struct device *dev,
 		  struct wifi_mode_info *mode)
 {
@@ -782,6 +782,12 @@ int nrf_wifi_mode(const struct device *dev,
 			goto out;
 		}
 
+		if (vif_ctx_zep->authorized && (mode->mode == NRF_WIFI_MONITOR_MODE)) {
+			LOG_ERR("%s: Cannot set monitor mode when station is connected",
+				__func__);
+			goto out;
+		}
+
 		/**
 		 * Send the driver vif_idx instead of upper layer sent if_index.
 		 * we map network if_index 1 to vif_idx of 0 and so on. The vif_ctx_zep
@@ -817,7 +823,7 @@ out:
 	k_mutex_unlock(&vif_ctx_zep->vif_lock);
 	return ret;
 }
-#endif /* CONFIG_NRF700X_SYSTEM_MODE */
+#endif /* CONFIG_NRF700X_SYSTEM_WITH_RAW_MODES */
 
 #if defined(CONFIG_NRF700X_RAW_DATA_TX) || defined(CONFIG_NRF700X_RAW_DATA_RX)
 int nrf_wifi_channel(const struct device *dev,
@@ -915,11 +921,17 @@ int nrf_wifi_filter(const struct device *dev,
 		/**
 		 * In case a user sets data + management + ctrl bits
 		 * or all the filter bits. Map it to bit 0 set to
-		 * enable "all" packet filter bit setting
+		 * enable "all" packet filter bit setting.
+		 * In case only filter packet size is configured and filter
+		 * setting is sent as zero, set the filter value to
+		 * previously configured value.
 		 */
 		if (filter->filter == WIFI_MGMT_DATA_CTRL_FILTER_SETTING
 		    || filter->filter == WIFI_ALL_FILTER_SETTING) {
 			filter->filter = 1;
+		} else if (filter->filter == 0) {
+			filter->filter =
+				def_dev_ctx->vif_ctx[vif_ctx_zep->vif_idx]->packet_filter;
 		}
 
 		/**
@@ -942,3 +954,68 @@ out:
 	return ret;
 }
 #endif /* CONFIG_NRF700X_RAW_DATA_RX || CONFIG_NRF700X_PROMISC_DATA_RX */
+
+int nrf_wifi_set_rts_threshold(const struct device *dev,
+			       unsigned int rts_threshold)
+{
+	enum nrf_wifi_status status = NRF_WIFI_STATUS_FAIL;
+	struct nrf_wifi_ctx_zep *rpu_ctx_zep = NULL;
+	struct nrf_wifi_vif_ctx_zep *vif_ctx_zep = NULL;
+	struct nrf_wifi_umac_set_wiphy_info wiphy_info;
+	int ret = -1;
+
+	if (!dev) {
+		LOG_ERR("%s: dev is NULL", __func__);
+		return ret;
+	}
+
+	vif_ctx_zep = dev->data;
+
+	if (!vif_ctx_zep) {
+		LOG_ERR("%s: vif_ctx_zep is NULL", __func__);
+		return ret;
+	}
+
+	rpu_ctx_zep = vif_ctx_zep->rpu_ctx_zep;
+
+	if (!rpu_ctx_zep) {
+		LOG_ERR("%s: rpu_ctx_zep is NULL", __func__);
+		return ret;
+	}
+
+
+	if (!rpu_ctx_zep->rpu_ctx) {
+		LOG_ERR("%s: RPU context not initialized", __func__);
+		return ret;
+	}
+
+	if ((int)rts_threshold < -1) {
+		/* 0 or any positive value is passed to f/w.
+		 * For RTS off, -1 is passed to f/w.
+		 * All other negative values considered as invalid.
+		 */
+		LOG_ERR("%s: Invalid threshold value : %d", __func__, (int)rts_threshold);
+		return ret;
+	}
+
+	memset(&wiphy_info, 0, sizeof(struct nrf_wifi_umac_set_wiphy_info));
+
+	wiphy_info.rts_threshold = (int)rts_threshold;
+
+	k_mutex_lock(&vif_ctx_zep->vif_lock, K_FOREVER);
+
+	status = nrf_wifi_fmac_set_wiphy_params(rpu_ctx_zep->rpu_ctx,
+						vif_ctx_zep->vif_idx,
+						&wiphy_info);
+
+	if (status != NRF_WIFI_STATUS_SUCCESS) {
+		LOG_ERR("%s: Configuring rts threshold failed\n", __func__);
+		goto out;
+	}
+
+	ret = 0;
+out:
+	k_mutex_unlock(&vif_ctx_zep->vif_lock);
+
+	return ret;
+}

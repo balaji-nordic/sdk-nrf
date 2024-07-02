@@ -33,6 +33,9 @@ cmock_handle(${ZEPHYR_BASE}/include/zephyr/net/net_if.h
 	     FUNC_EXCLUDE ".*net_if_register_timestamp_cb"
 	     FUNC_EXCLUDE ".*net_if_call_timestamp_cb"
 	     FUNC_EXCLUDE ".*net_if_add_tx_timestamp"
+	     FUNC_EXCLUDE ".*net_if_ipv4_get_netmask"
+	     FUNC_EXCLUDE ".*net_if_ipv4_set_netmask"
+	     WORD_EXCLUDE ".*deprecated.*"
 	     WORD_EXCLUDE ".*struct net_pkt.*")
 cmock_handle(${ZEPHYR_BASE}/include/zephyr/net/net_mgmt.h
 	     FUNC_EXCLUDE ".*net_mgmt_event_notify"
@@ -40,7 +43,9 @@ cmock_handle(${ZEPHYR_BASE}/include/zephyr/net/net_mgmt.h
 	     FUNC_EXCLUDE ".*net_mgmt_event_wait_on_iface"
 	     WORD_EXCLUDE ".*struct net_if.*")
 cmock_handle(${ZEPHYR_BASE}/include/zephyr/net/wifi_mgmt.h
-	     FUNC_EXCLUDE "NET_MGMT_DEFINE_REQUEST_HANDLER")
+	     FUNC_EXCLUDE "NET_MGMT_DEFINE_REQUEST_HANDLER"
+	     FUNC_EXCLUDE "BUILD_ASSERT"
+	     FUNC_EXCLUDE "offsetof")
 cmock_handle(${ZEPHYR_BASE}/include/zephyr/device.h
 	     FUNC_EXCLUDE ".*DEVICE_DT_NAME_GET"
 	     WORD_EXCLUDE ".*device_visitor_callback_t.*")

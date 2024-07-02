@@ -33,6 +33,8 @@ LOG_MODULE_REGISTER(nrf_cloud_coap, CONFIG_NRF_CLOUD_COAP_LOG_LEVEL);
 #define COAP_GND_FIX_RSC "loc/ground-fix"
 #define COAP_FOTA_GET_RSC "fota/exec/current"
 #define COAP_SHDW_RSC "state"
+#define COAP_SHDW_REP_RSC "state/reported"
+#define COAP_SHDW_DES_RSC "state/desired"
 #define COAP_D2C_RSC "msg/d2c"
 #define COAP_D2C_BULK_RSC "msg/d/%s/d2c/bulk"
 #define COAP_D2C_RSC_MAX_LEN MAX(sizeof(COAP_D2C_RSC), sizeof(COAP_D2C_BULK_RSC))
@@ -422,7 +424,9 @@ static void get_location_callback(int16_t result_code,
 		struct nrf_cloud_location_result *result = user;
 
 		loc_err = 0;
-		result->type = LOCATION_TYPE__INVALID;
+		if (result) {
+			result->type = LOCATION_TYPE__INVALID;
+		}
 	}
 }
 
@@ -438,16 +442,12 @@ int nrf_cloud_coap_location_get(struct nrf_cloud_rest_location_request const *co
 	static uint8_t buffer[LOCATION_GET_CBOR_MAX_SIZE];
 	size_t len = sizeof(buffer);
 	int err;
-	const struct nrf_cloud_location_config *conf = IS_ENABLED(CONFIG_NRF_CLOUD_COAP_GF_CONF) ?
-						       request->config : NULL;
+	const struct nrf_cloud_location_config *conf = request->config;
 	size_t url_size = nrf_cloud_ground_fix_url_encode(NULL, 0, COAP_GND_FIX_RSC, conf);
 
 	__ASSERT_NO_MSG(url_size > 0);
 	char url[url_size + 1];
 
-	if (!IS_ENABLED(CONFIG_NRF_CLOUD_COAP_GF_CONF) && (request->config != NULL)) {
-		LOG_WRN("Use of location configuration parameters not enabled; ignored.");
-	}
 	(void)nrf_cloud_ground_fix_url_encode(url, url_size, COAP_GND_FIX_RSC, conf);
 
 	err = coap_codec_ground_fix_req_encode(request->cell_info,
@@ -583,6 +583,7 @@ static void get_shadow_callback(int16_t result_code,
 				size_t offset, const uint8_t *payload, size_t len,
 				bool last_block, void *user)
 {
+	__ASSERT_NO_MSG(user != NULL);
 	struct get_shadow_data *data = (struct get_shadow_data *)user;
 
 	if (result_code != COAP_RESPONSE_CODE_CONTENT) {
@@ -602,23 +603,31 @@ static void get_shadow_callback(int16_t result_code,
 			memcpy(data->buf, payload, cpy_len);
 		}
 		data->buf[cpy_len] = '\0';
+		data->buf_len = cpy_len;
 	}
 }
 
-int nrf_cloud_coap_shadow_get(char *buf, size_t buf_len, bool delta)
+int nrf_cloud_coap_shadow_get(char *buf, size_t *buf_len, bool delta,
+			      enum coap_content_format format)
 {
 	__ASSERT_NO_MSG(buf != NULL);
-	__ASSERT_NO_MSG(buf_len != 0);
+	__ASSERT_NO_MSG(*buf_len != 0);
 	if (!nrf_cloud_coap_is_connected()) {
 		return -EACCES;
 	}
 
+	if ((format != COAP_CONTENT_FORMAT_APP_JSON) &&
+	    (format != COAP_CONTENT_FORMAT_APP_CBOR) &&
+	    (format != COAP_CONTENT_FORMAT_APP_OCTET_STREAM)) {
+		return -EINVAL;
+	}
+
 	get_shadow_data.buf = buf;
-	get_shadow_data.buf_len = buf_len;
+	get_shadow_data.buf_len = *buf_len;
 	int err;
 
 	err = nrf_cloud_coap_get(COAP_SHDW_RSC, delta ? NULL : "delta=false", NULL, 0,
-				  0, COAP_CONTENT_FORMAT_APP_JSON, true, get_shadow_callback,
+				  0, format, true, get_shadow_callback,
 				  &get_shadow_data);
 	if (err) {
 		LOG_ERR("Failed to send get request: %d", err);
@@ -626,10 +635,12 @@ int nrf_cloud_coap_shadow_get(char *buf, size_t buf_len, bool delta)
 		LOG_RESULT_CODE_ERR("Unexpected result code:", shadow_err);
 		err = shadow_err;
 	}
+
+	*buf_len = get_shadow_data.buf_len;
 	return err;
 }
 
-int nrf_cloud_coap_shadow_state_update(const char * const shadow_json)
+static int shadow_update(const char * const resource, const char * const shadow_json)
 {
 	int err;
 
@@ -638,7 +649,7 @@ int nrf_cloud_coap_shadow_state_update(const char * const shadow_json)
 		return -EACCES;
 	}
 
-	err = nrf_cloud_coap_patch(COAP_SHDW_RSC, NULL, (uint8_t *)shadow_json,
+	err = nrf_cloud_coap_patch(resource, NULL, (uint8_t *)shadow_json,
 				   strlen(shadow_json),
 				   COAP_CONTENT_FORMAT_APP_JSON, true, NULL, NULL);
 	if (err < 0) {
@@ -647,6 +658,16 @@ int nrf_cloud_coap_shadow_state_update(const char * const shadow_json)
 		LOG_RESULT_CODE_ERR("Error from server:", err);
 	}
 	return err;
+}
+
+int nrf_cloud_coap_shadow_state_update(const char * const shadow_json)
+{
+	return shadow_update(COAP_SHDW_REP_RSC, shadow_json);
+}
+
+int nrf_cloud_coap_shadow_desired_update(const char * const shadow_json)
+{
+	return shadow_update(COAP_SHDW_DES_RSC, shadow_json);
 }
 
 int nrf_cloud_coap_shadow_device_status_update(const struct nrf_cloud_device_status
@@ -736,22 +757,28 @@ int nrf_cloud_coap_shadow_delta_process(const struct nrf_cloud_data *in_data,
 	err = nrf_cloud_shadow_control_process(&shadow_data, &out_data);
 	if ((err == -ENODATA) || (err == -ENOMSG)) {
 		/* No control data in the delta or no reply is needed */
-	} else if (err) {
-		LOG_ERR("Failed to process device control shadow update, error: %d", err);
-	} else {
-		LOG_DBG("Ack delta: len:%zd, %s", out_data.len, (const char *)out_data.ptr);
+	} else if ((err == -EINVAL) || (err == 0)) {
+		const char *action = err ? "reject" : "acknowledge";
 
-		/* Acknowledge it so we do not receive it again. */
-		err = nrf_cloud_coap_shadow_state_update(out_data.ptr);
-		if (err) {
-			LOG_ERR("Failed to acknowledge control delta: %d", err);
+		LOG_DBG("delta: len:%zd, %s", out_data.len, (const char *)out_data.ptr);
+
+		/* Acknowledge it or reject it so we do not receive it again. */
+		if (!err) {
+			err = nrf_cloud_coap_shadow_state_update(out_data.ptr);
 		} else {
-			LOG_DBG("Control delta acknowledged");
+			err = nrf_cloud_coap_shadow_desired_update(out_data.ptr);
+		}
+		if (err) {
+			LOG_ERR("Failed to %s control delta: %d", action, err);
+		} else {
+			LOG_DBG("Control delta: %s", action);
 		}
 
 		nrf_cloud_free((void *)out_data.ptr);
 		out_data.ptr = NULL;
 		out_data.len = 0;
+	} else {
+		LOG_ERR("Failed to process device control shadow update, error: %d", err);
 	}
 
 	/* Check if there is delta data to give to the caller */
@@ -762,7 +789,8 @@ int nrf_cloud_coap_shadow_delta_process(const struct nrf_cloud_data *in_data,
 		err = 1;
 	} else {
 		nrf_cloud_obj_free(&shadow_delta.state);
+		err = 0;
 	}
 
-	return 0;
+	return err;
 }

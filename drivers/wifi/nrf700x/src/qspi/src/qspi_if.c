@@ -19,6 +19,7 @@
 #include <zephyr/drivers/pinctrl.h>
 
 #include <soc.h>
+#include <nrf_erratas.h>
 #include <nrfx_qspi.h>
 #include <hal/nrf_clock.h>
 #include <hal/nrf_gpio.h>
@@ -58,11 +59,11 @@ BUILD_ASSERT(INST_0_SCK_FREQUENCY >= (NRF_QSPI_BASE_CLOCK_FREQ / 16),
  * PCLK192M frequency"), but after that operation is complete, the default
  * divider needs to be restored to avoid increased current consumption.
  */
-/* Use divider /2 for HFCLK192M. */
-#define BASE_CLOCK_DIV NRF_CLOCK_HFCLK_DIV_2
+/* To prevent anomaly 159, use only divider /1 for HFCLK192M. */
+#define BASE_CLOCK_DIV NRF_CLOCK_HFCLK_DIV_1
 #if (INST_0_SCK_FREQUENCY >= (NRF_QSPI_BASE_CLOCK_FREQ / 4))
-/* For requested SCK >= 24 MHz, use HFCLK192M / 2 / (2*2) = 24 MHz */
-#define INST_0_SCK_CFG NRF_QSPI_FREQ_DIV2
+/* For requested SCK >= 24 MHz, use HFCLK192M / 1 / (2*4) = 24 MHz */
+#define INST_0_SCK_CFG NRF_QSPI_FREQ_DIV4
 #else
 /* For requested SCK < 24 MHz, calculate the configuration value. */
 #define INST_0_SCK_CFG (DIV_ROUND_UP(NRF_QSPI_BASE_CLOCK_FREQ / 2, \
@@ -300,6 +301,12 @@ static inline int qspi_get_zephyr_ret_code(nrfx_err_t res)
 		return -EINVAL;
 	case NRFX_ERROR_INVALID_STATE:
 		return -ECANCELED;
+#if NRF53_ERRATA_159_ENABLE_WORKAROUND
+	case NRFX_ERROR_FORBIDDEN:
+		LOG_ERR("nRF5340 anomaly 159 conditions detected");
+		LOG_ERR("Set the CPU clock to 64 MHz before starting QSPI operation");
+		return -ECANCELED;
+#endif
 	case NRFX_ERROR_BUSY:
 	case NRFX_ERROR_TIMEOUT:
 	default:
@@ -989,12 +996,12 @@ int qspi_validate_rpu_wake_writecmd(const struct device *dev)
 
 	for (int ii = 0; ii < 1; ii++) {
 		ret = qspi_RDSR2(dev, &rdsr2);
-		if (ret && (rdsr2 & RPU_WAKEUP_NOW)) {
+		if (!ret && (rdsr2 & RPU_WAKEUP_NOW)) {
 			return 0;
 		}
 	}
 
-	return rdsr2;
+	return -1;
 }
 
 
@@ -1018,7 +1025,7 @@ int qspi_RDSR1(const struct device *dev, uint8_t *rdsr1)
 
 	qspi_device_uninit(dev);
 
-	LOG_DBG("RDSR2 = 0x%x", sr);
+	LOG_DBG("RDSR1 = 0x%x", sr);
 
 	if (ret == 0)
 		*rdsr1 = sr;
@@ -1044,51 +1051,15 @@ int qspi_wait_while_rpu_awake(const struct device *dev)
 		k_msleep(1);
 	}
 
-	/* Configure DTS settings */
-	if (val & RPU_AWAKE_BIT) {
-		/* Restore QSPI clock frequency from DTS */
-		QSPIconfig.phy_if.sck_freq = INST_0_SCK_CFG;
+	if (ret || !(val & RPU_AWAKE_BIT)) {
+		LOG_ERR("RPU is not awake even after 10ms");
+		return -1;
 	}
+
+	/* Restore QSPI clock frequency from DTS */
+	QSPIconfig.phy_if.sck_freq = INST_0_SCK_CFG;
 
 	return val;
-}
-
-/* Wait until RDSR1 confirms RPU_AWAKE/RPU_READY and Firmware is booted */
-int qspi_wait_while_firmware_awake(const struct device *dev)
-{
-	int ret = 0;
-	uint8_t sr = 0;
-
-	const struct qspi_buf sr_buf = {
-		.buf = &sr,
-		.len = sizeof(sr),
-	};
-	struct qspi_cmd cmd = {
-		.op_code = 0x1f,
-		.rx_buf = &sr_buf,
-	};
-
-	for (int ii = 0; ii < 10; ii++) {
-		int ret;
-
-		ret = qspi_device_init(dev);
-
-		if (ret == 0)
-			ret = qspi_send_cmd(dev, &cmd, false);
-
-		qspi_device_uninit(dev);
-
-		if ((ret < 0) || (sr != 0x6)) {
-			LOG_DBG("ret val = 0x%x\t RDSR1 = 0x%x", ret, sr);
-		} else {
-			LOG_DBG("RDSR1 = 0x%x", sr);
-			LOG_INF("RPU is awake...");
-			break;
-		}
-		k_msleep(1);
-	}
-
-	return ret;
 }
 
 int qspi_WRSR2(const struct device *dev, uint8_t data)

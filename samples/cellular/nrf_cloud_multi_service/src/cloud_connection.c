@@ -22,6 +22,7 @@
 #include "fota_support.h"
 #include "location_tracking.h"
 #include "led_control.h"
+#include "shadow_config.h"
 
 LOG_MODULE_REGISTER(cloud_connection, CONFIG_MULTI_SERVICE_LOG_LEVEL);
 
@@ -116,6 +117,8 @@ static void cloud_connected(void)
 {
 	LOG_INF("Connected to nRF Cloud");
 
+	shadow_config_cloud_connected();
+
 	/* Notify that the nRF Cloud connection is established. */
 	k_event_post(&cloud_events, CLOUD_CONNECTED);
 }
@@ -186,6 +189,42 @@ void disconnect_cloud(void)
 
 	/* Fire the disconnected event. */
 	k_event_post(&cloud_events, CLOUD_DISCONNECTED);
+}
+
+static void network_disconnected(void)
+{
+#if defined(CONFIG_NRF_CLOUD_MQTT)
+	disconnect_cloud();
+#elif defined(CONFIG_NRF_CLOUD_COAP)
+	if (!nrf_cloud_coap_keepopen_is_supported()) {
+		disconnect_cloud();
+		return;
+	}
+	/* When using CoAP we keep the socket open during brief network outages.
+	 * There is no need to fully disconnect and cause additional network traffic.
+	 */
+	if (k_event_test(&cloud_events, CLOUD_DISCONNECTED)) {
+		return;
+	}
+	clear_readiness_timeout();
+	k_event_clear(&cloud_events, CLOUD_READY | CLOUD_CONNECTED);
+	k_event_post(&cloud_events, CLOUD_DISCONNECTED);
+	int err = nrf_cloud_coap_pause();
+
+	if ((err < 0) && (err != -EBADF)) {
+		/* -EBADF means it was disconnected, for example by FOTA. */
+		LOG_ERR("Error pausing connection: %d", err);
+	}
+#endif
+}
+
+void cloud_transport_error_detected(void)
+{
+	/* We could do some kind of ping to verify the connection, but for now,
+	 * just assume the detector was correct and force a reconnect.
+	 */
+	LOG_INF("Communication error detected.");
+	network_disconnected();
 }
 
 /**
@@ -292,8 +331,8 @@ static void l4_event_handler(struct net_mgmt_event_callback *cb,
 		/* Clear the network ready flag */
 		k_event_clear(&cloud_events, NETWORK_READY);
 
-		/* Disconnect from cloud as well. */
-		disconnect_cloud();
+		/* Network is now disconnected */
+		network_disconnected();
 	}
 }
 
@@ -317,15 +356,26 @@ static void handle_shadow_event(struct nrf_cloud_obj_shadow_data *const shadow)
 
 	int err;
 
-	if (shadow->type == NRF_CLOUD_OBJ_SHADOW_TYPE_DELTA) {
+	if ((shadow->type == NRF_CLOUD_OBJ_SHADOW_TYPE_DELTA) && shadow->delta) {
 		LOG_DBG("Shadow: Delta - version: %d, timestamp: %lld",
 			shadow->delta->ver,
 			shadow->delta->ts);
 
-		/* Always accept since this sample, by default,
-		 * doesn't have any application specific shadow handling
-		 */
-		err = nrf_cloud_obj_shadow_delta_response_encode(&shadow->delta->state, true);
+		bool accept = true;
+
+		err = shadow_config_delta_process(&shadow->delta->state);
+		if (err == -EBADF) {
+			LOG_INF("Rejecting shadow delta");
+			accept = false;
+		} else if (err == -ENOMEM) {
+			LOG_ERR("Error handling shadow delta");
+			return;
+		} else if (err == -EAGAIN) {
+			LOG_DBG("Ignoring delta until accepted shadow is received");
+			return;
+		}
+
+		err = nrf_cloud_obj_shadow_delta_response_encode(&shadow->delta->state, accept);
 		if (err) {
 			LOG_ERR("Failed to encode shadow response: %d", err);
 			return;
@@ -335,8 +385,14 @@ static void handle_shadow_event(struct nrf_cloud_obj_shadow_data *const shadow)
 		if (err) {
 			LOG_ERR("Failed to send shadow response, error: %d", err);
 		}
-	} else if (shadow->type == NRF_CLOUD_OBJ_SHADOW_TYPE_ACCEPTED) {
+
+	} else if ((shadow->type == NRF_CLOUD_OBJ_SHADOW_TYPE_ACCEPTED) && shadow->accepted) {
 		LOG_DBG("Shadow: Accepted");
+		err = shadow_config_accepted_process(&shadow->accepted->config);
+		if (err) {
+			/* Send the config on an error */
+			(void)shadow_config_reported_send();
+		}
 	}
 }
 
@@ -527,11 +583,6 @@ static int setup_cloud(void)
 		LOG_ERR("Error initializing FOTA: %d", err);
 		return err;
 	}
-	err = coap_fota_begin();
-	if (err) {
-		LOG_ERR("Error starting FOTA: %d", err);
-		return err;
-	}
 #endif /* CONFIG_COAP_FOTA */
 	err = nrf_cloud_coap_init();
 	if (err) {
@@ -609,7 +660,7 @@ void cloud_connection_thread_fn(void)
 
 		/* Attempt to connect to nRF Cloud. */
 		if (connect_cloud()) {
-			LOG_DBG("Awaiting disconnection from nRF Cloud");
+			LOG_DBG("Monitoring nRF Cloud connection");
 
 			/* and then wait patiently for a connection problem. */
 			(void)await_cloud_disconnected(K_FOREVER);

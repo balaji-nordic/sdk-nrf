@@ -1,4 +1,5 @@
 .. _test_and_optimize:
+.. _testing:
 .. _gs_testing:
 .. _serial_terminal_connect:
 .. _testing_rtt:
@@ -153,11 +154,14 @@ Use one of the following methods:
 The |NCS| provides a common set of features and options for debugging and optimizing the application performance.
 This includes a multilevel logging system that can be enabled and configured independently for different modules and logging backends (such as :ref:`UART, J-Link RTT or Spinel <ug_logging_backends>`), and support for writing unit tests using Unity and CMock.
 
+.. note::
+   If you want to go through dedicated training related to some of the topics covered here, enroll in the `nRF Connect SDK Intermediate course`_ in the `Nordic Developer Academy`_.
+
 .. toctree::
    :maxdepth: 2
    :caption: Subpages:
 
    test_and_optimize/debugging
    test_and_optimize/logging
-   test_and_optimize/testing_unity_cmock
+   test_and_optimize/test_framework/index
    test_and_optimize/optimizing/index

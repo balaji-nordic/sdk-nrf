@@ -17,6 +17,7 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 #include "lwm2m_engine.h"
 #include <net/lwm2m_client_utils_location.h>
 #include "ground_fix_obj.h"
+#include "lwm2m_engine.h"
 
 #define GROUND_FIX_VERSION_MAJOR 1
 #define GROUND_FIX_VERSION_MINOR 0
@@ -33,7 +34,7 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 #define LOCATION_LATITUDE_ID			0
 #define LOCATION_LONGITUDE_ID			1
 #define LOCATION_RADIUS_ID			3
-
+#define LOCATION_TIMESTAMP_ID			5
 
 static bool send_location_back;
 
@@ -68,10 +69,26 @@ void ground_fix_set_result_code_cb(ground_fix_get_result_code_cb_t cb)
 	result_code_cb = cb;
 }
 
+static const char *gfix_result_str(int32_t result)
+{
+	switch (result) {
+	case LOCATION_ASSIST_RESULT_CODE_OK:
+		return "OK";
+	case LOCATION_ASSIST_RESULT_CODE_PERMANENT_ERR:
+		return "Permanent error";
+	case LOCATION_ASSIST_RESULT_CODE_TEMP_ERR:
+		return "Temporary error";
+	case LOCATION_ASSIST_RESULT_CODE_NO_RESP_ERR:
+		return "No response";
+	default:
+		return "Unknown";
+	}
+}
+
 static int ground_fix_result_code_cb(uint16_t obj_inst_id, uint16_t res_id,
 				     uint16_t res_inst_id, uint8_t *data,
 				     uint16_t data_len, bool last_block,
-				     size_t total_size)
+				     size_t total_size, size_t offset)
 {
 	if (data_len != sizeof(int32_t)) {
 		return -EINVAL;
@@ -79,25 +96,35 @@ static int ground_fix_result_code_cb(uint16_t obj_inst_id, uint16_t res_id,
 
 	result =  *(int32_t *)data;
 
+	if (result != LOCATION_ASSIST_RESULT_CODE_OK) {
+		LOG_ERR("Ground Fix result %s (%d)", gfix_result_str(result), result);
+	} else {
+		LOG_INF("Ground Fix result %s (%d)", gfix_result_str(result), result);
+	}
+
 	if (result_code_cb) {
 		result_code_cb(result);
 	}
 
-	if (result != LOCATION_ASSIST_RESULT_CODE_OK) {
-		LOG_ERR("Result code %d", result);
-	}
 	return 0;
 }
 
 static int forward_to_location_obj(uint16_t obj_inst_id,
 					  uint16_t res_id, uint16_t res_inst_id,
 					  uint8_t *data, uint16_t data_len,
-					  bool last_block, size_t total_size)
+					  bool last_block, size_t total_size,
+					  size_t offset)
 {
 	struct lwm2m_obj_path path;
 
 	switch (res_id) {
 	case GROUND_FIX_LATITUDE:
+		if (IS_ENABLED(CONFIG_POSIX_CLOCK)) {
+			/* Update timestamp as well */
+			lwm2m_set_time(
+				&LWM2M_OBJ(LWM2M_OBJECT_LOCATION_ID, 0, LOCATION_TIMESTAMP_ID),
+				time(NULL));
+		}
 		path = LWM2M_OBJ(LWM2M_OBJECT_LOCATION_ID, 0, LOCATION_LATITUDE_ID);
 		break;
 	case GROUND_FIX_LONGITUDE:
@@ -169,7 +196,7 @@ static int lwm2m_ground_fix_init(void)
 	return 0;
 }
 
-SYS_INIT(lwm2m_ground_fix_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
+LWM2M_OBJ_INIT(lwm2m_ground_fix_init);
 
 void ground_fix_set_report_back(bool report_back)
 {

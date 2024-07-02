@@ -16,7 +16,12 @@ LOG_MODULE_REGISTER(softap, CONFIG_LOG_DEFAULT_LEVEL);
 #include "net_private.h"
 #include <zephyr/net/dhcpv4_server.h>
 
+#include <net/wifi_ready.h>
+
 #define WIFI_SAP_MGMT_EVENTS (NET_EVENT_WIFI_AP_ENABLE_RESULT)
+
+static K_SEM_DEFINE(wifi_ready_state_changed_sem, 0, 1);
+static bool wifi_ready_status;
 
 static struct net_mgmt_event_callback wifi_sap_mgmt_cb;
 
@@ -26,6 +31,7 @@ struct wifi_ap_sta_node {
 	struct wifi_ap_sta_info sta_info;
 };
 static struct wifi_ap_sta_node sta_list[CONFIG_SOFTAP_SAMPLE_MAX_STATIONS];
+bool dhcp_server_configured;
 
 static void wifi_ap_stations_unlocked(void)
 {
@@ -187,7 +193,7 @@ static int __wifi_args_to_params(struct wifi_connect_req_params *params)
 	return 0;
 }
 
-static int cmd_wifi_status(void)
+static void cmd_wifi_status(void)
 {
 	struct net_if *iface;
 	struct wifi_iface_status status = { 0 };
@@ -195,13 +201,13 @@ static int cmd_wifi_status(void)
 	iface = net_if_get_first_wifi();
 	if (!iface) {
 		LOG_ERR("Failed to get Wi-FI interface");
-		return -ENOEXEC;
+		return;
 	}
 
 	if (net_mgmt(NET_REQUEST_WIFI_IFACE_STATUS, iface, &status,
 				sizeof(struct wifi_iface_status))) {
 		LOG_ERR("Status request failed");
-		return -ENOEXEC;
+		return;
 	}
 
 	LOG_INF("Status: successful");
@@ -227,30 +233,28 @@ static int cmd_wifi_status(void)
 		LOG_INF("TWT: %s",
 			status.twt_capable ? "Supported" : "Not supported");
 	}
-
-	return 0;
 }
 
-static void wifi_softap_enable(void)
+static int wifi_softap_enable(void)
 {
 	struct net_if *iface;
 	static struct wifi_connect_req_params cnx_params;
-	int ret;
+	int ret = -1;
 
 	iface = net_if_get_first_wifi();
 	if (!iface) {
 		LOG_ERR("Failed to get Wi-Fi iface");
-		return;
+		goto out;
 	}
 
 	if (__wifi_args_to_params(&cnx_params)) {
-		return;
+		goto out;
 	}
 
 	if (!wifi_utils_validate_chan(cnx_params.band, cnx_params.channel)) {
 		LOG_ERR("Invalid channel %d in %d band",
 			cnx_params.channel, cnx_params.band);
-		return;
+		goto out;
 	}
 
 	ret = net_mgmt(NET_REQUEST_WIFI_AP_ENABLE, iface, &cnx_params,
@@ -260,18 +264,21 @@ static void wifi_softap_enable(void)
 	} else {
 		LOG_INF("AP mode enabled");
 	}
+
+out:
+	return ret;
 }
 
-static void wifi_set_reg_domain(void)
+static int wifi_set_reg_domain(void)
 {
 	struct net_if *iface;
 	struct wifi_reg_domain regd = {0};
-	int ret;
+	int ret = -1;
 
 	iface = net_if_get_first_wifi();
 	if (!iface) {
 		LOG_ERR("Failed to get Wi-Fi iface");
-		return;
+		return ret;
 	}
 
 	regd.oper = WIFI_MGMT_SET;
@@ -285,51 +292,176 @@ static void wifi_set_reg_domain(void)
 	} else {
 		LOG_INF("Regulatory domain set to %s", CONFIG_SOFTAP_SAMPLE_REG_DOMAIN);
 	}
+
+	return ret;
 }
 
-static void configure_dhcp_server(void)
+static int configure_dhcp_server(void)
 {
 	struct net_if *iface;
 	struct in_addr pool_start;
-	int ret;
+	int ret = -1;
 
 	iface = net_if_get_first_wifi();
 	if (!iface) {
 		LOG_ERR("Failed to get Wi-Fi interface");
-		return;
+		goto out;
 	}
 
 	if (net_addr_pton(AF_INET, CONFIG_SOFTAP_SAMPLE_DHCPV4_POOL_START, &pool_start.s_addr)) {
 		LOG_ERR("Invalid address: %s", CONFIG_SOFTAP_SAMPLE_DHCPV4_POOL_START);
-		return;
+		goto out;
 	}
 
 	ret = net_dhcpv4_server_start(iface, &pool_start);
 	if (ret == -EALREADY) {
+		dhcp_server_configured = true;
 		LOG_ERR("DHCPv4 server already running on interface");
 	} else if (ret < 0) {
 		LOG_ERR("DHCPv4 server failed to start and returned %d error", ret);
 	} else {
+		dhcp_server_configured = true;
 		LOG_INF("DHCPv4 server started and pool address starts from %s",
 			CONFIG_SOFTAP_SAMPLE_DHCPV4_POOL_START);
 	}
+out:
+	return ret;
 }
 
-int main(void)
+#define CHECK_RET(func, ...) \
+	do { \
+		ret = func(__VA_ARGS__); \
+		if (ret) { \
+			LOG_ERR("Failed to configure %s", #func); \
+			return -1; \
+		} \
+	} while (0)
+
+int start_app(void)
+{
+	int ret;
+
+	CHECK_RET(wifi_set_reg_domain);
+
+	CHECK_RET(configure_dhcp_server);
+
+	CHECK_RET(wifi_softap_enable);
+
+	cmd_wifi_status();
+
+	return 0;
+}
+
+int stop_dhcp_server(void)
+{
+	int ret;
+
+	struct net_if *iface = net_if_get_first_wifi();
+
+	if (!iface) {
+		LOG_ERR("Failed to get Wi-Fi interface");
+		return -1;
+	}
+
+	ret = net_dhcpv4_server_stop(iface);
+	if (ret) {
+		LOG_ERR("Failed to stop DHCPv4 server, error: %d", ret);
+	}
+
+	dhcp_server_configured = false;
+	LOG_INF("DHCPv4 server stopped");
+
+	return ret;
+}
+
+void start_wifi_thread(void);
+#define THREAD_PRIORITY K_PRIO_COOP(CONFIG_NUM_COOP_PRIORITIES - 1)
+K_THREAD_DEFINE(start_wifi_thread_id, CONFIG_SOFTAP_SAMPLE_START_WIFI_THREAD_STACK_SIZE,
+		start_wifi_thread, NULL, NULL, NULL,
+		THREAD_PRIORITY, 0, -1);
+
+void start_wifi_thread(void)
+{
+	bool waiting_for_wifi = true;
+
+	while (1) {
+		int ret;
+
+		if (waiting_for_wifi) {
+			LOG_INF("Waiting for Wi-Fi to be ready");
+		}
+
+		ret = k_sem_take(&wifi_ready_state_changed_sem, K_FOREVER);
+		if (ret) {
+			LOG_ERR("Failed to take semaphore: %d", ret);
+			return;
+		}
+
+		if (!wifi_ready_status) {
+			LOG_INF("Wi-Fi is not ready");
+			if (dhcp_server_configured) {
+				stop_dhcp_server();
+			}
+			waiting_for_wifi = true;
+			continue;
+		}
+		start_app();
+		waiting_for_wifi = false;
+	}
+}
+
+void wifi_ready_cb(bool wifi_ready)
+{
+	LOG_DBG("Is Wi-Fi ready?: %s", wifi_ready ? "yes" : "no");
+	wifi_ready_status = wifi_ready;
+	k_sem_give(&wifi_ready_state_changed_sem);
+}
+
+static int register_wifi_ready(void)
+{
+	int ret = 0;
+	wifi_ready_callback_t cb;
+	struct net_if *iface = net_if_get_first_wifi();
+
+	if (!iface) {
+		LOG_ERR("Failed to get Wi-Fi interface");
+		return -1;
+	}
+
+	cb.wifi_ready_cb = wifi_ready_cb;
+
+	LOG_DBG("Registering Wi-Fi ready callbacks");
+	ret = register_wifi_ready_callback(cb, iface);
+	if (ret) {
+		LOG_ERR("Failed to register Wi-Fi ready callbacks %s", strerror(ret));
+		return ret;
+	}
+
+	return ret;
+}
+
+void net_mgmt_callback_init(void)
 {
 	net_mgmt_init_event_callback(&wifi_sap_mgmt_cb,
 				     wifi_mgmt_event_handler,
 				     WIFI_SAP_MGMT_EVENTS);
 
 	net_mgmt_add_event_callback(&wifi_sap_mgmt_cb);
+}
 
-	wifi_set_reg_domain();
+int main(void)
+{
+	int ret = 0;
 
-	configure_dhcp_server();
+	dhcp_server_configured = false;
 
-	wifi_softap_enable();
+	net_mgmt_callback_init();
 
-	cmd_wifi_status();
+	ret = register_wifi_ready();
+	if (ret) {
+		return ret;
+	}
+	k_thread_start(start_wifi_thread_id);
 
-	return 0;
+	return ret;
 }

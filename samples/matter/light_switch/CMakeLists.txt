@@ -6,20 +6,6 @@
 
 cmake_minimum_required(VERSION 3.20.0)
 
-# Set Kconfig root files that will be processed as a first Kconfig for used child images.
-set(mcuboot_KCONFIG_ROOT "\\\${ZEPHYR_CONNECTEDHOMEIP_MODULE_DIR}/config/nrfconnect/chip-module/Kconfig.mcuboot.root")
-set(multiprotocol_rpmsg_KCONFIG_ROOT "\\\${ZEPHYR_CONNECTEDHOMEIP_MODULE_DIR}/config/nrfconnect/chip-module/Kconfig.multiprotocol_rpmsg.root")
-set(hci_ipc_KCONFIG_ROOT "\\\${ZEPHYR_CONNECTEDHOMEIP_MODULE_DIR}/config/nrfconnect/chip-module/Kconfig.hci_ipc.root")
-
-# For prj.conf the CONF_FILE is empty. In other case extract the exact file name from the path string.
-if(CONF_FILE)
-    get_filename_component(CONFIG_FILE_NAME ${CONF_FILE} NAME)
-endif()
-
-if(NOT "${CONFIG_FILE_NAME}" STREQUAL "prj_no_dfu.conf")
-    set(PM_STATIC_YML_FILE ${CMAKE_CURRENT_SOURCE_DIR}/configuration/${BOARD}/pm_static_dfu.yml)
-endif()
-
 find_package(Zephyr HINTS $ENV{ZEPHYR_BASE})
 
 project(matter-light-switch)

@@ -14,11 +14,11 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/kernel.h>
 
-#define WIRELESS_INTERFACE_DEFAULT "wlan0"
-
 LOG_MODULE_REGISTER(wfa_qt, CONFIG_WFA_QT_LOG_LEVEL);
 int control_socket_init(int port);
 void qt_main(void);
+int wpa_supp_events_register(void);
+int wait_for_wpa_s_ready(void);
 K_THREAD_DEFINE(qt_main_tid,
 		CONFIG_WFA_QT_THREAD_STACK_SIZE,
 		qt_main,
@@ -38,16 +38,27 @@ static void print_welcome(void)
 void qt_main(void)
 {
 	int service_socket = -1;
+	int ret;
 
 	/* Welcome message */
 	print_welcome();
 
 	/* Set default wireless interface information */
-	set_wireless_interface(WIRELESS_INTERFACE_DEFAULT);
+	set_wireless_interface(CONFIG_WFA_QT_DEFAULT_INTERFACE);
 
 	/* Print the run-time information */
 	LOG_INF("QuickTrack control app running at: %d", get_service_port());
-	LOG_INF("Wireless Interface: %s", WIRELESS_INTERFACE_DEFAULT);
+	LOG_INF("Wireless Interface: %s", CONFIG_WFA_QT_DEFAULT_INTERFACE);
+
+	ret = wpa_supp_events_register();
+	if (ret < 0) {
+		LOG_ERR("Failed to register WPA supplicant events");
+	}
+
+	ret = wait_for_wpa_s_ready();
+	if (ret < 0) {
+		LOG_ERR("Failed to wait for WPA supplicant to be ready");
+	}
 
 	/* Register the callback */
 	register_apis();
@@ -60,7 +71,7 @@ void qt_main(void)
 	if (service_socket >= 0) {
 		qt_eloop_run();
 	} else {
-		LOG_ERR("Failed to initiate the UDP socket");
+		LOG_ERR("Failed to initiate the UDP socket: %s", strerror(errno));
 	}
 
 	/* Stop eloop */

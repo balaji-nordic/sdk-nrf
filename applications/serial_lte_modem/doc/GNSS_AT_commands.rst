@@ -55,22 +55,21 @@ It can have one of the following values:
 * Ranging from ``10`` to ``65535`` - Periodic navigation mode.
   The fix interval is set to the specified value.
 
-In continuous navigation mode, the ``<timeout>`` parameter must be omitted.
-In single-fix and periodic navigation modes, the ``<timeout>`` parameter indicates the maximum time in seconds that the GNSS receiver is allowed to run while trying to produce a valid Position, Velocity, and Time (PVT) estimate.
+``timeout`` is an integer that indicates the maximum time in seconds that the GNSS receiver is allowed to run while trying to produce a valid Position, Velocity, and Time (PVT) estimate.
+It can only be specified in single-fix and periodic navigation modes.
+
 It can be one of the following:
 
 * ``0`` - The GNSS receiver runs indefinitely until a valid PVT estimate is produced.
 * Any positive integer - The GNSS receiver is turned off after the specified time is up, even if a valid PVT estimate was not produced.
 * Omitted - In single-fix or periodic navigation mode, the timeout defaults to 60 seconds.
 
+In periodic navigation mode, the ``<interval>`` and ``<timeout>`` parameters are temporarily ignored during the first fix.
+
 .. note::
 
    When ``<cloud_assistance>`` is disabled, no request is made to nRF Cloud for assistance data.
    However, if it has been previously enabled and used, such data may remain locally and will be used if still valid.
-
-.. note::
-
-   In periodic navigation mode, the ``<interval>`` and ``<timeout>`` parameters are temporarily ignored during the first fix (for up to 60 seconds).
 
 .. note::
 
@@ -115,7 +114,7 @@ Unsolicited notification
 * The ``<heading>`` value represents the heading of the movement of the user in degrees.
 * The ``<datetime>`` value represents the UTC date-time.
 
-.. gps_status_notif_start
+.. slm_gps_status_notif_start
 
 .. code-block::
 
@@ -133,7 +132,7 @@ Unsolicited notification
   * ``3`` - GNSS enters sleep because of timeout.
   * ``4`` - GNSS enters sleep because a fix is acquired.
 
-.. gps_status_notif_end
+.. slm_gps_status_notif_end
 
 Example
 ~~~~~~~
@@ -265,8 +264,8 @@ Response syntax
 ~~~~~~~~~~~~~~~
 
 .. include:: GNSS_AT_commands.rst
-   :start-after: gps_status_notif_start
-   :end-before: gps_status_notif_end
+   :start-after: slm_gps_status_notif_start
+   :end-before: slm_gps_status_notif_end
 
 Example
 ~~~~~~~

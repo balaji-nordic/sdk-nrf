@@ -49,6 +49,7 @@ The DTM sample includes two parts:
 * A sample that provides an external interface to the library.
 
 You can find the source code of both parts in :file:`samples/bluetooth/direct_test_mode/src`.
+If you use the experimental HCI interface on the |nRF5340DKnoref|, you can find additional source code in :file:`samples/bluetooth/direct_test_mode/remote_hci/src` and :file:`samples/bluetooth/direct_test_mode/rpc`.
 
 This sample contains a driver for a 2-wire UART interface and an experimental HCI UART interface.
 Unless otherwise stated, all following commands and references describe the 2-wire interface.
@@ -152,7 +153,7 @@ The behavior of the commands vary depending on the hardware configuration and Kc
      Additionally, you can use following vendor-specific commands:
 
       * The ``SET_TX_POWER`` command sets the SoC TX output power.
-      * The ``FEM_GAIN_SET`` command sets the front-end module gain.
+      * The ``FEM_TX_POWER_CONTROL_SET`` command sets the front-end module gain.
 
 Bluetooth Direction Finding support
 ===================================
@@ -289,9 +290,10 @@ Vendor-specific commands can be divided into different categories as follows:
      * ``0`` - ANT1 enabled, ANT2 disabled
      * ``1`` - ANT1 disabled, ANT2 enabled
 
-* If the **Length** field is set to ``4`` (symbol ``FEM_GAIN_SET``), the **Frequency** field sets the front-end module (FEM) TX gain value in arbitrary units.
+* If the **Length** field is set to ``4`` (symbol ``FEM_TX_POWER_CONTROL_SET``), the **Frequency** field sets the front-end module (FEM) TX power control value and is specific to the FEM type in use.
   The valid gain values are specified in your product-specific front-end module (FEM).
-  For example, in the nRF21540 front-end module, the gain range is 0 - 31.
+  For example, in the nRF21540 front-end module with GPIO interface, the tx power control range is 0 (POUTA) to 1 (POUTB).
+  For example, in the nRF21540 front-end module with GPIO/SPI, the tx power control range is 0 - 31 and is the value of TX_GAIN field of CONFREG0 register.
 * If the **Length** field is set to ``5`` (symbol ``FEM_ACTIVE_DELAY_SET``), the **Frequency** field sets the front-end module (FEM) activation delay in microseconds relative to the radio start.
   By default, this value is set to ``radio ramp-up time - front-end module (FEM) TX/RX settling time``.
 * If the **Length** field is set to ``6`` (symbol ``FEM_DEFAULT_PARAMS_SET``) and the **Frequency** field to any value, the front-end module parameters, such as ``antenna output``, ``gain``, and ``delay``, are set to their default values.
@@ -309,7 +311,7 @@ Vendor-specific commands can be divided into different categories as follows:
    When you build the DTM sample with support for front-end modules and the :ref:`CONFIG_DTM_POWER_CONTROL_AUTOMATIC <CONFIG_DTM_POWER_CONTROL_AUTOMATIC>` Kconfig option is enabled, the following vendor-specific command are not available:
 
    * ``SET_TX_POWER``
-   * ``FEM_GAIN_SET``
+   * ``FEM_TX_POWER_CONTROL_SET``
 
    You can disable the :ref:`CONFIG_DTM_POWER_CONTROL_AUTOMATIC <CONFIG_DTM_POWER_CONTROL_AUTOMATIC>` Kconfig option if you want to set the SoC output power and the front-end module gain by separate commands.
    The official DTM command ``0x09`` for setting power level takes into account the SoC output power and the front-end module gain to set the total requested output power.
@@ -323,7 +325,7 @@ The :file:`dtm_hci.c` and :file:`hci_uart.c` files are an implementation of the 
 
 The default selection of UART pins is defined in :file:`zephyr/boards/arm/board_name/board_name.dts`.
 You can change the defaults using the symbols ``tx-pin`` and ``rx-pin`` in the DTS overlay file of the child image at the project level.
-The overlay files for the :ref:`nrf5340_remote_shell` child image are located in the :file:`child_image/remote_shell` directory.
+The configuration files for the :ref:`nrf5340_remote_shell` subimage are located in the :file:`child_image/remote_shell` or :file:`sysbuild/remote_shell` directory.
 The HCI interface allows for a custom ``remote_hci`` image to be used with |nRF5340DKnoref|.
 
 .. note::
@@ -363,34 +365,33 @@ Building and running
 
 .. include:: /includes/build_and_run.txt
 
+.. include:: /includes/nRF54H20_erase_UICR.txt
+
 .. note::
    On the nRF5340 development kit, this sample requires the :ref:`nrf5340_remote_shell` sample on the application core.
    The Remote IPC shell sample is built and programmed automatically by default.
-   If you want to program your custom solution for the application core, unset the :kconfig:option:`CONFIG_NCS_SAMPLE_REMOTE_SHELL_CHILD_IMAGE` Kconfig option.
 
 Disabling Direction Finding feature
 ===================================
 
-To build the sample without support for the Direction Finding feature, use the following command:
+To build the sample without support for the Direction Finding feature, use the following command for the correct *board_target*:
 
-.. code-block:: console
+.. parsed-literal::
+   :class: highlight
 
-   west build samples/bluetooth/direct_test_mode -b board_name -- -DEXTRA_DTC_OVERLAY_FILE=no-dfe.overlay
+   west build samples/bluetooth/direct_test_mode -b *board_target* -- -DSB_CONFIG_DTM_NO_DFE=y
 
 Experimental HCI interface
 ==========================
 
-To build the sample with an HCI interface, use the following command:
+To build the sample with an HCI interface, use the following command for the correct *board_target*:
 
-.. code-block:: console
+.. parsed-literal::
+   :class: highlight
 
-   west build samples/bluetooth/direct_test_mode -b board_name -- -DEXTRA_CONF_FILE=overlay-hci.conf
+   west build samples/bluetooth/direct_test_mode -b *board_target* -- -DFILE_SUFFIX=hci
 
-On the |nRF5340DKnoref| the sample with HCI interface can also be built with the `remote_hci` image using the following command:
-
-.. code-block:: console
-
-   west build samples/bluetooth/direct_test_mode -b board_name -- -DEXTRA_CONF_FILE=overlay-hci-nrf53.conf
+On the |nRF5340DKnoref|, you can build the sample with HCI interface with the ``remote_hci`` image using the same command.
 
 USB CDC ACM transport variant
 =============================
@@ -400,14 +401,14 @@ Use the following command:
 
 .. code-block:: console
 
-   west build samples/bluetooth/direct_test_mode -b nrf5340dk_nrf5340_cpunet -- -DCONFIG_DTM_USB=y
+   west build samples/bluetooth/direct_test_mode -b nrf5340dk/nrf5340/cpunet -- -DFILE_SUFFIX=usb
 
 You can also build this sample with support for the front-end module.
 Use the following command:
 
 .. code-block:: console
 
-   west build samples/bluetooth/direct_test_mode -b nrf5340dk_nrf5340_cpunet -- -DSHIELD=nrf21540ek -DCONFIG_DTM_USB=y
+   west build samples/bluetooth/direct_test_mode -b nrf5340dk/nrf5340/cpunet -- -DSHIELD=nrf21540ek -DFILE_SUFFIX=usb
 
 .. _dtm_testing:
 
@@ -455,7 +456,7 @@ Testing with nRF Connect for Desktop
 ------------------------------------
 
 1. |connect_kit|
-#. |connect_terminal|
+#. Connect the kit with a terminal emulator that supports encoding and decoding in the HEX format.
    See `Direct Test Mode terminal connection`_ for the required settings.
 #. Start the ``TRANSMITTER_TEST`` by sending the ``0x80 0x96`` DTM command to the connected development kit.
    This command triggers TX activity on 2402 MHz frequency (1st channel) with ``10101010`` packet pattern and 37-byte packet length.

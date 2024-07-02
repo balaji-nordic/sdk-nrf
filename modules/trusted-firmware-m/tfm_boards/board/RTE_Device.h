@@ -17,16 +17,13 @@
 
 #include <nrf.h>
 
-#define UART_PIN_INIT(node_id, prop, idx)		\
-	DT_PROP_BY_IDX(node_id, prop, idx),
+#define UART_PIN_INIT(node_id, prop, idx) DT_PROP_BY_IDX(node_id, prop, idx),
 
-#define RTE_USART_PINS(idx)						\
-{ \
-	DT_FOREACH_CHILD_VARGS( \
-		DT_PINCTRL_BY_NAME(DT_NODELABEL(uart##idx), default, 0), \
-		DT_FOREACH_PROP_ELEM, psels, UART_PIN_INIT \
-	) \
-}
+#define RTE_USART_PINS(idx)                                                                        \
+	{                                                                                          \
+		DT_FOREACH_CHILD_VARGS(DT_PINCTRL_BY_NAME(DT_NODELABEL(uart##idx), default, 0),    \
+				       DT_FOREACH_PROP_ELEM, psels, UART_PIN_INIT)                 \
+	}
 
 #define RTE_FLASH0 1
 
@@ -36,11 +33,18 @@
 
 #define RTE_USART0 1
 
-#else /* NRF_UARTE0 */
+#else /* NRF_UARTE0_S - 54L15 devices*/
 
-#define RTE_USART22 1
+/* Only UART20 and UART30 are supported for TF-M tests, which are the
+ * Non-secure applications build via the TF-M build system
+ */
+#if defined(CONFIG_TFM_SECURE_UART30)
+#define RTE_USART20 1
+#else
+#define RTE_USART30 1
+#endif
 
-#endif /* NRF_UARTE0 */
+#endif /* NRF_UARTE0_S */
 
 #endif /* DOMAIN_NS == 1U */
 
@@ -57,8 +61,24 @@
 #define RTE_USART1 1
 #endif
 
+#if defined(CONFIG_TFM_SECURE_UART00)
+#define RTE_USART00 1
+#endif
+
+#if defined(CONFIG_TFM_SECURE_UART20)
+#define RTE_USART20 1
+#endif
+
+#if defined(CONFIG_TFM_SECURE_UART21)
+#define RTE_USART21 1
+#endif
+
 #if defined(CONFIG_TFM_SECURE_UART22)
 #define RTE_USART22 1
+#endif
+
+#if defined(CONFIG_TFM_SECURE_UART30)
+#define RTE_USART30 1
 #endif
 
 /*
@@ -69,4 +89,10 @@
 #define RTE_USART0_PINS RTE_USART_PINS(0)
 #define RTE_USART1_PINS RTE_USART_PINS(1)
 
-#endif  /* __RTE_DEVICE_H */
+#define RTE_USART00_PINS RTE_USART_PINS(00)
+#define RTE_USART20_PINS RTE_USART_PINS(20)
+#define RTE_USART21_PINS RTE_USART_PINS(21)
+#define RTE_USART22_PINS RTE_USART_PINS(22)
+#define RTE_USART30_PINS RTE_USART_PINS(30)
+
+#endif /* __RTE_DEVICE_H */

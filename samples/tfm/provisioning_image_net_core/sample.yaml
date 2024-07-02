@@ -3,8 +3,9 @@ sample:
   name: Provisioning image for the network core
 tests:
   sample.tfm.provisioning_image_net_core.build:
+    sysbuild: true
     build_only: true
     integration_platforms:
-      - nrf5340dk_nrf5340_cpuapp
-    platform_allow: nrf5340dk_nrf5340_cpuapp
-    tags: ci_build
+      - nrf5340dk/nrf5340/cpuapp
+    platform_allow: nrf5340dk/nrf5340/cpuapp
+    tags: ci_build sysbuild

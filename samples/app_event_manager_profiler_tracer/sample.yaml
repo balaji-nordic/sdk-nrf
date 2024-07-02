@@ -3,16 +3,17 @@ sample:
   name: Application Event Manager profiler tracer sample
 tests:
   sample.app_event_manager_profiler_tracer:
+    sysbuild: true
     build_only: true
     platform_exclude: native_posix
     platform_allow:
-      - nrf52dk_nrf52832
-      - nrf52840dk_nrf52840
-      - nrf9160dk_nrf9160_ns
-      - nrf21540dk_nrf52840
+      - nrf52dk/nrf52832
+      - nrf52840dk/nrf52840
+      - nrf9160dk/nrf9160/ns
+      - nrf21540dk/nrf52840
     integration_platforms:
-      - nrf52dk_nrf52832
-      - nrf52840dk_nrf52840
-      - nrf9160dk_nrf9160_ns
-      - nrf21540dk_nrf52840
-    tags: ci_build
+      - nrf52dk/nrf52832
+      - nrf52840dk/nrf52840
+      - nrf9160dk/nrf9160/ns
+      - nrf21540dk/nrf52840
+    tags: ci_build sysbuild

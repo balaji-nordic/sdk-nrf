@@ -7,7 +7,7 @@ from docutils import io, statemachine
 from docutils.utils.error_reporting import ErrorString
 from docutils.parsers.rst import directives
 from sphinx.util.docutils import SphinxDirective
-from typing import Dict, Set
+from typing import Dict, Set, List
 import os
 import yaml
 import re
@@ -106,6 +106,7 @@ class TableFromRows(SphinxDirective):
         if shields:
             header_lines[0] += ' Shields |'
             for i, target in enumerate(rows_sections):
+                target = target.replace("_", "/")
                 if target in shields:
                     rows[i][0] += f'``{"`` ``".join(shields[target])}``'
                 rows[i][0] += ' |'
@@ -167,14 +168,24 @@ class TableFromSampleYaml(TableFromRows):
             rows.remove(row)
 
     @staticmethod
+    def _normalize_boards(boards: List[str]) -> List[str]:
+        return [board.replace("/", "_") for board in boards]
+
+    @staticmethod
     def _find_shields(shields: Dict[str, Set[str]], sample_data: dict):
         """Associate all integration platforms for a sample with any shield used.
         """
 
-        if 'extra_args' not in sample_data:
+        extra_args_raw = sample_data.get('extra_args')
+        if not extra_args_raw:
             return
 
-        shield_args = re.findall(r'SHIELD=(\S*)', sample_data['extra_args'])
+        if isinstance(extra_args_raw, list):
+            extra_args = " ".join(extra_args_raw)
+        else:
+            extra_args = extra_args_raw
+
+        shield_args = re.findall(r'SHIELD=(\S*)', extra_args)
         if not shield_args:
             return
 
@@ -227,11 +238,19 @@ class TableFromSampleYaml(TableFromRows):
                 data = yaml.safe_load(sample_yaml)
 
             if 'common' in data and 'integration_platforms' in data['common']:
-                boards.update(data['common']['integration_platforms'])
+                boards.update(
+                   TableFromSampleYaml._normalize_boards(
+                       data['common']['integration_platforms']
+                    )
+                )
                 self._find_shields(shields, data['common'])
             for test in data['tests'].values():
                 if 'integration_platforms' in test:
-                    boards.update(test['integration_platforms'])
+                    boards.update(
+                        TableFromSampleYaml._normalize_boards(
+                            test['integration_platforms']
+                        )
+                    )
                     self._find_shields(shields, test)
 
         boards = list(filter(

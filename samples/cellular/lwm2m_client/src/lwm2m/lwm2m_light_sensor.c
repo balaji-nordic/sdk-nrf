@@ -9,6 +9,7 @@
 #include <lwm2m_resource_ids.h>
 #include "light_sensor.h"
 #include "lwm2m_app_utils.h"
+#include "lwm2m_engine.h"
 
 #define LIGHT_OBJ_INSTANCE_ID 0
 #define COLOUR_OBJ_INSTANCE_ID 1
@@ -28,13 +29,14 @@
 static time_t timestamp[2];
 
 static int update_timestamp_cb(uint16_t obj_inst_id, uint16_t res_id, uint16_t res_inst_id,
-			       uint8_t *data, uint16_t data_len, bool last_block, size_t total_size)
+			       uint8_t *data, uint16_t data_len, bool last_block,
+			       size_t total_size, size_t offset)
 {
 	set_ipso_obj_timestamp(IPSO_OBJECT_COLOUR_ID, obj_inst_id);
 	return 0;
 }
 
-int lwm2m_init_light_sensor(void)
+static int lwm2m_init_light_sensor(void)
 {
 	light_sensor_init();
 
@@ -81,3 +83,5 @@ int lwm2m_init_light_sensor(void)
 
 	return 0;
 }
+
+LWM2M_APP_INIT(lwm2m_init_light_sensor);

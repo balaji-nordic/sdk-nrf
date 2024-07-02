@@ -21,7 +21,6 @@
 #include <zephyr/sys/reboot.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/clock_control/nrf_clock_control.h>
-#include <pm_config.h>
 #include <net/fota_download.h>
 #include "slm_at_host.h"
 #include "slm_at_fota.h"
@@ -37,6 +36,9 @@ static K_THREAD_STACK_DEFINE(slm_wq_stack_area, SLM_WQ_STACK_SIZE);
 static const struct device *gpio_dev = DEVICE_DT_GET(DT_NODELABEL(gpio0));
 #if POWER_PIN_IS_ENABLED
 static struct gpio_callback gpio_cb;
+#else
+BUILD_ASSERT(!IS_ENABLED(CONFIG_SLM_START_SLEEP),
+	"CONFIG_SLM_START_SLEEP requires CONFIG_SLM_POWER_PIN to be defined.");
 #endif
 static struct k_work_delayable indicate_work;
 
@@ -171,6 +173,8 @@ static void poweroff_interrupt_enabler(struct k_work *)
 
 #endif /* POWER_PIN_IS_ENABLED */
 
+#if POWER_PIN_IS_ENABLED || INDICATE_PIN_IS_ENABLED
+
 static int configure_gpio(gpio_pin_t pin, gpio_flags_t flags)
 {
 	const int err = gpio_pin_configure(gpio_dev, pin, flags);
@@ -182,27 +186,24 @@ static int configure_gpio(gpio_pin_t pin, gpio_flags_t flags)
 
 	return 0;
 }
+#endif
 
 static int init_gpios(void)
 {
-	int err;
-
 	if (!device_is_ready(gpio_dev)) {
 		LOG_ERR("GPIO controller not ready");
 		return -ENODEV;
 	}
 
 #if POWER_PIN_IS_ENABLED
-	err = configure_gpio(CONFIG_SLM_POWER_PIN, GPIO_INPUT | GPIO_PULL_UP | GPIO_ACTIVE_LOW);
-	if (err) {
-		return err;
+	if (configure_gpio(CONFIG_SLM_POWER_PIN, GPIO_INPUT | GPIO_PULL_UP | GPIO_ACTIVE_LOW)) {
+		return -1;
 	}
 #endif
 
 #if INDICATE_PIN_IS_ENABLED
-	err = configure_gpio(CONFIG_SLM_INDICATE_PIN, GPIO_OUTPUT_INACTIVE | GPIO_ACTIVE_LOW);
-	if (err) {
-		return err;
+	if (configure_gpio(CONFIG_SLM_INDICATE_PIN, GPIO_OUTPUT_INACTIVE | GPIO_ACTIVE_LOW)) {
+		return -1;
 	}
 #endif
 
@@ -423,25 +424,6 @@ static void check_app_fota_status(void)
 	slm_fota_stage = FOTA_STAGE_COMPLETE;
 }
 
-#if defined(CONFIG_LWM2M_CARRIER)
-static atomic_t app_fota_status_checked;
-
-bool lwm2m_os_dfu_application_update_validate(void)
-{
-	if (atomic_cas(&app_fota_status_checked, false, true)) {
-		check_app_fota_status();
-	}
-
-	if ((slm_fota_type == DFU_TARGET_IMAGE_TYPE_MCUBOOT) &&
-	    (slm_fota_status == FOTA_STATUS_OK) &&
-	    (slm_fota_stage == FOTA_STAGE_COMPLETE)) {
-		return true;
-	}
-
-	return false;
-}
-#endif /* CONFIG_LWM2M_CARRIER */
-
 int lte_auto_connect(void)
 {
 	int err = 0;
@@ -517,13 +499,14 @@ int start_execute(void)
 		LOG_ERR("Failed to init at_host: %d", err);
 		return err;
 	}
+#if POWER_PIN_IS_ENABLED
 	/* Do not directly enable the poweroff interrupt so that only a full toggle triggers
 	 * power off. This is because power on is triggered on low level, so if the pin is held
 	 * down until SLM is fully initialized releasing it would directly trigger the power off.
 	 */
 	err = configure_power_pin_interrupt(power_pin_callback_enable_poweroff,
 					    GPIO_INT_EDGE_FALLING);
-
+#endif
 	if (err) {
 		return err;
 	}
@@ -577,16 +560,7 @@ int main(void)
 		}
 	}
 
-#if defined(CONFIG_LWM2M_CARRIER)
-	/* If LwM2M Carrier library is enabled, the library might have already validated the
-	 * running application image; this should only be performed once.
-	 */
-	if (atomic_cas(&app_fota_status_checked, false, true)) {
-		check_app_fota_status();
-	}
-#else
 	check_app_fota_status();
-#endif /* CONFIG_LWM2M_CARRIER */
 
 #if defined(CONFIG_SLM_START_SLEEP)
 

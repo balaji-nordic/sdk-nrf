@@ -9,6 +9,7 @@ Crypto: Persistent key storage
 
 The persistent key sample shows how to generate a persistent key using the Platform Security Architecture (PSA) APIs.
 Persistent keys are stored in the Internal Trusted Storage (ITS) of the device and retain their value between resets.
+The ITS backend is either provided by TF-M, or the :ref:`trusted_storage_readme` library when building applications without TF-M.
 A persistent key becomes unusable when the ``psa_destroy_key`` function is called.
 
 Requirements
@@ -32,6 +33,10 @@ The sample performs the following operations:
 
 #. Generation of a persistent AES 128-bit key.
 
+#. Removal of the key from RAM.
+
+#. Encryption and decryption of a message using the key.
+
 #. Cleanup.
    The AES key is removed from the PSA crypto keystore.
 
@@ -40,6 +45,9 @@ The sample performs the following operations:
    The ``PSA_KEY_PERSISTENCE_READ_ONLY`` macro is used for read-only keys.
    The key ID of a read-only key is writable again after a full erase of the device memory.
    Use the ``west -v flash --erase`` command for the full erase.
+
+.. note::
+   Builds without TF-M and all nRF54L15 builds use the :ref:`hardware unique key (HUK) <lib_hw_unique_key>` to encrypt the key before storing it.
 
 Building and running
 ********************
@@ -56,3 +64,14 @@ After programming the sample to your development kit, complete the following ste
 1. |connect_terminal|
 #. Compile and program the application.
 #. Observe the logs from the application using a terminal emulator.
+
+Dependencies
+************
+
+* PSA APIs:
+
+   * :file:`psa/crypto.h`
+
+* Builds without TF-M use the :ref:`trusted_storage_readme` library
+
+   * The :ref:`lib_hw_unique_key` is used to encrypt the key before storing it.

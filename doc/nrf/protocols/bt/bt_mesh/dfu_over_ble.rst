@@ -3,6 +3,10 @@
 Point-to-point DFU over Bluetooth Low Energy
 ############################################
 
+.. contents::
+   :local:
+   :depth: 2
+
 Following the instructions described in :ref:`FOTA over Bluetooth Low Energy<ug_nrf52_developing_ble_fota>`, you can enable the support for and perform FOTA updates using a mobile app.
 
 If the device's composition data is going to change after the FOTA update on a Bluetooth Mesh device is performed, unprovision the device before downloading the new image.
@@ -15,8 +19,8 @@ See `Discovering Bluetooth Mesh devices in nRF Connect Device Manager`_ for more
 Point-to point DFU over Bluetooth Low Energy in Bluetooth Mesh samples
 **********************************************************************
 
-The :ref:`bluetooth_mesh_light` sample enables support for point-to-point DFU over Bluetooth Low Energy for nRF52 Series development kits.
-See the sample documentation for more details.
+The :ref:`bluetooth_mesh_light`, :ref:`ble_mesh_dfu_target` and :ref:`ble_mesh_dfu_distributor` samples enable support for point-to-point DFU over Bluetooth Low Energy for nRF52 Series development kits.
+See the sample documentation for each of the above mentioned samples for more details.
 
 Point-to-point DFU over Bluetooth Low Energy is supported by default, out-of-the-box, for all samples and applications compatible with :ref:`zephyr:thingy53_nrf5340`.
 See :ref:`thingy53_app_update` for more information about updating firmware image on :ref:`zephyr:thingy53_nrf5340`.

@@ -19,7 +19,7 @@ Enable debug features
 
 The nRF Wi-Fi driver, WPA supplicant, and networking stack have debug features that can be enabled to help debug issues.
 
-You can enable debug features by using Zephyr's configuration :ref:`snippets` feature.
+You can enable debug features by using the :ref:`app_build_snippets` feature.
 
 For example, to build the :ref:`wifi_shell_sample` sample for the nRF7002 DK with debugging enabled, run the following commands:
 
@@ -28,14 +28,14 @@ With west
 
 .. code-block:: console
 
-    west build -p -b nrf7002dk_nrf5340_cpuapp -S nrf70-debug samples/wifi/shell
+    west build -p -b nrf7002dk/nrf5340/cpuapp samples/wifi/shell -- -Dnrf_wifi_shell_SNIPPET="nrf70-debug"
 
 With CMake
 ----------
 
 .. code-block:: console
 
-    cmake -GNinja -Bbuild -DBOARD=nrf7002dk_nrf5340_cpuapp -DSNIPPET=nrf70-debug samples/wifi/shell
+    cmake -GNinja -Bbuild -DBOARD=nrf7002dk/nrf5340/cpuapp -Dnrf_wifi_shell_SNIPPET="nrf70-debug" samples/wifi/shell
     ninja -C build
 
 Statistics

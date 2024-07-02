@@ -64,6 +64,7 @@ config TFM_CRYPTO_BUILTIN_KEYS
 	prompt "TF-M crypto builtin keys"
 	default y
 	depends on !TFM_PROFILE_TYPE_MINIMAL
+	depends on !CRACEN_HW_PRESENT
 	select PSA_WANT_ALG_HKDF
 	select PSA_WANT_ALG_HMAC
 	select PSA_WANT_ALG_SHA_256
@@ -114,18 +115,10 @@ config TFM_CRYPTO_PARTITION_STACK_SIZE
 	hex
 	prompt "TF-M Crypto Partition - Stack size" if !TFM_PROFILE_TYPE_MINIMAL
 	default 0x800 if TFM_PROFILE_TYPE_MINIMAL
-	default 0x4000 if PSA_WANT_RSA_KEY_SIZE_4096
+	default 0x4000 if PSA_WANT_RSA_KEY_SIZE_4096 || PSA_WANT_RSA_KEY_SIZE_3072
 	default 0x2000
 	help
 	  The stack size of the Crypto Secure Partition
-
-config TFM_CRYPTO_NV_SEED
-	# Hidden option to set value based on TF-M minimal profile
-	bool
-	default y if !TFM_PROFILE_TYPE_MINIMAL
-	help
-	  Prompt-less configuration controlling NV Seed support.
-	  Not set when TFM_PROFILE_TYPE_MINIMAL is used
 
 endmenu
 
@@ -200,13 +193,16 @@ config TFM_ITS_BUF_SIZE
 
 config TFM_ITS_STACK_SIZE
 	hex "Stack size"
-	default 0x720
+	default 0x1000 if SOC_SERIES_NRF54LX
+	default 0x720 if !SOC_SERIES_NRF54LX
 
 # Nordic additions to ITS Kconfig
 config TFM_ITS_ENCRYPTED
 	bool
 	prompt "PSA Internal Trusted Storage with encryption"
+	default y if SOC_SERIES_NRF54LX
 	select PSA_ITS_ENCRYPTED
+	select PSA_WANT_GENERATE_RANDOM
 	help
 	  Enables authenticated encryption for PSA Internal Trusted Storage files
 
@@ -295,6 +291,23 @@ config TFM_PROFILE_TYPE_MINIMAL
 	  and reproduce the desired configuration through kconfig fragments.
 endchoice
 
+config TFM_NFCT_PINS_AS_GPIOS
+	bool
+	default y if !DT_HAS_NORDIC_NRF_NFCT_ENABLED
+	depends on SOC_NRF5340_CPUAPP
+	help
+	  Two pins are usually reserved for NFC in SoCs that implement the
+	  NFCT peripheral. This option switches them to normal GPIO mode.
+	  HW enabling happens once in the device lifetime, during the first
+	  system startup. Disabling this option will not switch back these
+	  pins to NFCT mode. Doing this requires UICR erase prior to
+	  flashing device using the image which has this option disabled.
+
+	  NFC pins in nRF5340: P0.02 and P0.03
+
+	  TF-M configures these pins as GPIOS when the NFCT peripheral is not
+	  enabled in the device-tree of the target.
+
 config TFM_SECURE_UART
 	bool "TF-M configure UART instance as secure peripheral"
 	default y if !TFM_LOG_LEVEL_SILENCE
@@ -318,6 +331,7 @@ config TFM_SECURE_UART_SHARE_INSTANCE
 
 choice TFM_SECURE_UART_INSTANCE
 	prompt "TF-M logging UART instance"
+	default TFM_SECURE_UART30 if SOC_SERIES_NRF54LX
 	default TFM_SECURE_UART1
 
 config TFM_SECURE_UART0
@@ -331,6 +345,36 @@ config TFM_SECURE_UART1
 	depends on $(dt_nodelabel_has_prop,uart1,pinctrl-names)
 	select NRF_UARTE1_SECURE
 	select TFM_SECURE_UART_SHARE_INSTANCE if NRFX_UARTE1 || HAS_HW_NRF_UARTE1
+
+config TFM_SECURE_UART00
+	bool "TF-M logging will use UART00 instance"
+	depends on $(dt_nodelabel_has_prop,uart00,pinctrl-names)
+	select NRF_UARTE00_SECURE
+	select TFM_SECURE_UART_SHARE_INSTANCE if NRFX_UARTE00 || HAS_HW_NRF_UARTE00
+
+config TFM_SECURE_UART20
+	bool "TF-M logging will use UART20 instance"
+	depends on $(dt_nodelabel_has_prop,uart20,pinctrl-names)
+	select NRF_UARTE20_SECURE
+	select TFM_SECURE_UART_SHARE_INSTANCE if NRFX_UARTE20 || HAS_HW_NRF_UARTE20
+
+config TFM_SECURE_UART21
+	bool "TF-M logging will use UART21 instance"
+	depends on $(dt_nodelabel_has_prop,uart21,pinctrl-names)
+	select NRF_UARTE21_SECURE
+	select TFM_SECURE_UART_SHARE_INSTANCE if NRFX_UARTE21 || HAS_HW_NRF_UARTE21
+
+config TFM_SECURE_UART22
+	bool "TF-M logging will use UART22 instance"
+	depends on $(dt_nodelabel_has_prop,uart22,pinctrl-names)
+	select NRF_UARTE22_SECURE
+	select TFM_SECURE_UART_SHARE_INSTANCE if NRFX_UARTE22 || HAS_HW_NRF_UARTE22
+
+config TFM_SECURE_UART30
+	bool "TF-M logging will use UART30 instance"
+	depends on $(dt_nodelabel_has_prop,uart30,pinctrl-names)
+	select NRF_UARTE30_SECURE
+	select TFM_SECURE_UART_SHARE_INSTANCE if NRFX_UARTE30 || HAS_HW_NRF_UARTE30
 
 endchoice
 
@@ -410,6 +454,7 @@ config TFM_S_CODE_VECTOR_TABLE_SIZE
 	hex
 	default 0x144 if SOC_SERIES_NRF91X
 	default 0x154 if SOC_NRF5340_CPUAPP
+	default 0x47c if SOC_SERIES_NRF54LX
 	default 0xffffffff # Invalid value to discover missing SOC support.
 	help
 	  The TF-M interrupt vector table size.

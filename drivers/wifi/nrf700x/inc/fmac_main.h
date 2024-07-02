@@ -69,11 +69,6 @@ struct nrf_wifi_vif_ctx_zep {
 	struct wifi_ps_config *ps_info;
 	bool ps_config_info_evnt;
 	bool authorized;
-	struct nrf_wifi_ext_capa {
-		enum nrf_wifi_iftype iftype;
-		unsigned char *ext_capa, *ext_capa_mask;
-		unsigned int ext_capa_len;
-	} iface_ext_capa;
 	bool cookie_resp_received;
 #ifdef CONFIG_NRF700X_DATA_TX
 	struct k_work nrf_wifi_net_iface_work;
@@ -81,6 +76,12 @@ struct nrf_wifi_vif_ctx_zep {
 	unsigned long rssi_record_timestamp_us;
 	signed short rssi;
 #endif /* CONFIG_NRF700X_STA_MODE */
+#ifdef CONFIG_NRF700X_AP_MODE
+	int inactive_time_sec;
+#endif /* CONFIG_NRF700X_AP_MODE */
+#ifdef CONFIG_NRF_WIFI_RPU_RECOVERY
+	struct k_work nrf_wifi_rpu_recovery_work;
+#endif /* CONFIG_NRF_WIFI_RPU_RECOVERY */
 };
 
 struct nrf_wifi_vif_ctx_map {
@@ -104,6 +105,7 @@ struct nrf_wifi_ctx_zep {
 #endif /* CONFIG_NRF700X_RADIO_TEST */
 	unsigned char *extended_capa, *extended_capa_mask;
 	unsigned int extended_capa_len;
+	struct k_mutex rpu_lock;
 };
 
 struct nrf_wifi_drv_priv_zep {
@@ -117,11 +119,15 @@ extern struct nrf_wifi_drv_priv_zep rpu_drv_priv_zep;
 void nrf_wifi_scan_timeout_work(struct k_work *work);
 void configure_tx_pwr_settings(struct nrf_wifi_tx_pwr_ctrl_params *tx_pwr_ctrl_params,
 				struct nrf_wifi_tx_pwr_ceil_params *tx_pwr_ceil_params);
+void configure_board_dep_params(struct nrf_wifi_board_params *board_params);
 void set_tx_pwr_ceil_default(struct nrf_wifi_tx_pwr_ceil_params *pwr_ceil_params);
 const char *nrf_wifi_get_drv_version(void);
 enum nrf_wifi_status nrf_wifi_fmac_dev_add_zep(struct nrf_wifi_drv_priv_zep *drv_priv_zep);
 enum nrf_wifi_status nrf_wifi_fmac_dev_rem_zep(struct nrf_wifi_drv_priv_zep *drv_priv_zep);
 enum nrf_wifi_status nrf_wifi_fw_load(void *rpu_ctx);
 struct nrf_wifi_vif_ctx_zep *nrf_wifi_get_vif_ctx(struct net_if *iface);
+void nrf_wifi_rpu_recovery_cb(void *vif_ctx,
+		void *event_data,
+		unsigned int event_len);
 
 #endif /* __ZEPHYR_FMAC_MAIN_H__ */

@@ -5,6 +5,11 @@ top_table:
   Zigbee: ZIGBEE
   Thread: NET_L2_OPENTHREAD
   LTE: LTE_LINK_CONTROL
+  DECT NR+ PHY:
+    rule: NRF_MODEM_LINK_BINARY_DECT_PHY
+    boards_and_shields:
+      - BOARD_NRF9161DK_NRF9161_NS
+      - BOARD_NRF9151DK_NRF9151_NS
   Matter: CHIP
   Wi-Fi:
     rule: WIFI && WIFI_NRF700X
@@ -13,19 +18,26 @@ top_table:
       - SHIELD_NRF7002EK_NRF7000
       - SHIELD_NRF7002EK_NRF7001
       - SHIELD_NRF7002EB
+      - SHIELD_NRF700X_NRF54H20DK
+      - SHIELD_NRF700X_NRF54L15PDK
       - BOARD_NRF7002DK_NRF5340_CPUAPP
-      - BOARD_NRF7002DK_NRF7001_NRF5340_CPUAPP
+      - BOARD_NRF7002DK_NRF5340_CPUAPP_NRF7001
 features:
   sidewalk:
     Sidewalk over BLE: SIDEWALK && SIDEWALK_LINK_MASK_BLE
-    Sidewalk over FSK: SIDEWALK && SIDEWALK_LINK_MASK_FSK
-    Sidewalk over LORA: SIDEWALK && SIDEWALK_LINK_MASK_LORA
+    Sidewalk over FSK: SIDEWALK && CONFIG_SIDEWALK_SUBGHZ_SUPPORT
+    Sidewalk over LORA: SIDEWALK && CONFIG_SIDEWALK_SUBGHZ_SUPPORT
     Sidewalk - OTA DFU over Bluetooth LE: SIDEWALK && SIDEWALK_DFU_SERVICE_BLE
+    Sidewalk on-device certification: SIDEWALK
+    Sidewalk Multi-link + Auto-connect: SIDEWALK && CONFIG_SIDEWALK_SUBGHZ_SUPPORT
+    Sidewalk File Transfer (FUOTA): SIDEWALK && SIDEWALK_FILE_TRANSFER
   bluetooth:
     Bluetooth LE Peripheral/Central: BT_CTLR && (BT_CENTRAL || BT_PERIPHERAL)
     LLPM: BT_CTLR_SDC_LLPM
     LE Coded PHY: BT_CTLR_PHY_CODED_SUPPORT
     Connectionless/Connected CTE Transmitter: BT_CTLR_DF_CTE_TX_SUPPORT
+  DECT NR+ PHY:
+    Immediate operations: NRF_MODEM_LINK_BINARY_DECT_PHY
   zigbee:
     Zigbee (Sleepy) End Device: ZIGBEE_ROLE_END_DEVICE
     Zigbee Router: CONFIG_ZIGBEE_ROLE_ROUTER
@@ -71,8 +83,10 @@ features:
         - SHIELD_NRF7002EK_NRF7000
         - SHIELD_NRF7002EK_NRF7001
         - SHIELD_NRF7002EB
+        - SHIELD_NRF700X_NRF54H20DK
+        - SHIELD_NRF700X_NRF54L15PDK
         - BOARD_NRF7002DK_NRF5340_CPUAPP
-        - BOARD_NRF7002DK_NRF7001_NRF5340_CPUAPP
+        - BOARD_NRF7002DK_NRF5340_CPUAPP_NRF7001
     Scan only (for location accuracy):
       rule: WIFI_NRF700X && !WPA_SUPP
       boards_and_shields:
@@ -81,16 +95,20 @@ features:
         - SHIELD_NRF7002EK_NRF7001
         - SHIELD_NRF7002EB
         - BOARD_NRF7002DK_NRF5340_CPUAPP
-        - BOARD_NRF7002DK_NRF7001_NRF5340_CPUAPP
-    Bluetooth LE Co-existence:
-      rule: WIFI_NRF700X && NRF700X_BT_COEX
+        - BOARD_NRF7002DK_NRF5340_CPUAPP_NRF7001
+    Bluetooth LE coexistence:
+      rule: WIFI_NRF700X && NRF700X_SR_COEX
       boards_and_shields:
         - SHIELD_NRF7002EK
         - SHIELD_NRF7002EK_NRF7001
         - SHIELD_NRF7002EB
         - BOARD_NRF7002DK_NRF5340_CPUAPP
-        - BOARD_NRF7002DK_NRF7001_NRF5340_CPUAPP
-    SoftAP Mode:
+        - BOARD_NRF7002DK_NRF5340_CPUAPP_NRF7001
+    Thread coexistence:
+      rule: WIFI_NRF700X && OPENTHREAD
+      boards_and_shields:
+        - BOARD_NRF7002DK_NRF5340_CPUAPP
+    SoftAP Mode (for Wi-Fi provisioning):
       rule: WIFI_NRF700X && NRF700X_AP_MODE && WPA_SUPP_AP
       boards_and_shields:
         - SHIELD_NRF7002EK
@@ -98,7 +116,7 @@ features:
         - SHIELD_NRF7002EK_NRF7001
         - SHIELD_NRF7002EB
         - BOARD_NRF7002DK_NRF5340_CPUAPP
-        - BOARD_NRF7002DK_NRF7001_NRF5340_CPUAPP
+        - BOARD_NRF7002DK_NRF5340_CPUAPP_NRF7001
     Monitor Mode:
       rule: WIFI_NRF700X && NRF700X_RAW_DATA_RX
       boards_and_shields:
@@ -107,7 +125,7 @@ features:
         - SHIELD_NRF7002EK_NRF7001
         - SHIELD_NRF7002EB
         - BOARD_NRF7002DK_NRF5340_CPUAPP
-        - BOARD_NRF7002DK_NRF7001_NRF5340_CPUAPP
+        - BOARD_NRF7002DK_NRF5340_CPUAPP_NRF7001
     TX injection Mode:
       rule: WIFI_NRF700X && NRF700X_RAW_DATA_TX
       boards_and_shields:
@@ -116,7 +134,7 @@ features:
         - SHIELD_NRF7002EK_NRF7001
         - SHIELD_NRF7002EB
         - BOARD_NRF7002DK_NRF5340_CPUAPP
-        - BOARD_NRF7002DK_NRF7001_NRF5340_CPUAPP
+        - BOARD_NRF7002DK_NRF5340_CPUAPP_NRF7001
     Promiscuous Mode:
       rule: WIFI_NRF700X && NRF700X_PROMISC_DATA_RX
       boards_and_shields:
@@ -124,7 +142,10 @@ features:
         - SHIELD_NRF7002EK_NRF7001
         - SHIELD_NRF7002EB
         - BOARD_NRF7002DK_NRF5340_CPUAPP
-        - BOARD_NRF7002DK_NRF7001_NRF5340_CPUAPP
+        - BOARD_NRF7002DK_NRF5340_CPUAPP_NRF7001
+  fast_pair:
+    Personalized Name extension: BT_FAST_PAIR_PN
+    Find My Device Network extension: BT_FAST_PAIR_FMDN
   trusted_firmware_m:
     Minimal Build: BUILD_WITH_TFM && TFM_PROFILE_TYPE_MINIMAL
     Full build: BUILD_WITH_TFM && TFM_PROFILE_TYPE_NOT_SET && NRF_SECURITY
@@ -134,6 +155,8 @@ features:
     Immutable Bootloader as part of build: SECURE_BOOT
   hw_unique_key:
     Key Derivation from Hardware Unique Key: HW_UNIQUE_KEY
+  trusted_storage:
+    Trusted storage implements the PSA Certified Secure Storage APIs without TF-M: TRUSTED_STORAGE
   power_management:
     nPM1100: REGULATOR_NPM1100
     nPM1300: MFD_NPM1300
@@ -145,4 +168,6 @@ display_names:
   SHIELD_NRF7002EK_NRF7001: nRF7002 EK in nRF7001 emulation mode
   SHIELD_NRF7002EB: nRF7002 EB
   BOARD_NRF7002DK_NRF5340_CPUAPP: nRF7002 DK
-  BOARD_NRF7002DK_NRF7001_NRF5340_CPUAPP: nRF7002 DK in nRF7001 emulation mode
+  BOARD_NRF7002DK_NRF5340_CPUAPP_NRF7001: nRF7002 DK in nRF7001 emulation mode
+  BOARD_NRF9161DK_NRF9161_NS: nRF9161
+  BOARD_NRF9151DK_NRF9151_NS: nRF9151

@@ -7,17 +7,19 @@
 #ifndef SLM_AT_CARRIER_CFG_
 #define SLM_AT_CARRIER_CFG_
 
-#include <modem/at_cmd_parser.h>
-
 /**@file slm_at_carrier_cfg.h
  *
- * @brief Custom AT command to configure the LwM2M Carrier library.
+ * @brief Vendor-specific AT command for configuring the LwM2M Carrier service.
  * @{
  */
+
 /**
- * @brief AT#XCARRIERCFG command handler.
+ * @brief Initialize Carrier Settings AT command parser.
+ *
+ * @retval 0 If the operation was successful.
+ *           Otherwise, a (negative) error code is returned.
  */
-int handle_at_carrier_cfg(enum at_cmd_type cmd_type);
+int slm_at_carrier_cfg_init(void);
 
 /** @} */
 

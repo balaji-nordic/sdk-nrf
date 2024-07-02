@@ -7,16 +7,19 @@
 #ifndef __ZEPHYR_KERNEL_H
 #define __ZEPHYR_KERNEL_H
 
-/* Compatebility header for using Zephyr API in TF-M.
+/*
+ * Compatibility header for using Zephyr API in TF-M.
  *
  * The macros and functions here can be used by code that is common for both
  * Zephyr and TF-M RTOS.
  *
  * The functionality will be forwarded to TF-M equivalent of the Zephyr API.
+ *
  */
 
+#include <stddef.h>
+#include <zephyr/sys/__assert.h>
 #include <zephyr/sys/printk.h>
-
-#define k_panic() tfm_core_panic()
+#include <zephyr/irq.h>
 
 #endif /* __ZEPHYR_KERNEL_H */

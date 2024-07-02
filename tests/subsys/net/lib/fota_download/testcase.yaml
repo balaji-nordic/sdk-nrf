@@ -1,7 +1,8 @@
 tests:
   net.lib.fota_download:
-    tags: aws fota
-    platform_allow: nrf9160dk_nrf9160 nrf9160dk_nrf9160_ns
+    sysbuild: true
+    tags: aws fota sysbuild
+    platform_allow: nrf9160dk/nrf9160 nrf9160dk/nrf9160/ns
     integration_platforms:
-      - nrf9160dk_nrf9160
-      - nrf9160dk_nrf9160_ns
+      - nrf9160dk/nrf9160
+      - nrf9160dk/nrf9160/ns

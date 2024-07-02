@@ -14,11 +14,16 @@
 #include <mpsl/mpsl_assert.h>
 #include <mpsl/mpsl_work.h>
 #include "multithreading_lock.h"
+#include <nrfx.h>
 #if defined(CONFIG_NRFX_DPPI)
 #include <nrfx_dppi.h>
 #endif
 #if defined(CONFIG_MPSL_TRIGGER_IPC_TASK_ON_RTC_START)
 #include <hal/nrf_ipc.h>
+#endif
+
+#if IS_ENABLED(CONFIG_MPSL_USE_ZEPHYR_PM)
+#include <pm/mpsl_pm_utils.h>
 #endif
 
 LOG_MODULE_REGISTER(mpsl_init, CONFIG_MPSL_LOG_LEVEL);
@@ -48,18 +53,22 @@ extern void rtc_pretick_rtc0_isr_hook(void);
 #define MPSL_RADIO_IRQn RADIO_IRQn
 #elif defined(CONFIG_SOC_SERIES_NRF54LX)
 #define MPSL_TIMER_IRQn TIMER10_IRQn
-#define MPSL_RTC_IRQn	GRTC_3_IRQn
+#define MPSL_RTC_IRQn GRTC_3_IRQn
 #define MPSL_RADIO_IRQn RADIO_0_IRQn
 #elif defined(CONFIG_SOC_SERIES_NRF54HX)
 #define MPSL_TIMER_IRQn TIMER020_IRQn
-#define MPSL_RTC_IRQn GRTC_0_IRQn /* non-secure GRTC IRQ. */
+#define MPSL_RTC_IRQn GRTC_2_IRQn
 #define MPSL_RADIO_IRQn RADIO_0_IRQn
+#endif
 
+#if defined(CONFIG_SOC_SERIES_NRF54HX)
 /* Basic build time sanity checking */
 #define MPSL_RESERVED_GRTC_CHANNELS ((1U << 8) | (1U << 9) | (1U << 10) | (1U << 11) | (1U << 12))
-#define MPSL_RESERVED_DPPI_SOURCE_CHANNELS (1U << 0)
-#define MPSL_RESERVED_DPPI_SINK_CHANNELS (1U << 0)
-#define MPSL_RESERVED_IPCT_SOURCE_CHANNELS (1U << 0)
+#elif defined(CONFIG_SOC_SERIES_NRF54LX)
+#define MPSL_RESERVED_GRTC_CHANNELS ((1U << 7) | (1U << 8) | (1U << 9) | (1U << 10) | (1U << 11))
+#endif
+
+#if defined(CONFIG_SOC_SERIES_NRF54HX) || defined(CONFIG_SOC_SERIES_NRF54LX)
 
 BUILD_ASSERT(MPSL_RTC_IRQn != DT_IRQN(DT_NODELABEL(grtc)), "MPSL requires a dedicated GRTC IRQ");
 
@@ -72,10 +81,15 @@ BUILD_ASSERT(MPSL_RTC_IRQn != DT_IRQN(DT_NODELABEL(grtc)), "MPSL requires a dedi
 
 BUILD_ASSERT(MPSL_IRQ_IN_DT, "The MPSL GRTC IRQ is not in the device tree");
 
-BUILD_ASSERT((NRFX_CONFIG_GRTC_MASK_DT(child_owned_channels) & MPSL_RESERVED_GRTC_CHANNELS) ==
-		     MPSL_RESERVED_GRTC_CHANNELS,
+BUILD_ASSERT((NRFX_CONFIG_MASK_DT(DT_NODELABEL(grtc), child_owned_channels) &
+	      MPSL_RESERVED_GRTC_CHANNELS) == MPSL_RESERVED_GRTC_CHANNELS,
 	     "The GRTC channels used by MPSL must not be used by zephyr");
+#endif
 
+#if defined(CONFIG_SOC_SERIES_NRF54HX)
+#define MPSL_RESERVED_IPCT_SOURCE_CHANNELS (1U << 0)
+#define MPSL_RESERVED_DPPI_SOURCE_CHANNELS (1U << 0)
+#define MPSL_RESERVED_DPPI_SINK_CHANNELS (1U << 0)
 /* check the GRTC source channels.
  * i.e. ensure something similar to this is present in the DT
  * &dppic132 {
@@ -155,7 +169,7 @@ static uint8_t __aligned(4) timeslot_context[TIMESLOT_MEM_SIZE];
 
 static void mpsl_low_prio_irq_handler(const void *arg)
 {
-	k_work_submit_to_queue(&mpsl_work_q, &mpsl_low_prio_work);
+	mpsl_work_submit(&mpsl_low_prio_work);
 }
 
 static void mpsl_low_prio_work_handler(struct k_work *item)
@@ -166,7 +180,13 @@ static void mpsl_low_prio_work_handler(struct k_work *item)
 
 	errcode = MULTITHREADING_LOCK_ACQUIRE();
 	__ASSERT_NO_MSG(errcode == 0);
+
 	mpsl_low_priority_process();
+
+#if IS_ENABLED(CONFIG_MPSL_USE_ZEPHYR_PM)
+	mpsl_pm_utils_work_handler();
+#endif
+
 	MULTITHREADING_LOCK_RELEASE();
 }
 
@@ -319,8 +339,8 @@ static void mpsl_calibration_work_handler(struct k_work *work)
 
 	mpsl_calibration_timer_handle();
 
-	k_work_schedule_for_queue(&mpsl_work_q, &calibration_work,
-				  K_MSEC(CONFIG_CLOCK_CONTROL_NRF_CALIBRATION_PERIOD));
+	mpsl_work_schedule(&calibration_work,
+			   K_MSEC(CONFIG_CLOCK_CONTROL_NRF_CALIBRATION_PERIOD));
 }
 #endif /* CONFIG_CLOCK_CONTROL_NRF_K32SRC_RC && !CONFIG_SOC_SERIES_NRF54HX */
 
@@ -396,6 +416,10 @@ static int mpsl_lib_init_sys(void)
 		return err;
 	}
 
+#if IS_ENABLED(CONFIG_MPSL_USE_ZEPHYR_PM)
+	mpsl_pm_utils_init();
+#endif
+
 #if IS_ENABLED(CONFIG_MPSL_DYNAMIC_INTERRUPTS)
 	/* Ensure IRQs are disabled before attaching. */
 	mpsl_lib_irq_disable();
@@ -439,8 +463,8 @@ static int mpsl_low_prio_init(void)
 		    mpsl_low_prio_irq_handler, NULL, 0);
 
 #if defined(CONFIG_CLOCK_CONTROL_NRF_K32SRC_RC) && !defined(CONFIG_SOC_SERIES_NRF54HX)
-	k_work_schedule_for_queue(&mpsl_work_q, &calibration_work,
-				  K_MSEC(CONFIG_CLOCK_CONTROL_NRF_CALIBRATION_PERIOD));
+	mpsl_work_schedule(&calibration_work,
+			   K_MSEC(CONFIG_CLOCK_CONTROL_NRF_CALIBRATION_PERIOD));
 #endif /* CONFIG_CLOCK_CONTROL_NRF_K32SRC_RC && !CONFIG_SOC_SERIES_NRF54HX */
 
 	return 0;

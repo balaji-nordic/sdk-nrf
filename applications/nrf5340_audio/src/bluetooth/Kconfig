@@ -34,11 +34,19 @@ config BT_AUDIO_PREF_SAMPLE_RATE_VALUE
 	default 0x08 if BT_AUDIO_PREF_SAMPLE_RATE_48KHZ
 
 choice BT_AUDIO_PREF_SAMPLE_RATE
-	prompt "Preferred audio sample rate"
+	prompt "Preferred BT audio sample rate"
+	default BT_AUDIO_PREF_SAMPLE_RATE_16KHZ if BT_BAP_BROADCAST_16_2_1
+	default BT_AUDIO_PREF_SAMPLE_RATE_16KHZ if BT_BAP_BROADCAST_16_2_2
+	default BT_AUDIO_PREF_SAMPLE_RATE_16KHZ if BT_BAP_UNICAST_16_2_1
 	default BT_AUDIO_PREF_SAMPLE_RATE_24KHZ if STREAM_BIDIRECTIONAL
+	default BT_AUDIO_PREF_SAMPLE_RATE_24KHZ if BT_BAP_BROADCAST_24_2_1
+	default BT_AUDIO_PREF_SAMPLE_RATE_24KHZ if BT_BAP_BROADCAST_24_2_2
+	default BT_AUDIO_PREF_SAMPLE_RATE_24KHZ if BT_BAP_UNICAST_24_2_1
 	default BT_AUDIO_PREF_SAMPLE_RATE_48KHZ
 	help
-	  Select the preferred sample rate if there are more than one to choose from.
+	  Select the preferred sample rate to stream if there are more than one to choose from.
+	  Only valid when used by unicast_client if CONFIG_SAMPLE_RATE_CONVERTER=y and
+	  CONFIG_AUDIO_SAMPLE_RATE_48000_HZ=y, meaning 16, 24, and 48kHz are supported.
 
 config  BT_AUDIO_PREF_SAMPLE_RATE_48KHZ
 	bool "48 kHz"
@@ -62,7 +70,7 @@ menu "QoS"
 config BT_AUDIO_PRESENTATION_DELAY_US
 	int "Presentation delay"
 	range AUDIO_MIN_PRES_DLY_US AUDIO_MAX_PRES_DLY_US
-	default 10000
+	default AUDIO_MIN_PRES_DLY_US
 	help
 	  The audio source/client defined presentation delay if within
 	  AUDIO_MIN_PRES_DLY_US and AUDIO_MAX_PRES_DLY_US range. This will
@@ -74,7 +82,7 @@ config BT_AUDIO_PRESENTATION_DELAY_US
 config BT_AUDIO_MAX_TRANSPORT_LATENCY_MS
 	int "Max transport latency"
 	range 5 4000
-	default 20
+	default 10
 	help
 	  Max transport latency for the ISO link.
 
@@ -89,7 +97,7 @@ config BT_AUDIO_RETRANSMITS
 endmenu # QoS
 endmenu # Bluetooth audio
 
-rsource "bt_renderer/Kconfig"
+rsource "bt_rendering_and_capture/Kconfig"
 rsource "bt_content_control/Kconfig"
 
 #----------------------------------------------------------------------------#

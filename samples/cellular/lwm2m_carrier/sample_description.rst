@@ -22,7 +22,7 @@ Overview
 ********
 
 LwM2M is an application layer protocol for IoT device management and service enablement.
-It is designed to expose various resources for reading, writing, and executing through an LwM2M server in a lightweight environment.
+It is designed to expose various resources for reading, writing, and executing through an LwM2M Server in a lightweight environment.
 
 The LwM2M carrier library is needed for certification in certain operator networks.
 The LwM2M carrier sample shows how to integrate the LwM2M carrier library.
@@ -33,7 +33,7 @@ Some of the configurations of the library must be changed according to your spec
 For example, at some point during certification, you might have to connect to one or more of an operator's test (certification) servers, by overwriting the library's automatic URI and PSK selection.
 When :kconfig:option:`CONFIG_LWM2M_CARRIER_CUSTOM_URI` is empty, the library connects to live (production) servers.
 
-The sections below explain how you can configure the library in different ways to connect to Leshan and AVSystem's Coiote LwM2M servers.
+The sections below explain how you can configure the library in different ways to connect to Leshan and AVSystem's Coiote LwM2M Servers.
 To know more about the AVSystem integration with |NCS|, see :ref:`ug_avsystem`.
 Configuring your application to connect to other servers (such as your operator's test servers) might look different, depending on the operator's device management framework.
 
@@ -48,8 +48,8 @@ Setup
 Before building and running the sample, complete the following steps:
 
 1. Select the device that you plan to test.
-#. Select the LwM2M server for testing.
-#. Setup the LwM2M server by completing the steps listed in :ref:`server_setup_lwm2m_carrier`.
+#. Select the LwM2M Server for testing.
+#. Setup the LwM2M Server by completing the steps listed in :ref:`server_setup_lwm2m_carrier`.
    This step retrieves the server address and the security tag that will be needed during the next steps.
 #. :ref:`server_addr_PSK_carrier`.
 
@@ -71,10 +71,10 @@ Set the server address and PSK
    * For `Coiote Device Management`_ - ``coaps://eu.iot.avsystem.cloud:5684`` (`Coiote Device Management server`_).
    * For `Leshan Bootstrap Server Demo web UI <public Leshan Bootstrap Server Demo_>`_ - ``coaps://leshan.eclipseprojects.io:5784``
    * For Coiote bootstrap server - ``coaps://eu.iot.avsystem.cloud:5694``
-#. Set :kconfig:option:`CONFIG_LWM2M_CARRIER_IS_BOOTSTRAP_SERVER` if bootstrap is used. If bootstrap is not used, set :kconfig:option:`CONFIG_LWM2M_CARRIER_SERVER_LIFETIME` to specify the lifetime of the LwM2M server.
+#. Set :kconfig:option:`CONFIG_LWM2M_CARRIER_IS_BOOTSTRAP_SERVER` if bootstrap is used. If bootstrap is not used, set :kconfig:option:`CONFIG_LWM2M_CARRIER_SERVER_LIFETIME` to specify the lifetime of the LwM2M Server.
 #. Set :ref:`CONFIG_CARRIER_APP_PSK <CONFIG_CARRIER_APP_PSK>` to the hexadecimal representation of the PSK used when registering the device with the server.
 #. Specify a :kconfig:option:`CONFIG_LWM2M_CARRIER_SERVER_SEC_TAG` to store the PSK.
-   Alternatively, you could only specify a security tag if a PSK is previously stored to the security tag as shown in :ref:`LwM2M client provisioning documentation <lwm2m_client_provisioning>`.
+   Alternatively, you could only specify a security tag if a PSK is previously stored to the security tag as shown in :ref:`LwM2M Client provisioning documentation <lwm2m_client_provisioning>`.
 
 Configuration options
 =====================
@@ -86,7 +86,7 @@ Server options
 
 .. _CONFIG_CARRIER_APP_PSK:
 
-CONFIG_CARRIER_APP_PSK - Configuration for Pre-Shared Key
+CONFIG_CARRIER_APP_PSK - Configuration for a pre-shared key (PSK)
    The sample configuration is used to set the hexadecimal representation of the PSK used when registering the device with the server.
    The PSK is stored in the security tag specified in :kconfig:option:`CONFIG_LWM2M_CARRIER_SERVER_SEC_TAG`.
 
@@ -120,21 +120,14 @@ Building and running
 Building with overlay
 =====================
 
-To build with a Kconfig overlay, pass it to the build system using the ``OVERLAY_CONFIG`` CMake variable, as shown in the following example:
+To build with a Kconfig overlay, pass it to the build system using the ``EXTRA_CONF_FILE`` CMake variable, as shown in the following example:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
+   west build -b *board_target* -- -DEXTRA_CONF_FILE=overlay-shell.conf
 
-      .. code-block:: console
-
-         west build -b nrf9161dk_nrf9161_ns -- -DOVERLAY_CONFIG=overlay-shell.conf
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -b nrf9160dk_nrf9160_ns -- -DOVERLAY_CONFIG=overlay-shell.conf
+|board_target|
 
 This command builds for your nRF91 Series DK using the configurations found in the :file:`overlay-shell.conf` file, in addition to the configurations found in the :file:`prj.conf` file.
 If some options are defined in both files, the options set in the overlay take precedence.
@@ -145,7 +138,9 @@ Testing
 After programming the sample and all prerequisites to the development kit, test it by performing the following steps:
 
 1. Connect the USB cable and power on or reset your nRF91 Series DK.
-#. Open a terminal emulator and observe that the kit prints the following information::
+#. Use a terminal emulator, like `nRF Connect Serial Terminal`_, to connect to the serial port.
+   See :ref:`test_and_optimize` for the required settings and steps.
+#. Observe that the kit prints the following information::
 
         LWM2M Carrier library sample.
 #. Observe that the application receives events from the :ref:`liblwm2m_carrier_readme` library using the registered event handler. If the client and server configuration is correct, the initial output looks similar to the following output:
@@ -166,7 +161,7 @@ Once bootstrap has been done, subsequent reconnects will not contain the bootstr
    LWM2M Carrier library sample.
    LWM2M_CARRIER_EVENT_REGISTERED
 
-The device is now registered to an LwM2M server, and the server can interact with it.
+The device is now registered to an LwM2M Server, and the server can interact with it.
 If you used your own custom server as described in :ref:`server_setup_lwm2m_carrier`, you can try reading and observing the available resources.
 
 If you connected to the carrier (test) servers or live (production) servers, reach out to your mobile network operator to learn about how to proceed with certification tests or normal operation, respectively.

@@ -159,7 +159,7 @@ UPLOAD_FILENAME = UPLOAD_PREFIX + "/{}.yaml"
 NRF_SAMPLE_DIR = Path(__file__).absolute().parents[3]
 """Directory containing samples/ and applications/ subfolders."""
 
-BOARD_FILTER = lambda b: re.search(r"_nrf[0-9]+", b) and not b.startswith("nrf51")
+BOARD_FILTER = lambda b: re.search(r"/nrf[0-9]+", b) and not b.startswith("nrf51")
 """Function to filter non-relevant boards."""
 
 
@@ -222,12 +222,11 @@ def soc_from_kconfig(kconfig: kconfiglib.Kconfig) -> str:
 def find_experimental_symbols(logs: List[str]) -> Dict[str, Set[str]]:
     """Search through a list of files for experimental symbols.
 
-    In cases where experimental symbols are found, but the folder in which they
-    were found does not contain a /zephyr/.config file, the symbols are
-    ignored.
+    In cases where experimental symbols are found, search all .config files
+    in the build log folder to get a set of symbols for each SoC.
 
     Args:
-        logs: List of full path to all build.log files.
+        logs: List of a full path to all build.log files.
 
     Return:
         A mapping from each SoC to a set of symbols that trigger the
@@ -240,19 +239,16 @@ def find_experimental_symbols(logs: List[str]) -> Dict[str, Set[str]]:
         content = path.read_text()
         matches = re.findall(r"Experimental symbol ([A-Z0-9_]+) is enabled", content)
         if matches:
-            config_path = path.parent / "zephyr" / ".config"
-            if not config_path.exists():
-                logger.warning(f"path '{config_path.as_posix()}' does not exist")
-                continue
-            kconf = kconfiglib.Kconfig(filename=config_path)
-            soc = soc_from_kconfig(kconf)
-            if not soc:
-                continue
-            for symbol in matches:
-                symbol = "CONFIG_" + symbol
-                if soc not in socs:
-                    socs[soc] = set()
-                socs[soc].add(symbol)
+            for config_path in path.parent.glob("**/.config"):
+                kconf = kconfiglib.Kconfig(filename=config_path)
+                soc = soc_from_kconfig(kconf)
+                if not soc:
+                    continue
+                for symbol in matches:
+                    symbol = "CONFIG_" + symbol
+                    if soc not in socs:
+                        socs[soc] = set()
+                    socs[soc].add(symbol)
     return socs
 
 
@@ -295,7 +291,7 @@ def find_all_socs(all_samples: List[str]) -> List[str]:
 
     # Only use nRF boards, but not nRF51 series
     all_boards = set(filter(BOARD_FILTER, all_boards))
-    all_socs = {re.findall(r"_(nrf[0-9]+)", b)[-1] for b in all_boards}
+    all_socs = {b.split("/")[1] for b in all_boards}
     return list(sorted(all_socs))
 
 

@@ -1,3 +1,4 @@
+# Requirement file for native tools on Darwin 86 and aarch64
 python:
   version: 3.9.6
 git:
@@ -15,8 +16,8 @@ west:
 nanopb:
   version: 0.4.6
 zephyr-sdk:
-  version: 0.16.5
-  architectures: # https://github.com/zephyrproject-rtos/sdk-ng/releases/tag/v0.16.5
+  version: 0.16.5-1
+  architectures: # https://github.com/zephyrproject-rtos/sdk-ng/releases/tag/v0.16.5-1
     - aarch64-zephyr-elf
     - x86_64-zephyr-elf
     - arm-zephyr-eabi

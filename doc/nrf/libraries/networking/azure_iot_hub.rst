@@ -32,9 +32,11 @@ Setup and configuration
 To connect a device to Azure IoT Hub, complete the following steps:
 
 1. :ref:`azure_set_up`
+#. :ref:`azure_authenticate`
 #. :ref:`azure_create_iot_hub`
-#. :ref:`azure_create_device`
+#. :ref:`azure_dps_create`
 #. :ref:`azure_generating_certificates`
+#. :ref:`azure_create_device`
 #. :ref:`azure_iot_hub_flash_certs`
 
 .. rst-class:: numbered-step
@@ -52,6 +54,7 @@ To get started with testing the Azure IoT Hub, make sure that the following prer
 * To use the ``nrfcredstore`` tool, the dependencies in the :file:`nrf/scripts/requirements-extra.txt` file must be installed.
 
 .. rst-class:: numbered-step
+
 .. _azure_authenticate:
 
 Authenticate Azure CLI
@@ -61,10 +64,11 @@ Authenticate the Azure CLI tool to use your Azure account in the default browser
 
 .. code-block:: console
 
-    az login
+   az login
 
-For other authentication options, see INSERT-LINK-HERE(Sign in with Azure CLI)
-https://learn.microsoft.com/en-us/cli/azure/authenticate-azure-cli
+For other authentication options, see the `Sign in with Azure CLI`_ documentation.
+
+.. rst-class:: numbered-step
 
 .. _azure_create_iot_hub:
 
@@ -85,7 +89,7 @@ Create an IoT Hub
       az account list-locations -o table
 
 
-#. To create an IoT Hub, use the following command, select the resource group you created, and create a unique name for your IoT Hub.
+#. To create an IoT Hub, use the following command, select the resource group you created, and create a unique name for your IoT Hub:
 
    .. code-block:: console
 
@@ -98,27 +102,27 @@ For information on how to set up creating an Azure IoT Hub instance using the Az
 
 .. rst-class:: numbered-step
 
-.. _azure_create_device:
+.. _azure_dps_create:
 
-Register a device in Azure IoT Hub
-==================================
+Device Provisioning Service (optional)
+======================================
 
-.. important::
-   This step is only relevant if you do not use DPS to provision devices to your IoT hub.
-   In this step, ``X.509 CA Signed`` is selected as the *Authentication type*, which is necessary when not using DPS.
+Azure IoT Hub DPS is a helper service for IoT Hub that enables just-in-time provisioning to the right IoT hub without pre-registering each device manually.
 
+The alternative is to register each device manually with the IoT Hub and hard-code the IoT Hub hostname in the device firmware.
 
-To register a new device in your IoT hub, use the following command:
+When using DPS, make sure to select the DPS tabs in the following sections of this document.
 
-.. code-block:: console
+To use DPS, you need to set up an Azure IoT Hub Device Provisioning Service (DPS) instance with the following commands:
 
-   az iot hub device-identity create -n <iothub_name> -d <device_id> --am x509_ca
+* To create the DPS instance::
 
-You can list your devices in Azure IoT Hub using the following command:
+   az iot dps create --name <dps_name> --resource-group <resource_name>
 
-.. code-block:: console
+* To link the IoT Hub to the DPS instance::
 
-   az iot hub device-identity list --hub-name <iothub_name>
+   az iot dps linked-hub create --dps-name <dps_name> --hub-name <hub_name> --resource-group <resource_name>
+
 
 .. rst-class:: numbered-step
 
@@ -128,13 +132,340 @@ You can list your devices in Azure IoT Hub using the following command:
 Generating certificates
 =======================
 
-The connection to Azure IoT Hub with MQTT is secured using TLS.
-For testing purposes, see `Creating Azure IoT Hub certificates`_ for the steps to create certificates and a private key for the leaf device, and to register the generated test root certificate to be used with an IoT Hub.
+The connection to the Azure IoT Hub with MQTT is secured using TLS.
+To create the device certificate, you need a Certificate Authority (CA) certificate and a private key that is used to sign all of your client certificates.
+The CA certificate is uploaded to Azure IoT Hub, so Azure can verify that the device certificate is signed by your CA.
+If you do not have a CA certificate, you can purchase one or make a self-signed test CA certificate for testing purposes.
+
+To help generate test CA certificates and handle the device keys and certificates, you can use the :file:`nrf/scripts/cert_tool.py` Python script.
+Either call the script relative from the current working directory or add it to the path.
+
+.. note::
+   The :file:`cert_tool.py` Python script has default values for all actions for the input and output file names.
+   See the available arguments by running the ``--help`` argument to the script.
+
+Generate test CA certificates
+-----------------------------
+
+* To generate the root CA certificate, use the following command:
+
+  .. code-block:: console
+
+     cert_tool.py root_ca
+
+  This command generates a self-signed root CA certificate and private key and saves them to the files :file:`ca/root-ca-cert.pem` and :file:`ca/root-ca-key.pem`.
+
+* To generate the subordinate CA certificate, use the following command:
+
+  .. code-block:: console
+
+     cert_tool.py sub_ca
+
+  This command generates a subordinate CA certificate (signed by the root CA) and private key and saves them to the files :file:`ca/sub-ca-cert.pem` and :file:`ca/sub-ca-key.pem`.
+
+.. _azure_device_provisioning:
+
+Proof of possession
+-------------------
+
+To prove possession of the root CA key, you need to sign a verification code using the root CA certificate and upload the resulting certificate to Azure.
+
+With individual enrollment, you need to upload and verify the root CA certificate with the IoT hub.
+When using DPS, you need to upload and verify the root CA certificate with the DPS instance.
+
+.. tabs::
+
+   .. tab:: Without DPS
+
+      To perform proof of possession of the root CA key, you can verify the root CA certificate using the following set of commands:
+
+      * To upload root CA certificate::
+
+         az iot hub certificate create --hub-name <hub_name> --name <cert_name> --path ca/root-ca-cert.pem
+
+      * To ask Azure for a verification code (need two output values)::
+
+         az iot hub certificate generate-verification-code --hub-name <hub_name> --name <cert_name> --etag "<etag_from_prev_command>"
+
+      Note down the verification code and etag for later use.
+
+      * To generate a new private key::
+
+         cert_tool.py client_key
+
+      * To Create a CSR with the verification code as common name::
+
+         cert_tool.py csr --common-name <verification_code>
+
+      * To Sign the CSR with the root CA::
+
+         cert_tool.py sign_root
+
+      * To Upload the verification certificate::
+
+         az iot hub certificate verify --hub-name <hub_name> --name <cert_name> --etag "<etag_from_generate_verification_code>" --path certs/client-cert.pem
+
+   .. tab:: With DPS
+
+      Notice that only the root CA certificate is uploaded and validated, but because the subordinate CA certificate is signed by the root CA, it is also trusted by Azure.
+
+      Use the following commands to upload and verify the root CA certificate in Azure DPS:
+
+      * To upload the root CA certificate to the DPS instance::
+
+         az iot dps certificate create --dps-name <dps_name> --resource-group <resource_name> --name <cert_name> --path ca/root-ca-cert.pem
+
+      * To ask Azure for a verification code (need two output values)::
+
+         az iot dps certificate generate-verification-code --dps-name <dps_name> --resource-group <resource_name> --certificate-name <cert_name> --etag "<etag_from_prev_command>"
+
+      Note down the verification code and etag for later use.
+
+      * To generate a new private key::
+
+         cert_tool.py client_key
+
+      * To Create a CSR with the verification code as common name::
+
+         cert_tool.py csr --common-name <verification_code>
+
+      * To Sign the CSR with the root CA::
+
+         cert_tool.py sign_root
+
+      * To Upload the verification certificate::
+
+         az iot dps certificate verify --dps-name <dps_name> --resource-group <resource_name> --certificate-name <cert_name> --etag "<etag_from_generate_verification_code>" --path certs/client-cert.pem
+
+.. _azure_generate_certificates:
+
+Generate and provision device certificates
+------------------------------------------
+
+The following are the ways to generate and register device certificates:
+
+* The device key and certificate are generated using the :file:`cert_tool.py` script and provisioned to the device.
+* The device generates a key and a Certificate Signing Request (CSR).
+  This method is more secure because the private key never leaves the device.
+
+.. tabs::
+
+   .. tab:: nRF91: Modem generated private key
+
+      When the private key is generated inside the modem, it is never exposed to the outside world.
+      This is more secure than generating a private key using a script.
+      By default, the Common Name (CN) of the certificate is set to the device UUID, and the CN is read out by Azure to identify the device during the TLS handshake.
+      This allows using the exact same firmware on many devices without hard-coding the device ID into the firmware because the device UUID can be read out at runtime.
+      See the :ref:`azure_iot_hub` sample for more information on how to read out the device UUID in the application.
+
+      .. note::
+         Generating a key pair on device requires an nRF91 Series device.
+         If you are using an nRF9160 DK, modem version v1.3.x or later is required.
+
+      .. important::
+         Program the :ref:`at_client_sample` sample to your device before following this guide.
+
+      Complete the following steps to generate a key pair and CSR on the modem, which is then signed using your CA and uploaded to Azure:
+
+      1. Obtain a list of installed keys using the following command:
+
+         .. code-block:: console
+
+            nrfcredstore <serial port> list
+
+         where ``<serial port>`` is the serial port of your device.
+
+      #. Select a security tag that is not yet in use.
+         This security tag must match the value set in the :kconfig:option:`CONFIG_MQTT_HELPER_SEC_TAG` Kconfig option.
+
+      #. Generate a key pair and obtain a CSR using the following command:
+
+         .. code-block:: console
+
+            nrfcredstore <serial port> generate <sec tag> certs/client-csr.der
+
+         |serial_port_sec_tag|
+
+      #. Convert the CSR from DER format to PEM format using the following command:
+
+         .. code-block:: console
+
+            openssl req -inform DER -in certs/client-csr.der -outform PEM -out certs/client-csr.pem
+
+      #. Sign the CSR using the subordinate CA certificate using the following command:
+
+         .. code-block:: console
+
+            cert_tool.py sign
+
+         .. note::
+            This process might vary depending on the CA you are using.
+            See the documentation for your CA for more information on how to sign a CSR.
+
+      #. Take note of the CN, as it will be required later.
+
+         In case you got the certificate from a CA, you can extract the CN using the following command:
+
+         .. code-block:: console
+
+            openssl x509 -in certs/client-cert.pem -noout -subject
+
+      #. Combine the device certificate and the subordinate CA certificate chain into a single file using the following command:
+
+         .. code-block:: console
+
+            cat certs/client-cert.pem ca/sub-ca-cert.pem > certs/client-cert-chain.pem
+
+         This is necessary for Azure to verify the certificate chain.
+
+      #. Provision the certificate to the modem using the following command:
+
+         .. code-block:: console
+
+            nrfcredstore <serial port> write <sec tag> CLIENT_CERT certs/client-cert-chain.pem
+
+         |serial_port_sec_tag|
+
+   .. tab:: nRF91: Script generated private key
+
+      .. caution::
+         When generating the private key on your computer, make sure to keep it secure and not share it with anyone.
+         If the private key is compromised, the security of the device is compromised.
+
+      .. important::
+         Program the :ref:`at_client_sample` sample to your device before following this guide.
+
+         To obtain a key and certificate generated by the :file:`cert_tool.py` script and to provision them to the modem, complete the following steps:
+
+      1. Generate the key and certificate using the following commands:
+
+         .. code-block:: console
+
+            cert_tool.py client_key
+            cert_tool.py csr --common-name <device_id>
+            cert_tool.py sign
+
+         This command generates an elliptic curve private key and saves it to the :file:`certs/private-key.pem` file.
+         The certificate is saved to the :file:`certs/client-cert.pem` file.
+
+      #. Obtain a list of installed keys using the following command:
+
+         .. code-block:: console
+
+            nrfcredstore <serial port> list
+
+         where ``<serial port>`` corresponds to the serial port of your device.
+
+      #. Select a security tag that is not yet in use.
+         This security tag must match the value set in :kconfig:option:`CONFIG_MQTT_HELPER_SEC_TAG` Kconfig option.
+
+      #. Combine the device certificate and the subordinate CA certificate chain into a single file using the following command:
+
+         .. code-block:: console
+
+            cat certs/client-cert.pem ca/sub-ca-cert.pem > certs/client-cert-chain.pem
+
+         This is necessary for Azure to verify the certificate chain.
+
+      #. Provision the client certificate using the following command:
+
+         .. code-block:: console
+
+            nrfcredstore <serial port> write <sec tag> CLIENT_CERT certs/client-cert-chain.pem
+
+         |serial_port_sec_tag|
+
+      #. Provision the client key using the following command:
+
+         .. code-block:: console
+
+            nrfcredstore <serial port> write <sec tag> CLIENT_KEY certs/private-key.pem
+
+         |serial_port_sec_tag|
+
+   .. tab:: nRF70: Script generated private key
+
+      .. caution::
+         When generating the private key on your computer, make sure to keep it secure and not share it with anyone.
+         If the private key is compromised, the security of the device is compromised.
+
+      To obtain a key and certificate generated using the :file:`cert_tool.py` script, complete the following steps:
+
+      1. Generate the key and certificate using the following commands:
+
+         .. code-block:: console
+
+            cert_tool.py client_key
+            cert_tool.py csr --common-name <device_id>
+            cert_tool.py sign
+
+      #. Combine the device certificate and the subordinate CA certificate chain into a single file using the following command:
+
+         .. code-block:: console
+
+            cat certs/client-cert.pem ca/sub-ca-cert.pem > certs/client-cert-chain.pem
+
+         This is necessary for Azure to verify the certificate chain.
+
+      #. Rename client certificates so the chain certificate is flashed:
+
+         .. code-block:: console
+
+            mv certs/client-cert.pem certs/client-cert.pem.bk
+            mv certs/client-cert-chain.pem certs/client-cert.pem
+
+      #. Provision the certificates and private key at runtime to the Mbed TLS stack.
+         This is achieved by placing the PEM files into a :file:`certs/` subdirectory and ensuring the :kconfig:option:`CONFIG_MQTT_HELPER_PROVISION_CERTIFICATES` Kconfig option is enabled.
+         Samples have been updated to read the standard PEM files, so the PEM files need not be converted to string format anymore.
+
+         For more information, refer to the :ref:`azure_iot_hub` sample as well as the :kconfig:option:`CONFIG_MQTT_HELPER_CERTIFICATES_FOLDER` Kconfig option.
+
+.. rst-class:: numbered-step
+
+.. _azure_create_device:
+
+Register a device in Azure IoT Hub
+==================================
+
+.. tabs::
+
+   .. tab:: Without DPS
+
+      .. important::
+         The device ID must match the CN of the certificate.
+
+      To register a new device in your IoT hub, use the following command:
+
+      .. code-block:: console
+
+         az iot hub device-identity create -n <iothub_name> -d <device_id> --am x509_ca
+
+   .. tab:: With DPS
+
+      There are many ways to configure DPS.
+      Attestation using the subordinate CA certificate is one of them and has the benefit of not having to register each device manually with the IoT Hub.
+      As long as the device certificate is signed by a CA certificate that has been signed by a verified root CA certificate, the device can be onboarded to the IoT Hub.
+      Because the subordinate CA certificate is signed by the root CA certificate, it is trusted by Azure and can be used for device attestation.
+      For other DPS configurations, see the `Azure IoT Hub Device Provisioning Service (DPS)`_ documentation.
+
+      To create an enrollment group using the subordinate CA certificate for attestation, use the following command:
+
+      .. code-block:: console
+
+         az iot dps enrollment-group create --dps-name <dps_name> --resource-group <resource_name> --enrollment-id <enrollment_name> --certificate-path ca/sub-ca-cert.pem --provisioning-status enabled --iot-hubs <iothub_url> --allocation-policy static
+
+.. rst-class:: numbered-step
+
+.. _azure_iot_hub_flash_certs:
+
+Provision root CA certificates
+==============================
 
 The Azure IoT Hub library requires provisioning of the following certificates and a private key for a successful TLS connection:
 
-1. `DigiCert Global Root G2`_ - Server certificate, used to verify the server's certificate chain while connecting.
-#. Public device certificate - generated by the procedures described in `Creating Azure IoT Hub certificates`_ , used by Azure IoT Hub to authenticate the device.
+1. `DigiCert Global Root G2`_ - The root CA certificate used to verify the server's certificate chain while connecting.
+#. `Baltimore CyberTrust Root Certificate`_ - Azure's legacy root CA certificate needed to verify the Azure server's that have not migrated to `DigiCert Global Root G2`_ yet.
+#. Device certificate - Generated by the procedures described in :ref:`azure_generate_certificates`, used by Azure IoT Hub to authenticate the device.
 #. Private key of the device.
 
 .. important::
@@ -142,25 +473,8 @@ The Azure IoT Hub library requires provisioning of the following certificates an
    Azure IoT Hub servers have finished this transition, and only DigiCert Global Root G2 is used now for those connections.
    Azure advises to have both Baltimore CyberTrust Root and DigiCert Global Root G2 certificates for all devices to avoid disruption of service during the transition.
    Refer to `Azure IoT TLS: Critical changes`_ for updated information and timeline.
-   Due to this, it is recommended to provision the DigiCert Baltimore CyberTrust Root Certificate to a secondary security tag set by the :kconfig:option:`CONFIG_MQTT_HELPER_SECONDARY_SEC_TAG` option.
+   Due to this, it is recommended to provision the Baltimore CyberTrust Root Certificate to a secondary security tag set by the :kconfig:option:`CONFIG_MQTT_HELPER_SECONDARY_SEC_TAG` option.
    This ensures that the device can also connect after the transition.
-
-The location and name of the generated public device certificate and private key files vary depending on the method you use for the credential generation as follows:
-
-* For PowerShell scripts, the device certificate is called :file:`<mydevice>-public.pem` and the private key is :file:`<mydevice>-private.pem`.
-  These files are located in the working directory with the other generated files.
-
-* For bash scripts, the public device certificate is called :file:`<mydevice>.cert.pem` and is located in a directory called :file:`certs` within the :file:`script` directory.
-  The private key is called :file:`<mydevice>.key.pem` and located in a directory called :file:`private` within the :file:`script` directory.
-
-The file and directory names may change if Azure changes their scripts.
-
-.. rst-class:: numbered-step
-
-.. _azure_iot_hub_flash_certs:
-
-Provisioning certificates
-=========================
 
 To provision the certificates, use any of the following methods, depending on the DK you are using.
 
@@ -179,19 +493,7 @@ To provision the certificates, use any of the following methods, depending on th
 
          where ``<serial port>`` is the serial port of your device.
 
-      #. Provision the private key to the modem and replace the placeholders:
-
-         .. code-block:: console
-
-            nrfcredstore <serial port> write <sec tag> CLIENT_KEY {device_name}.key.pem
-
-      #. Provision the client certificate and replace the placeholders:
-
-         .. code-block:: console
-
-            nrfcredstore <serial port> write <sec tag> CLIENT_CERT {device_name}.cert.pem
-
-      #. Provison the server certificates, which you downloaded previously, by running the following commands:
+      #. Provision the server root CA certificates, which you downloaded previously, by running the following commands:
 
          .. code-block:: console
 
@@ -208,9 +510,10 @@ To provision the certificates, use any of the following methods, depending on th
 
    .. tab:: nRF70: runtime provisioning
 
-         Provision the certificates and private key at runtime to the MbedTLS stack.
+         Provision the certificates and private key at runtime to the Mbed TLS stack.
          This is achieved by placing the PEM files into a :file:`certs/` subdirectory and ensuring the :kconfig:option:`CONFIG_MQTT_HELPER_PROVISION_CERTIFICATES` Kconfig option is enabled.
-         For more information, refer to the :ref:`aws_iot` sample as well as the :kconfig:option:`CONFIG_MQTT_HELPER_CERTIFICATES_FILE` Kconfig option.
+         Save the :file:`DigiCertGlobalRootG2.crt.pem` file as :file:`certs/ca-cert.pem`, and the :file:`BaltimoreCyberTrustRoot.crt.pem` file as :file:`certs/ca-cert-2.pem`.
+         For more information, refer to the :ref:`azure_iot_hub` sample as well as the :kconfig:option:`CONFIG_MQTT_HELPER_CERTIFICATES_FOLDER` Kconfig option.
 
          The CA will be provisioned to the security tag set by the :kconfig:option:`CONFIG_MQTT_HELPER_SEC_TAG` Kconfig option.
 
@@ -223,51 +526,81 @@ Configuring the library
 =======================
 
 You can configure the library to connect to Azure IoT Hub with or without using DPS.
+For both methods, you need to set the device ID, or registration ID, and the security tag used to store the certificates.
 
-Configuration without using DPS
-+++++++++++++++++++++++++++++++
+The following Kconfig options are common for both methods:
 
-To connect to Azure IoT Hub without using DPS, complete the following minimum required configuration:
-
-1. To retrieve your IoT Hub hostname, run the following command:
-    .. code-block:: console
-
-        az iot hub show --name <hub_name> --query "properties.hostName"
-
-#. Configure :kconfig:option:`CONFIG_AZURE_IOT_HUB_HOSTNAME` to the returned address.
-
-   You can also set the host name at run time.
-#. Set the Kconfig option :kconfig:option:`CONFIG_AZURE_IOT_HUB_DEVICE_ID` to the device ID.
-
-   The device ID must match with the one used while creating the certificates.
-   You can also set the device ID at run time by populating the ``device_id`` member of the :c:struct:`azure_iot_hub_config` structure passed to the :c:func:`azure_iot_hub_connect` function when connecting.
-   If the ``device_id.size`` buffer size is zero, the compile-time option :kconfig:option:`CONFIG_AZURE_IOT_HUB_DEVICE_ID` is used.
-#. Make sure that the device is already registered with your Azure IoT Hub, or follow the instructions in `Registering the device with Azure IoT Hub`_.
-#. Set the :kconfig:option:`CONFIG_MQTT_HELPER_SEC_TAG` Kconfig option to the security tag used in :ref:`azure_iot_hub_flash_certs`.
-
-   Optionally, set the :kconfig:option:`CONFIG_MQTT_HELPER_SECONDARY_SEC_TAG` Kconfig option if multiple server certificates are provisioned.
+1. Set the :kconfig:option:`CONFIG_AZURE_IOT_HUB` Kconfig option to ``y`` to enable the Azure IoT Hub library.
+#. Set the :kconfig:option:`CONFIG_MQTT_HELPER_SEC_TAG` Kconfig option to the security tag used while :ref:`provisioning root CA certificates <azure_iot_hub_flash_certs>`.
+#. Set the :kconfig:option:`CONFIG_MQTT_HELPER_SECONDARY_SEC_TAG` Kconfig option to the security tag of the extra root CA certificate until all Azure services have migrated to DigiCert Global Root G2.
 
 .. _dps_config:
 
-Configuration using DPS
-+++++++++++++++++++++++
+.. tabs::
 
-To connect to Azure IoT Hub using DPS, complete the following steps:
+   .. tab:: Without DPS
 
-1. `Set up an Azure IoT Hub Device Provisioning Service (DPS) instance`_ and obtain the ID scope.
-#. `Add certificates to the DPS instance`_.
-#. Create an *enrollment group* as described in `Device enrollments with Azure Portal`_ and link it to your IoT hub. Select the certificate added in the previous step as the *Primary certificate​​​​​​​*.
-#. Enable the :kconfig:option:`CONFIG_AZURE_IOT_HUB_DPS` Kconfig option.
-#. In the `Azure Portal`_, click :guilabel:`Device Provisioning Services` and select the DPS instance to use.
-#. In the overview page, locate and copy the ``ID Scope`` and set the :kconfig:option:`CONFIG_AZURE_IOT_HUB_DPS_ID_SCOPE` Kconfig option to this string.
+      To connect to Azure IoT Hub without using DPS, complete the following minimum required configuration:
 
-   Alternatively, you can set the registration ID at run time.
-#. Set the :kconfig:option:`CONFIG_AZURE_IOT_HUB_DPS_REG_ID` Kconfig option to the registration ID.
+      1. To retrieve your IoT Hub hostname, run the following command:
 
-   You can also set the registration ID at run time.
+         .. code-block:: console
 
-#. Set the :kconfig:option:`CONFIG_MQTT_HELPER_SEC_TAG` Kconfig option to the security tag used while :ref:`azure_iot_hub_flash_certs`.
-   Optionally, set the :kconfig:option:`CONFIG_MQTT_HELPER_SECONDARY_SEC_TAG` Kconfig option if multiple server certificates are provisioned.
+            az iot hub show --name <hub_name> --query "properties.hostName"
+
+      #. Configure the :kconfig:option:`CONFIG_AZURE_IOT_HUB_HOSTNAME` Kconfig option to the returned address.
+
+         You can also set the host name at runtime.
+
+   .. tab:: Using DPS
+
+      To connect to Azure IoT Hub using DPS, set the :kconfig:option:`CONFIG_AZURE_IOT_HUB_DPS_ID_SCOPE` Kconfig option to the ``ID Scope`` for your DPS instance by running the following command:
+
+      .. code-block:: console
+
+         az iot dps show --name <dps_name> --query "properties.idScope"
+
+      Alternatively, you can set the registration ID at runtime.
+
+Device ID and Registration ID
+-----------------------------
+
+The device ID is used to identify the device in the Azure IoT Hub.
+Registration ID is used to identify the device on the DPS server.
+The :ref:`azure_iot_hub` sample uses the device ID as the registration ID when registering with the DPS server.
+
+For testing on one device, you can manually configure the device ID with the :kconfig:option:`CONFIG_AZURE_IOT_HUB_DEVICE_ID` Kconfig option.
+
+When running the same firmware on multiple devices, it is not practical to hard-code the registration ID.
+Instead, enable the use of a unique hardware identifier, such as the device UUID, as the registration ID.
+The hardware identifier of the device needs to match the CN in the certificate on the device.
+
+.. note::
+   When using hardware identifiers in the :ref:`azure_iot_hub` sample, set the :kconfig:option:`CONFIG_AZURE_IOT_HUB_SAMPLE_DEVICE_ID_USE_HW_ID` Kconfig option to ``y``.
+
+.. tabs::
+
+   .. tab:: nRF91: Device UUID
+
+      .. code-block:: none
+
+         CONFIG_MODEM_JWT=y
+         CONFIG_HW_ID_LIBRARY_SOURCE_UUID=y
+
+   .. tab:: nRF91: Device IMEI
+
+      .. code-block:: none
+
+         CONFIG_HW_ID_LIBRARY_SOURCE_IMEI=y
+
+   .. tab:: nRF70: Network MAC address
+
+      .. code-block:: none
+
+         CONFIG_HW_ID_LIBRARY_SOURCE_NET_MAC=y
+
+You can also set the device ID at runtime by populating the ``device_id`` member of the :c:struct:`azure_iot_hub_config` structure passed to the :c:func:`azure_iot_hub_connect` function when connecting.
+If the ``device_id.size`` buffer size is zero, the compile-time option :kconfig:option:`CONFIG_AZURE_IOT_HUB_DEVICE_ID` is used.
 
 Application integration
 ***********************
@@ -393,9 +726,9 @@ Optionally, DPS registration can be run automatically as part of the call to the
 
    Use the DPS APIs directly if you need more control over the DPS registration process.
 
-When using the :c:func:`azure_iot_hub_connect` function, you can choose to provide the host name to the IoT Hub and device ID at run time, or let the library use Kconfig options.
+When using the :c:func:`azure_iot_hub_connect` function, you can choose to provide the host name to the IoT Hub and device ID at runtime, or let the library use Kconfig options.
 
-Here is an example for setting the host name and device ID at run time:
+Here is an example for setting the host name and device ID at runtime:
 
 .. code-block:: c
 
@@ -448,8 +781,8 @@ To use the Azure IoT Hub library, you must enable the :kconfig:option:`CONFIG_AZ
 
 You can configure the following options when using this library:
 
-* :kconfig:option:`CONFIG_AZURE_IOT_HUB_HOSTNAME` - Sets the Azure IoT Hub host name. Note that the host name can also be provided at run time.
-* :kconfig:option:`CONFIG_AZURE_IOT_HUB_DEVICE_ID` - Configures the device ID. The device ID can also be set at run time.
+* :kconfig:option:`CONFIG_AZURE_IOT_HUB_HOSTNAME` - Sets the Azure IoT Hub host name. Note that the host name can also be provided at runtime.
+* :kconfig:option:`CONFIG_AZURE_IOT_HUB_DEVICE_ID` - Configures the device ID. The device ID can also be set at runtime.
 * :kconfig:option:`CONFIG_AZURE_IOT_HUB_USER_NAME_BUF_SIZE` - Sets the user name buffer size. You can adjust the  buffer size to reduce stack usage, if you know the approximate size of your device ID.
 * :kconfig:option:`CONFIG_AZURE_IOT_HUB_AUTO_DEVICE_TWIN_REQUEST` - Automatically requests the device twin upon connection to an IoT Hub.
 * :kconfig:option:`CONFIG_AZURE_IOT_HUB_TOPIC_MAX_LEN` - Sets the maximum topic length. The topic buffers are allocated on the stack. You may have to adjust this option to match with your device ID length.
@@ -472,6 +805,7 @@ DPS-specific configuration:
 
 * :kconfig:option:`CONFIG_AZURE_IOT_HUB_DPS` - Enables Azure IoT Hub DPS.
 * :kconfig:option:`CONFIG_AZURE_IOT_HUB_DPS_HOSTNAME` - Host name of the DPS server.
+  Do not change this unless you have configured DPS to use a different host name.
 * :kconfig:option:`CONFIG_AZURE_IOT_HUB_DPS_REG_ID` - Registration ID to use in the registration request to DPS.
 * :kconfig:option:`CONFIG_AZURE_IOT_HUB_DPS_HOSTNAME_MAX_LEN` - Maximum length of the assigned host name received from DPS.
 * :kconfig:option:`CONFIG_AZURE_IOT_HUB_DPS_DEVICE_ID_MAX_LEN` - Maximum length of the assigned device ID received from DPS.

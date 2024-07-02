@@ -31,6 +31,10 @@ LOG_MODULE_REGISTER(fast_pair, CONFIG_BT_FAST_PAIR_LOG_LEVEL);
 #include "fp_auth.h"
 #include "fp_storage_pn.h"
 
+#if defined(CONFIG_BT_FAST_PAIR_FMDN_BEACON_ACTIONS)
+#include "fp_fmdn_beacon_actions.h"
+#endif
+
 /* Make sure that MTU value of at least 83 is used (recommended by the Fast Pair specification). */
 #define FP_RECOMMENDED_MTU			83
 BUILD_ASSERT(BT_L2CAP_TX_MTU >= FP_RECOMMENDED_MTU);
@@ -94,11 +98,13 @@ struct msg_seekers_passkey {
 /* Reference to the Fast Pair information callback structure. */
 static const struct bt_fast_pair_info_cb *fast_pair_info_cb;
 
+#if CONFIG_BT_FAST_PAIR_GATT_SERVICE_MODEL_ID
 static ssize_t read_model_id(struct bt_conn *conn,
 			     const struct bt_gatt_attr *attr,
 			     void *buf,
 			     uint16_t len,
 			     uint16_t offset);
+#endif /* CONFIG_BT_FAST_PAIR_GATT_SERVICE_MODEL_ID */
 
 static ssize_t write_key_based_pairing(struct bt_conn *conn,
 				       const struct bt_gatt_attr *attr,
@@ -122,10 +128,12 @@ static ssize_t write_additional_data(struct bt_conn *conn,
 
 BT_GATT_SERVICE_DEFINE(fast_pair_svc,
 BT_GATT_PRIMARY_SERVICE(BT_FAST_PAIR_UUID_FPS),
+#if CONFIG_BT_FAST_PAIR_GATT_SERVICE_MODEL_ID
 	BT_GATT_CHARACTERISTIC(BT_FAST_PAIR_UUID_MODEL_ID,
 		BT_GATT_CHRC_READ,
 		BT_GATT_PERM_READ,
 		read_model_id, NULL, NULL),
+#endif /* CONFIG_BT_FAST_PAIR_GATT_SERVICE_MODEL_ID */
 	BT_GATT_CHARACTERISTIC(BT_FAST_PAIR_UUID_KEY_BASED_PAIRING,
 		BT_GATT_CHRC_WRITE | BT_GATT_CHRC_NOTIFY,
 		BT_GATT_PERM_WRITE,
@@ -147,6 +155,9 @@ BT_GATT_PRIMARY_SERVICE(BT_FAST_PAIR_UUID_FPS),
 		NULL, write_additional_data, NULL),
 	BT_GATT_CCC(NULL, BT_GATT_PERM_READ | BT_GATT_PERM_WRITE),
 #endif /* CONFIG_BT_FAST_PAIR_GATT_SERVICE_ADDITIONAL_DATA */
+#if defined(CONFIG_BT_FAST_PAIR_FMDN_BEACON_ACTIONS)
+	FP_FMDN_BEACON_ACTIONS_CHARACTERISTIC,
+#endif /* CONFIG_BT_FAST_PAIR_FMDN_BEACON_ACTIONS */
 );
 
 static int fp_gatt_rsp_notify(struct bt_conn *conn, const struct bt_gatt_attr *attr,
@@ -240,6 +251,7 @@ static int notify_personalized_name(struct bt_conn *conn)
 	return packet_len;
 }
 
+#if CONFIG_BT_FAST_PAIR_GATT_SERVICE_MODEL_ID
 static ssize_t read_model_id(struct bt_conn *conn,
 			     const struct bt_gatt_attr *attr,
 			     void *buf,
@@ -266,6 +278,7 @@ static ssize_t read_model_id(struct bt_conn *conn,
 
 	return res;
 }
+#endif /* CONFIG_BT_FAST_PAIR_GATT_SERVICE_MODEL_ID */
 
 static int parse_key_based_pairing_write(const struct bt_conn *conn,
 					 struct msg_kbp_write *parsed_req,
@@ -716,6 +729,13 @@ static ssize_t write_account_key(struct bt_conn *conn,
 	if (len != FP_ACCOUNT_KEY_LEN) {
 		LOG_WRN("Invalid length: len=%" PRIu16 " (Account Key)", len);
 		res = BT_GATT_ERR(BT_ATT_ERR_INVALID_ATTRIBUTE_LEN);
+		goto finish;
+	}
+
+	err = fp_auth_finalize(conn);
+	if (err) {
+		LOG_WRN("Authentication finalization failed: err=%d (Account Key)", err);
+		res = BT_GATT_ERR(BT_ATT_ERR_UNLIKELY);
 		goto finish;
 	}
 

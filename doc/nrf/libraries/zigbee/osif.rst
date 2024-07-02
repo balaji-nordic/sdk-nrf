@@ -34,6 +34,10 @@ You can also configure the following OSIF-related Kconfig options:
   Use this option only for testing and debugging your application.
 * :kconfig:option:`CONFIG_ZIGBEE_HAVE_SERIAL` - Enables the UART serial abstract for the ZBOSS OSIF layer and allows to configure the serial glue layer.
   For more information, see the :ref:`zigbee_osif_zboss_osif_serial` section.
+
+  .. note::
+      Serial abstract must be enabled when using the precompiled ZBOSS libraries since they have dependencies on it.
+
 * :kconfig:option:`CONFIG_ZIGBEE_USE_BUTTONS` - Enables the buttons abstract for the ZBOSS OSIF layer.
   You can use this option if you want to test ZBOSS examples directly in the |NCS|.
 * :kconfig:option:`CONFIG_ZIGBEE_USE_DIMMABLE_LED` - Dimmable LED (PWM) abstract for the ZBOSS OSIF layer.
@@ -106,8 +110,7 @@ To configure this set of functions, use the following options:
 * :kconfig:option:`CONFIG_ZIGBEE_UART_RX_BUF_LEN` - This option enables and configures the size of internal RX and TX buffer.
 * :kconfig:option:`CONFIG_ZBOSS_TRACE_BINARY_NCP_TRANSPORT_LOGGING` - This option enables logging ZBOSS traces in binary format with Zigbee async serial.
 
-The Zigbee ZBOSS OSIF layer serial device needs to be provided in Devicetree
-like this:
+The Zigbee ZBOSS OSIF layer serial device needs to be provided in devicetree as follows:
 
 .. code-block:: devicetree
 

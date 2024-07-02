@@ -13,7 +13,7 @@ This sample does not include a TF-M image, it is a Zephyr image intended to be f
 After completion, the device is in the Platform Root-of-Trust (PRoT) security lifecycle state called **PRoT Provisioning**.
 For more information about the PRoT security lifecycle, see Arm's Platform Security Model 1.1 defined in the Platform Security Architecture (PSA).
 
-When built for the nrf5340dk_nrf5340_cpuapp target, this image by default also includes the :ref:`provisioning_image_net_core` sample as a child image for the network core (``nrf5340dk_nrf5340_cpunet`` target).
+When built for the nrf5340dk/nrf5340/cpuapp target, this image by default also includes the :ref:`provisioning_image_net_core` sample as a child image for the network core (``nrf5340dk/nrf5340/cpunet`` target).
 The child image demonstrates how to disable the debugging access on the network core by writing to the UICR.APPROTECT register.
 
 Requirements
@@ -70,21 +70,21 @@ Building and running
 Testing
 =======
 
-|test_sample|
+After programming the sample, the following output is displayed in the console:
 
-      1. |connect_terminal_specific|
-      #. Reset the kit.
-      #. Observe the following output:
+.. code-block:: console
 
-         .. code-block:: console
+    Successfully verified PSA lifecycle state ASSEMBLY!
+    Successfully switched to PSA lifecycle state PROVISIONING!
+    Generating random HUK keys (including MKEK)
+    Writing the identity key to KMU
+    Success!
 
-             Successfully verified PSA lifecycle state ASSEMBLY!
-             Successfully switched to PSA lifecycle state PROVISIONING!
-             Generating random HUK keys (including MKEK)
-             Writing the identity key to KMU
-             Success!
+If an error occurs, the sample prints a message and raises a kernel panic.
 
-         If an error occurs, the sample prints a message and raises a kernel panic.
+.. note::
+   The device cannot transition from the PRoT security lifecycle state **PRoT Provisioning** to the **Device Assembly and Test** state.
+   To reproduce the sample, you must program the device with the ``--erase`` option to erase the flash memory.
 
 Dependencies
 ************

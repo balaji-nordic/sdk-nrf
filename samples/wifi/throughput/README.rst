@@ -24,7 +24,7 @@ The sample requires additional software, such as the Wi-Fi **iperf** application
 When the sample runs Wi-Fi UDP/TCP throughput in client mode, a peer device runs UDP/TCP throughput in server mode.
 When the sample runs Wi-Fi UDP/TCP throughput in server mode, a peer device runs UDP/TCP throughput in client mode.
 
-See the :ref:`nRF70_nRF5340_constrained_host` page for different Wi-Fi stack configuration profiles.
+See :ref:`constrained_host_usage_profiles` for different Wi-Fi stack configuration profiles.
 See `Network Traffic Generator`_ for instructions on how to use **zperf** and **iperf** applications.
 
 Test setup
@@ -52,12 +52,12 @@ Building and running
 .. note::
    The sample is supported on the nRF7002 DK with QSPI as the interface between the nRF5340 host and the nRF7002 device.
 
-To build for the nRF7002 DK, use the ``nrf7002dk_nrf5340_cpuapp`` build target.
+To build for the nRF7002 DK, use the ``nrf7002dk/nrf5340/cpuapp`` board target.
 The following is an example of the CLI command:
 
 .. code-block:: console
 
-   west build -b nrf7002dk_nrf5340_cpuapp
+   west build -b nrf7002dk/nrf5340/cpuapp
 
 To build for the nRF7002 DK with different profiles for Station mode, use the following CLI commands:
 
@@ -69,7 +69,7 @@ To build for the nRF7002 DK with different profiles for Station mode, use the fo
 
       .. code-block:: console
 
-         west build -p -b nrf7002dk_nrf5340_cpuapp -- -DOVERLAY_CONFIG=overlay-iot-devices.conf
+         west build -p -b nrf7002dk/nrf5340/cpuapp -- -DEXTRA_CONF_FILE=overlay-iot-devices.conf
 
    .. group-tab:: Memory-optimized
 
@@ -77,7 +77,7 @@ To build for the nRF7002 DK with different profiles for Station mode, use the fo
 
       .. code-block:: console
 
-         west build -p -b nrf7002dk_nrf5340_cpuapp -- -DOVERLAY_CONFIG=overlay-memory-optimized.conf
+         west build -p -b nrf7002dk/nrf5340/cpuapp -- -DEXTRA_CONF_FILE=overlay-memory-optimized.conf
 
    .. group-tab:: High performance
 
@@ -85,7 +85,7 @@ To build for the nRF7002 DK with different profiles for Station mode, use the fo
 
       .. code-block:: console
 
-         west build -p -b nrf7002dk_nrf5340_cpuapp -- -DOVERLAY_CONFIG=overlay-high-performance.conf
+         west build -p -b nrf7002dk/nrf5340/cpuapp -- -DEXTRA_CONF_FILE=overlay-high-performance.conf
 
    .. group-tab:: TX prioritized
 
@@ -93,7 +93,7 @@ To build for the nRF7002 DK with different profiles for Station mode, use the fo
 
       .. code-block:: console
 
-         west build -p -b nrf7002dk_nrf5340_cpuapp -- -DOVERLAY_CONFIG=overlay-tx-prio.conf
+         west build -p -b nrf7002dk/nrf5340/cpuapp -- -DEXTRA_CONF_FILE=overlay-tx-prio.conf
 
    .. group-tab:: RX prioritized
 
@@ -101,7 +101,7 @@ To build for the nRF7002 DK with different profiles for Station mode, use the fo
 
       .. code-block:: console
 
-         west build -p -b nrf7002dk_nrf5340_cpuapp -- -DOVERLAY_CONFIG=overlay-rx-prio.conf
+         west build -p -b nrf7002dk/nrf5340/cpuapp -- -DEXTRA_CONF_FILE=overlay-rx-prio.conf
 
 Supported CLI commands
 ======================

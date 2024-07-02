@@ -9,14 +9,16 @@
 #include <nrf_rpc_errno.h>
 #include <nrf_rpc/nrf_rpc_ipc.h>
 
+#if CONFIG_OPENAMP
 #include <openamp/rpmsg.h>
+#endif /* CONFIG_OPENAMP */
 #include <zephyr/ipc/ipc_service.h>
 
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(nrf_rpc_ipc, CONFIG_NRF_RPC_TR_LOG_LEVEL);
 
-#define EPT_BIND_TIMEOUT K_MSEC(CONFIG_NRF_RPC_IPC_SERVICE_BIND_TIMEOUT_MS)
+#define EPT_BIND_TIMEOUT_MS (CONFIG_NRF_RPC_IPC_SERVICE_BIND_TIMEOUT_MS)
 
 /* Utility macro for dumping content of the packets with limit of 32 bytes
  * to prevent overflowing the logs.
@@ -29,6 +31,18 @@ do {									       \
 		LOG_HEXDUMP_DBG(memory, (len), text);			       \
 	}								       \
 } while (0)
+
+/* Endpoint states */
+enum {
+	/* Endpoint is uninitialized */
+	NRF_RPC_IPC_STATE_UNINITIALIZED,
+	/* Waiting for bond */
+	NRF_RPC_IPC_STATE_WAITING,
+	/* Endpoint is bonded and ready for transmission */
+	NRF_RPC_IPC_STATE_READY,
+	/* Error on endpoint, -EPIPE should be returned */
+	NRF_RPC_IPC_STATE_ERROR
+};
 
 /* Translates error code from the lower layer to nRF RPC error code. */
 static int translate_error(int ll_err)
@@ -43,6 +57,7 @@ static int translate_error(int ll_err)
 	case -EBADMSG:
 		return -NRF_EBADMSG;
 
+#if CONFIG_OPENAMP
 	case RPMSG_ERR_BUFF_SIZE:
 	case RPMSG_ERR_NO_MEM:
 	case RPMSG_ERR_NO_BUFF:
@@ -53,6 +68,7 @@ static int translate_error(int ll_err)
 	case RPMSG_ERR_INIT:
 	case RPMSG_ERR_ADDR:
 		return -NRF_EIO;
+#endif /* CONFIG_OPENAMP */
 
 	default:
 		if (ll_err < 0) {
@@ -101,7 +117,7 @@ static int init(const struct nrf_rpc_tr *transport, nrf_rpc_tr_receive_handler_t
 	struct nrf_rpc_ipc_endpoint *endpoint = &ipc_config->endpoint;
 	struct ipc_ept_cfg *cfg = &ipc_config->endpoint.ept_cfg;
 
-	if (ipc_config->used) {
+	if (ipc_config->state != NRF_RPC_IPC_STATE_UNINITIALIZED) {
 		return 0;
 	}
 
@@ -113,6 +129,7 @@ static int init(const struct nrf_rpc_tr *transport, nrf_rpc_tr_receive_handler_t
 	err = ipc_service_open_instance(ipc_config->ipc);
 	if (err && err != -EALREADY) {
 		LOG_ERR("IPC service instance initialization failed: %d\n", err);
+		ipc_config->state = NRF_RPC_IPC_STATE_ERROR;
 		return translate_error(err);
 	}
 
@@ -129,31 +146,39 @@ static int init(const struct nrf_rpc_tr *transport, nrf_rpc_tr_receive_handler_t
 	err = ipc_service_register_endpoint(ipc_config->ipc, &endpoint->ept, cfg);
 	if (err) {
 		LOG_ERR("Registering endpoint failed with %d", err);
+		ipc_config->state = NRF_RPC_IPC_STATE_ERROR;
 		return translate_error(err);
 	}
 
-	ipc_config->used = true;
-
-	if (!k_event_wait(&endpoint->ept_bond, 0x01, false,
-			  EPT_BIND_TIMEOUT)) {
-		ipc_config->used = false;
-
-		LOG_ERR("IPC endpoint bond timeout");
-		return -NRF_EPIPE;
-	}
+	ipc_config->endpoint.timeout = K_TIMEOUT_ABS_MS(k_uptime_get() + EPT_BIND_TIMEOUT_MS);
+	ipc_config->state = NRF_RPC_IPC_STATE_WAITING;
 
 	return 0;
 }
 
-int send(const struct nrf_rpc_tr *transport, const uint8_t *data, size_t length)
+static int send(const struct nrf_rpc_tr *transport, const uint8_t *data, size_t length)
 {
 	int err;
 	struct nrf_rpc_ipc *ipc_config = transport->ctx;
 	struct nrf_rpc_ipc_endpoint *endpoint = &ipc_config->endpoint;
 
-	if (!ipc_config->used) {
+	switch (ipc_config->state) {
+	case NRF_RPC_IPC_STATE_UNINITIALIZED:
 		LOG_ERR("nRF RPC transport is not initialized");
 		return -NRF_EFAULT;
+	case NRF_RPC_IPC_STATE_WAITING:
+		if (!k_event_wait(&endpoint->ept_bond, 0x01, false,
+				ipc_config->endpoint.timeout)) {
+			LOG_ERR("IPC endpoint bond timeout");
+			return -NRF_EPIPE;
+		}
+		ipc_config->state = NRF_RPC_IPC_STATE_READY;
+		break;
+	case NRF_RPC_IPC_STATE_READY:
+		break;
+	case NRF_RPC_IPC_STATE_ERROR:
+		LOG_ERR("IPC endpoint error");
+		return -NRF_EPIPE;
 	}
 
 	LOG_DBG("Sending %u bytes", length);
@@ -172,12 +197,12 @@ int send(const struct nrf_rpc_tr *transport, const uint8_t *data, size_t length)
 	return translate_error(err);
 }
 
-void *tx_buf_alloc(const struct nrf_rpc_tr *transport, size_t *size)
+static void *tx_buf_alloc(const struct nrf_rpc_tr *transport, size_t *size)
 {
 	void *data = NULL;
 	struct nrf_rpc_ipc *ipc_config = transport->ctx;
 
-	if (!ipc_config->used) {
+	if (ipc_config->state == NRF_RPC_IPC_STATE_UNINITIALIZED) {
 		LOG_ERR("nRF RPC transport is not initialized");
 		goto error;
 	}
@@ -197,11 +222,11 @@ error:
 	return NULL;
 }
 
-void tx_buf_free(const struct nrf_rpc_tr *transport, void *buf)
+static void tx_buf_free(const struct nrf_rpc_tr *transport, void *buf)
 {
 	struct nrf_rpc_ipc *ipc_config = transport->ctx;
 
-	if (!ipc_config->used) {
+	if (ipc_config->state == NRF_RPC_IPC_STATE_UNINITIALIZED) {
 		LOG_ERR("nRF RPC transport is not initialized");
 		return;
 	}

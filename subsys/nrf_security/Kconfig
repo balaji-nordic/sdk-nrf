@@ -19,7 +19,7 @@ config NORDIC_SECURITY_BACKEND
 	prompt "Use nRF Security with Mbed TLS legacy crypto APIs support" \
 		if !NORDIC_SECURITY_PROMPTLESS
 	default y if BUILD_WITH_TFM
-	depends on SOC_FAMILY_NRF
+	depends on SOC_FAMILY_NORDIC_NRF
 	select NRF_SECURITY
 	select MBEDTLS_LEGACY_CRYPTO_C
 	select OBERON_BACKEND if BUILD_WITH_TFM
@@ -33,12 +33,52 @@ config NORDIC_SECURITY_BACKEND
 config NRF_SECURITY
 	bool
 	prompt "Enable nRF Security" if !PSA_PROMPTLESS
-	depends on SOC_FAMILY_NRF
+	depends on SOC_FAMILY_NORDIC_NRF
 	default y if BUILD_WITH_TFM
+	# entropy is provided by PSA and NRF_SECURITY on NRF54LX
+	default y if ENTROPY_PSA_CRYPTO_RNG && SOC_SERIES_NRF54LX
 	select DISABLE_MBEDTLS_BUILTIN if MBEDTLS
+	# Generating random requires a CRACEN PSA Crypto driver on nrf54L
+	select PSA_CRYPTO_DRIVER_CRACEN if PSA_WANT_GENERATE_RANDOM && SOC_SERIES_NRF54LX
+	# NCS does not use TF-M's BL2 bootloader, but uses it's own fork
+	# of MCUBoot instead (CONFIG_BOOTLOADER_MCUBOOT).
+	#
+	# Select TFM_BL2_NOT_SUPPORTED to prevent users from enabling
+	# CONFIG_TFM_BL2.
+	select TFM_BL2_NOT_SUPPORTED if BUILD_WITH_TFM
 	help
 	  Set this configuration to enable nRF Security. This provides
 	  Arm PSA cryptography APIs with RNG support (optionally).
+
+config NRF_SECURITY_LEGACY_AND_PSA
+	bool
+	default y
+	select EXPERIMENTAL
+	depends on MBEDTLS_LEGACY_CRYPTO_C && MBEDTLS_PSA_CRYPTO_C
+	# This configuration doesn't affect TF-M builds since the PSA
+	# APIs are provided by TF-M.
+	# When this configuration is enabled we manually enable
+	# some symbols in the build_config.h file in the Oberon PSA core.
+	# This requires only the Oberon PSA crypto driver to be enabled,
+	# it requires the CC3XX platform library to get random data and
+	# the trusted storage for ITS support. The depenedencies here
+	# match what we enable in the build_config.h file so if we need to
+	# modify the dependencies here we also need to modify the build_config.h.
+	depends on PSA_CRYPTO_DRIVER_OBERON && !PSA_CRYPTO_DRIVER_CC3XX
+	depends on NRF_CC3XX_PLATFORM
+	depends on TRUSTED_STORAGE
+	depends on !BUILD_WITH_TFM
+	help
+	   This is an option to support legacy mbedTLS and PSA crypto APIs
+	   at the same time. This is not recommended as it is not fully
+	   supported in our system. This feature might get changed/removed at
+	   any time in the future. You are advised to use the PSA APIs
+	   for any new developments.
+
+	   This option doesn't use the nrf_security for the internal
+	   PSA configuration. It always use the Oberon PSA driver
+	   for all the crypto operations expect for the PRNG which
+	   uses the nrf_cc3xx_platform library.
 
 config PSA_PROMPTLESS
 	bool
@@ -167,7 +207,10 @@ config MBEDTLS_KEY_EXCHANGE_SOME_PSK_ENABLED
 
 config MBEDTLS_ECP_ALL_ENABLED
 	bool "Enable all available elliptic curves"
-	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_GENERATE
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_IMPORT
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_EXPORT
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_DERIVE
 	select PSA_WANT_ECC_SECP_R1_192
 	select PSA_WANT_ECC_SECP_R1_224
 	select PSA_WANT_ECC_SECP_R1_256

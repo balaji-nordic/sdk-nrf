@@ -9,17 +9,18 @@
 #include <zephyr/kernel.h>
 #include <zephyr/zbus/zbus.h>
 
-#include "nrf5340_audio_common.h"
-#include "nrf5340_audio_dk.h"
 #include "broadcast_sink.h"
+#include "zbus_common.h"
+#include "nrf5340_audio_dk.h"
 #include "led.h"
 #include "button_assignments.h"
 #include "macros_common.h"
 #include "audio_system.h"
 #include "bt_mgmt.h"
-#include "bt_rend.h"
+#include "bt_rendering_and_capture.h"
 #include "audio_datapath.h"
 #include "le_audio_rx.h"
+#include "fw_info_app.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
@@ -105,7 +106,7 @@ static void button_msg_sub_thread(void)
 			break;
 
 		case BUTTON_VOLUME_UP:
-			ret = bt_rend_volume_up();
+			ret = bt_r_and_c_volume_up();
 			if (ret) {
 				LOG_WRN("Failed to increase volume: %d", ret);
 			}
@@ -113,7 +114,7 @@ static void button_msg_sub_thread(void)
 			break;
 
 		case BUTTON_VOLUME_DOWN:
-			ret = bt_rend_volume_down();
+			ret = bt_r_and_c_volume_down();
 			if (ret) {
 				LOG_WRN("Failed to decrease volume: %d", ret);
 			}
@@ -130,7 +131,7 @@ static void button_msg_sub_thread(void)
 
 		case BUTTON_5:
 			if (IS_ENABLED(CONFIG_AUDIO_MUTE)) {
-				ret = bt_rend_volume_mute(false);
+				ret = bt_r_and_c_volume_mute(false);
 				if (ret) {
 					LOG_WRN("Failed to mute, ret: %d", ret);
 				}
@@ -351,7 +352,7 @@ static void bt_mgmt_evt_handler(const struct zbus_channel *chan)
 
 	switch (msg->event) {
 	case BT_MGMT_PA_SYNCED:
-		LOG_INF("PA synced");
+		LOG_DBG("PA synced");
 
 		ret = broadcast_sink_pa_sync_set(msg->pa_sync, msg->broadcast_id);
 		if (ret) {
@@ -449,12 +450,18 @@ int main(void)
 {
 	int ret;
 
-	LOG_DBG("nRF5340 APP core started");
+	LOG_DBG("Main started");
 
 	ret = nrf5340_audio_dk_init();
 	ERR_CHK(ret);
 
-	ret = nrf5340_audio_common_init();
+	ret = fw_info_app_print();
+	ERR_CHK(ret);
+
+	ret = bt_mgmt_init();
+	ERR_CHK(ret);
+
+	ret = audio_system_init();
 	ERR_CHK(ret);
 
 	ret = zbus_subscribers_create();

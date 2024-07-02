@@ -57,19 +57,19 @@ Currently, the following configurations are supported:
 * nRF7002 EK + SPIM
 
 
-To build for the nRF7002 DK, use the ``nrf7002dk_nrf5340_cpuapp`` build target.
+To build for the nRF7002 DK, use the ``nrf7002dk/nrf5340/cpuapp`` board target.
 The following is an example of the CLI command:
 
 .. code-block:: console
 
-   west build -b nrf7002dk_nrf5340_cpuapp
+   west build -b nrf7002dk/nrf5340/cpuapp
 
-To build for the nRF7002 EK and nRF5340 DK, use the ``nrf5340dk_nrf5340_cpuapp`` build target with the ``SHIELD`` CMake option set to ``nrf7002ek``.
+To build for the nRF7002 EK and nRF5340 DK, use the ``nrf5340dk/nrf5340/cpuapp`` board target with the ``SHIELD`` CMake option set to ``nrf7002ek``.
 The following is an example of the CLI command:
 
 .. code-block:: console
 
-   west build -b nrf5340dk_nrf5340_cpuapp -- -DSHIELD=nrf7002ek
+   west build -b nrf5340dk/nrf5340/cpuapp -- -DSHIELD=nrf7002ek
 
 See also :ref:`cmake_options` for instructions on how to provide CMake options.
 
@@ -143,6 +143,35 @@ Testing
               wifi_radio_test tx_power 4
               wifi_radio_test tx_pkt_gap 4200
               wifi_radio_test tx 1
+
+
+         * To run a continuous OFDM TX traffic sequence with the following configuration:
+
+           * Channel: 1
+           * Frame duration: 2708 µs
+           * Inter-frame gap: 4200 µs
+           * Edge backoff: 3 dB
+           * Antenna gain: 2 dB
+
+           Execute the following sequence of commands:
+
+           .. code-block:: console
+
+              wifi_radio_test init 1
+              wifi_radio_test tx_pkt_rate 12
+              wifi_radio_test tx_pkt_len 4000
+              wifi_radio_test tx_power 10
+              wifi_radio_test tx_pkt_gap 4200
+              wifi_radio_test set_edge_bo 3
+              wifi_radio_test set_ant_gain 2
+              wifi_radio_test tx 1
+
+         .. note::
+
+            Edge backoff and antenna gain are configured in the Kconfig file.
+            To overwrite these backoffs with user-specified backoffs, use the ``set_edge_bo`` and ``set_ant_gain`` commands.
+            These backoffs are applied only when the ``bypass_reg_domain`` is set to ``0``.
+
 
 
          * To run a continuous Direct-sequence spread spectrum (DSSS) TX traffic sequence with the following configuration:

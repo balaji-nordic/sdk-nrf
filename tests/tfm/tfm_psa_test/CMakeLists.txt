@@ -60,6 +60,7 @@ if (NOT DEFINED TFM_PSA_TEST_SUITE)
   message(FATAL_ERROR "Please define witch test suite to run:
     CONFIG_TFM_PSA_TEST_CRYPTO
     CONFIG_TFM_PSA_TEST_PROTECTED_STORAGE
+    CONFIG_TFM_PSA_TEST_INTERNAL_TRUSTED_STORAGE
     CONFIG_TFM_PSA_TEST_STORAGE
     CONFIG_TFM_PSA_TEST_INITIAL_ATTESTATION")
 endif()
@@ -87,6 +88,12 @@ set_property(TARGET zephyr_property_target
 
 include(ExternalProject)
 
+if(CONFIG_DEBUG_OPTIMIZATIONS)
+  set(tfm_ns_CMAKE_BUILD_TYPE Debug)
+else()
+  set(tfm_ns_CMAKE_BUILD_TYPE RelWithDebInfo)
+endif()
+
 ExternalProject_Add(tfm_psa_arch_test_app
     SOURCE_DIR ${TFM_TEST_REPO_PATH}/tests_psa_arch
     BINARY_DIR ${PROJECT_BINARY_DIR}/tfm_ns
@@ -100,7 +107,7 @@ ExternalProject_Add(tfm_psa_arch_test_app
                 -DCROSS_COMPILE=${TFM_TOOLCHAIN_PATH}/${TFM_TOOLCHAIN_PREFIX}
                 -DPSA_TOOLCHAIN_FILE=${TFM_BINARY_DIR}/api_ns/cmake/${TFM_TOOLCHAIN_NS_FILE}
                 -DQCBOR_PATH${QCBOR_PATH_TYPE}=${CONFIG_TFM_QCBOR_PATH}
-                -DCMAKE_BUILD_TYPE=RelWithDebInfo
+                -DCMAKE_BUILD_TYPE=${tfm_ns_CMAKE_BUILD_TYPE}
                 -DTEST_PSA_API=${TEST_PSA_API}
                 -DZEPHYR_NRF_MODULE_DIR=${ZEPHYR_NRF_MODULE_DIR}
     BUILD_COMMAND ${CMAKE_COMMAND} --build .

@@ -10,12 +10,13 @@ config TFM_BOARD
 	default "${ZEPHYR_NRF_MODULE_DIR}/modules/trusted-firmware-m/tfm_boards/nrf9160" if SOC_NRF9160
 	default "${ZEPHYR_NRF_MODULE_DIR}/modules/trusted-firmware-m/tfm_boards/nrf9120" if SOC_NRF9120
 	default "${ZEPHYR_NRF_MODULE_DIR}/modules/trusted-firmware-m/tfm_boards/nrf5340_cpuapp" if SOC_NRF5340_CPUAPP
+	default "${ZEPHYR_NRF_MODULE_DIR}/modules/trusted-firmware-m/tfm_boards/nrf54l15_cpuapp" if SOC_SERIES_NRF54LX
 	depends on TRUSTED_EXECUTION_NONSECURE
 
 if BUILD_WITH_TFM
 
 config TFM_ISOLATION_LEVEL
-	default 1 if SOC_FAMILY_NRF
+	default 1 if SOC_FAMILY_NORDIC_NRF
 
 config TFM_BL2
 	bool
@@ -33,10 +34,16 @@ config TFM_LOG_LEVEL_SILENCE
 	# Overrule zephyr disable TF-M secure output if the uart1 node has not
 	# assigned GPIO pins using pinctrl.
 	default n
-	depends on $(dt_nodelabel_has_prop,uart0,pinctrl-names) || \
-		   $(dt_nodelabel_has_prop,uart1,pinctrl-names)
+	depends on $(dt_nodelabel_has_prop,uart0,pinctrl-names)  || \
+		   $(dt_nodelabel_has_prop,uart1,pinctrl-names)  || \
+		   $(dt_nodelabel_has_prop,uart00,pinctrl-names) || \
+		   $(dt_nodelabel_has_prop,uart20,pinctrl-names) || \
+		   $(dt_nodelabel_has_prop,uart21,pinctrl-names) || \
+		   $(dt_nodelabel_has_prop,uart22,pinctrl-names) || \
+		   $(dt_nodelabel_has_prop,uart30,pinctrl-names)
 
 choice TFM_PROFILE_TYPE
+	default TFM_PROFILE_TYPE_NOT_SET if SOC_SERIES_NRF54LX
 	default TFM_PROFILE_TYPE_MINIMAL
 endchoice
 
@@ -57,7 +64,8 @@ config TFM_PARTITION_INITIAL_ATTESTATION
 	# The identity key is a secp256r1 key pair.
 	# The ECDSA algorithm and the cc3xx boot seed requires RNG.
 	select PSA_WANT_ALG_SHA_256
-	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_GENERATE
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_EXPORT
 	select PSA_WANT_ALG_ECDSA
 	select PSA_WANT_ECC_SECP_R1_256
 	select PSA_WANT_GENERATE_RANDOM
@@ -76,6 +84,11 @@ config TFM_PARTITION_PROTECTED_STORAGE
 	select PSA_WANT_KEY_TYPE_AES
 	select PSA_WANT_ALG_CCM if SOC_SERIES_NRF91X
 	select PSA_WANT_ALG_GCM if SOC_NRF5340_CPUAPP
+	select PSA_WANT_ALG_GCM if SOC_SERIES_NRF54LX
+
+config TFM_ITS_ENCRYPTED
+	bool
+	select PSA_WANT_ALG_CHACHA20_POLY1305 if SOC_SERIES_NRF54LX
 
 config BOOTLOADER_MCUBOOT
 	bool

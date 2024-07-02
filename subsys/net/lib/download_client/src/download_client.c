@@ -22,6 +22,7 @@
 #include <zephyr/net/tls_credentials.h>
 #include <net/download_client.h>
 #include <zephyr/logging/log.h>
+#include "download_client_internal.h"
 
 LOG_MODULE_REGISTER(download_client, CONFIG_DOWNLOAD_CLIENT_LOG_LEVEL);
 
@@ -29,19 +30,6 @@ LOG_MODULE_REGISTER(download_client, CONFIG_DOWNLOAD_CLIENT_LOG_LEVEL);
 #define SIN(A) ((struct sockaddr_in *)(A))
 
 #define HOSTNAME_SIZE CONFIG_DOWNLOAD_CLIENT_MAX_HOSTNAME_SIZE
-
-int url_parse_port(const char *url, uint16_t *port);
-int url_parse_proto(const char *url, int *proto, int *type);
-int url_parse_host(const char *url, char *host, size_t len);
-
-int http_parse(struct download_client *client, size_t len);
-int http_get_request_send(struct download_client *client);
-
-int coap_block_init(struct download_client *client, size_t from);
-int coap_get_recv_timeout(struct download_client *dl);
-int coap_initiate_retransmission(struct download_client *dl);
-int coap_parse(struct download_client *client, size_t len);
-int coap_request_send(struct download_client *client);
 
 static int handle_disconnect(struct download_client *client);
 static int error_evt_send(const struct download_client *dl, int error);
@@ -264,7 +252,7 @@ static int host_lookup(const char *host, int family, uint8_t pdn_id,
 	}
 
 	if (err) {
-		LOG_WRN("Failed to resolve hostname %s on %s",
+		LOG_DBG("Failed to resolve hostname %s on %s",
 			hostname, str_family(family));
 		return -EHOSTUNREACH;
 	}
@@ -381,11 +369,12 @@ cleanup:
 static int client_connect(struct download_client *dl)
 {
 	int err;
+	int ns_err;
 	int type;
 	uint16_t port;
 
 	err = url_parse_proto(dl->host, &dl->proto, &type);
-	if (err) {
+	if (err == -EINVAL) {
 		LOG_DBG("Protocol not specified, defaulting to HTTP(S)");
 		type = SOCK_STREAM;
 		if (dl->config.sec_tag_list && (dl->config.sec_tag_count > 0)) {
@@ -393,6 +382,8 @@ static int client_connect(struct download_client *dl)
 		} else {
 			dl->proto = IPPROTO_TCP;
 		}
+	} else if (err) {
+		goto cleanup;
 	}
 
 	if (dl->proto == IPPROTO_UDP || dl->proto == IPPROTO_DTLS_1_2) {
@@ -441,19 +432,26 @@ static int client_connect(struct download_client *dl)
 		type |= SOCK_NATIVE_TLS;
 	}
 
+	err = -1;
+	ns_err = -1;
+
 	/* Attempt IPv6 connection if configured, fallback to IPv4 on error */
 	if ((dl->config.family == AF_UNSPEC) || (dl->config.family == AF_INET6)) {
-		err = host_lookup(dl->host, AF_INET6, dl->config.pdn_id, &dl->remote_addr);
-		if (!err) {
+		ns_err = host_lookup(dl->host, AF_INET6, dl->config.pdn_id, &dl->remote_addr);
+		if (!ns_err) {
 			err = client_socket_connect(dl, type, port);
 		}
 	}
 
 	if (((dl->config.family == AF_UNSPEC) && err) || (dl->config.family == AF_INET)) {
-		err = host_lookup(dl->host, AF_INET, dl->config.pdn_id, &dl->remote_addr);
-		if (!err) {
+		ns_err = host_lookup(dl->host, AF_INET, dl->config.pdn_id, &dl->remote_addr);
+		if (!ns_err) {
 			err = client_socket_connect(dl, type, port);
 		}
+	}
+	if (ns_err) {
+		LOG_ERR("DNS lookup failed %s", dl->host);
+		err = ns_err;
 	}
 
 cleanup:
@@ -957,12 +955,6 @@ int download_client_set_host(struct download_client *client, const char *host,
 	client->close_when_done = false;
 	k_mutex_unlock(&client->mutex);
 	return 0;
-}
-
-int download_client_connect(struct download_client *client, const char *host,
-			    const struct download_client_cfg *config)
-{
-	return download_client_set_host(client, host, config);
 }
 
 int download_client_disconnect(struct download_client *const client)

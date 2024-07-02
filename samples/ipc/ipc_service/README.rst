@@ -13,7 +13,16 @@ Overview
 ********
 
 The sample application tests throughput of the IPC service with available backends.
-Currently, the sample supports OpenAMP RPMSG and ICMSG backends.
+Currently, the sample supports the following backends:
+
+* :ref:`zephyr:nrf5340dk_nrf5340` board:
+
+  * `OpenAMP`_ library
+  * :ref:`zephyr:ipc_service_backend_icmsg`
+
+* :ref:`zephyr:nrf54h20dk_nrf54h20` board:
+
+  * :ref:`zephyr:ipc_service_backend_icbmsg`
 
 Each core periodically prints out data throughput in bytes per second.
 
@@ -54,40 +63,53 @@ Building and running
 
 .. include:: /includes/build_and_run.txt
 
-A set of overlays are available for the sample to verify the throughput that only one core is sending the data.
-You could use different overlay build commands for different testing scenarios, which are as follows:
+**nRF5340 DK**
 
-* To test the application where only the application core is sending data through the IPC service, specify ``-DOVERLAY_CONFIG=overlay-cpuapp-sending.conf`` overlay parameter with the build command:
+You can build the sample using either the RPMsg or ICMSG backend.
+For the default RPMsg backend, use the following command:
 
-  .. code-block:: console
+.. code-block:: console
 
-     west build -p -b nrf5340dk_nrf5340_cpuapp -- -DOVERLAY_CONFIG=overlay-cpuapp-sending.conf
+   west build -p -b nrf5340dk/nrf5340/cpuapp
 
-  The :file:`CMakeLists.txt` of the application ensures adding a matching config overlay for the child image.
+For the ICMSG backend, use the following command:
 
-* To test the application for a scenario where only the network core is sending data through the IPC service, specify the ``-DOVERLAY_CONFIG=overlay-cpunet-sending.conf`` overlay parameter with the build command:
+.. code-block:: console
 
-  .. code-block:: console
+   west build -p -b nrf5340dk/nrf5340/cpuapp -T sample.ipc.ipc_service.nrf5340dk_icmsg_default .
 
-     west build -p -b nrf5340dk_nrf5340_cpuapp -- -DOVERLAY_CONFIG=overlay-cpunet-sending.conf
+A set of overlays is available for the sample to verify the throughput when only one core is sending the data.
+Use these overlays when building the IPC sample to test the following scenarios:
 
-  The :file:`CMakeLists.txt` of the application ensures adding a matching config overlay for the child image.
-
-* To test the application with the ICMSG backend, specify the ``-DCONF_FILE=prj_icmsg.conf`` parameter along with the build command:
-
-  .. code-block:: console
-
-     west build -p -b nrf5340dk_nrf5340_cpuapp -- -DCONF_FILE=prj_icmsg.conf
-
-  The :file:`CMakeLists.txt` of the application ensures adding a matching ``config`` and ``DT`` overlay for the child image.
-
-* Combine the above options and test maximal core to core throughput with the ICMSG backend.
-  To do so, build the application with the following commands:
+* Either the network or application core is sending data through the IPC service using RPMsg:
 
   .. code-block:: console
 
-     west build -p -b nrf5340dk_nrf5340_cpuapp -- -DCONF_FILE=prj_icmsg.conf -DOVERLAY_CONFIG=overlay-cpuapp-sending.conf
-     west build -p -b nrf5340dk_nrf5340_cpuapp -- -DCONF_FILE=prj_icmsg.conf -DOVERLAY_CONFIG=overlay-cpunet-sending.conf
+     west build -p -b nrf5340dk/nrf5340/cpuapp -T sample.ipc.ipc_service.nrf5340dk_rpmsg_cpuapp_sending .
+     west build -p -b nrf5340dk/nrf5340/cpuapp -T sample.ipc.ipc_service.nrf5340dk_rpmsg_cpunet_sending .
+
+* Either the network or application core is sending data through the IPC service using the :ref:`zephyr:ipc_service_backend_icmsg` backend:
+
+  .. code-block:: console
+
+     west build -p -b nrf5340dk/nrf5340/cpuapp -T sample.ipc.ipc_service.nrf5340dk_icmsg_cpuapp_sending .
+     west build -p -b nrf5340dk/nrf5340/cpuapp -T sample.ipc.ipc_service.nrf5340dk_icmsg_cpunet_sending .
+
+**nRF54H20 DK**
+
+To build the sample to test IPC between the application and radio domains using the default :ref:`zephyr:ipc_service_backend_icbmsg` backend, use the following command:
+
+.. code-block:: console
+
+   west build -p -b nrf54h20dk/nrf54h20/cpuapp
+
+To build the sample to test IPC between the application and PPR core using the :ref:`zephyr:ipc_service_backend_icmsg` backend, use the following command:
+
+.. code-block:: console
+
+   west build -p -b nrf54h20dk/nrf54h20/cpuapp -T sample.ipc.ipc_service.nrf54h20dk_cpuapp_cpuppr_icmsg .
+
+.. include:: /includes/nRF54H20_erase_UICR.txt
 
 Testing
 =======
@@ -105,7 +127,7 @@ After programming the sample to your development kit, test it by performing the 
     .. code-block:: console
 
        *** Booting Zephyr OS build v3.0.99-ncs1  ***
-       IPC-service nrf5340dk_nrf5340_cpuapp demo started
+       IPC-service nrf5340dk/nrf5340/cpuapp demo started
        Δpkt: 9391 (100 B/pkt) | throughput: 7512800 bit/s
        Δpkt: 9389 (100 B/pkt) | throughput: 7511200 bit/s
        Δpkt: 9388 (100 B/pkt) | throughput: 7510400 bit/s
@@ -117,7 +139,7 @@ After programming the sample to your development kit, test it by performing the 
     .. code-block:: console
 
        *** Booting Zephyr OS build v3.0.99-ncs1  ***
-       IPC-service nrf5340dk_nrf5340_cpunet demo started
+       IPC-service nrf5340dk/nrf5340/cpunet demo started
        Δpkt: 6665 (100 B/pkt) | throughput: 5332000 bit/s
        Δpkt: 6664 (100 B/pkt) | throughput: 5331200 bit/s
        Δpkt: 6658 (100 B/pkt) | throughput: 5326400 bit/s

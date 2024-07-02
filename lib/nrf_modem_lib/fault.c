@@ -60,8 +60,12 @@ void nrf_modem_fault_handler(struct nrf_modem_fault_info *fault)
 	LOG_ERR("Modem has crashed, reason 0x%x, PC: 0x%x",
 		fault->reason, fault->program_counter);
 #endif
+
 #if CONFIG_NRF_MODEM_LIB_ON_FAULT_RESET_MODEM
 	k_sem_give(&fault_sem);
+#elif CONFIG_NRF_MODEM_LIB_ON_FAULT_LTE_NET_IF
+	extern void lte_net_if_modem_fault_handler(void);
+	lte_net_if_modem_fault_handler();
 #endif
 }
 #endif /* not CONFIG_NRF_MODEM_LIB_ON_FAULT_APPLICATION_SPECIFIC */
@@ -85,17 +89,11 @@ static void restart_on_fault(void *p1, void *p2, void *p3)
 	}
 }
 
-#if CONFIG_SIZE_OPTIMIZATIONS
-#define STACK_SIZE 768
-#else
-#define STACK_SIZE 1024
-#endif
-
 /* The thread that re-initializes the Modem library should have a lower priority
  * than any other application thread that wants to see the NRF_ESHUTDOWN error
  * when the Modem library is shutdown or the modem has faulted.
  */
-K_THREAD_DEFINE(nrf_modem_lib_fault, STACK_SIZE, restart_on_fault, NULL, NULL, NULL,
-		K_LOWEST_APPLICATION_THREAD_PRIO, 0, 0);
+K_THREAD_DEFINE(nrf_modem_lib_fault, CONFIG_NRF_MODEM_LIB_FAULT_THREAD_STACK_SIZE,
+		restart_on_fault, NULL, NULL, NULL, K_LOWEST_APPLICATION_THREAD_PRIO, 0, 0);
 
 #endif /* CONFIG_NRF_MODEM_LIB_ON_FAULT_RESET_MODEM */

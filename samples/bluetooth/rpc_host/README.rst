@@ -38,27 +38,31 @@ You must program this sample to the nRF5340 network core.
 
 .. include:: /includes/build_and_run.txt
 
+.. include:: /includes/nRF54H20_erase_UICR.txt
+
 .. _rpc_host_debug:
 
 Debug build
 ===========
 
-To build the sample with a debugging configuration, use the ``-DOVERLAY_CONFIG=overlay-debugging.conf'`` flag in your build.
+To build the sample with a debugging configuration, use the ``-DEXTRA_CONF_FILE=overlay-debugging.conf'`` flag in your build.
 
 See :ref:`cmake_options` for instructions on how to add this option to your build.
 For example, when building on the command line, enter the following command:
 
 .. code-block:: console
 
-   west build samples/bluetooth/rpc_host -- -DOVERLAY_CONFIG=overlay-debugging.conf
+   west build samples/bluetooth/rpc_host -- -DEXTRA_CONF_FILE=overlay-debugging.conf
 
 .. _rpc_host_testing:
 
 Example build
 =============
 
-The recommended way of building the nRF RPC Host sample is to use the multi-image feature of the build system, building the sample with the same Bluetooth configuration as the application core sample.
-In this way, the sample is built automatically as a child image when the :kconfig:option:`CONFIG_BT_RPC_STACK` option is enabled.
+The recommended way of building this sample is to use :ref:`configuration_system_overview_sysbuild`, building the sample with the same Bluetooth configuration as the application core sample.
+
+To enable the firmware, use the sysbuild configuration ``SB_CONFIG_NETCORE_RPC_HOST``.
+You also need to use the ``nordic-bt-rpc`` snippet, see :file:`snippets/nordic-bt-rpc/README.rst`.
 
 See :ref:`configure_application` for information about how to configure a sample.
 
@@ -66,16 +70,13 @@ See :ref:`configure_application` for information about how to configure a sample
    For more details, see: :ref:`ble_rpc`.
 
 #. Build the :ref:`peripheral_uart` on the application core.
-   This sample works out of the box and does not require configuration changes.
 
 #. In the Peripheral UART sample directory, run the following command:
 
    .. code-block:: console
 
-      west build -b nrf5340dk_nrf5340_cpuapp -- -DCONFIG_BT_RPC_STACK=y
+      west build -b nrf5340dk/nrf5340/cpuapp -S nordic-bt-rpc -- -DSB_CONFIG_NETCORE_RPC_HOST=y
 
-You can also build the :ref:`peripheral_hids_mouse` sample using the above command.
-This sample requires some additional configuration in the :file:`samples/bluetooth/peripheral_hids_mouse/child_image/rpc_host.conf` file.
 You can take it as an example on how to create configuration for your own application.
 
 Testing

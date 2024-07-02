@@ -1,0 +1,27 @@
+#
+# Copyright (c) 2024 Nordic Semiconductor
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+source "Kconfig.zephyr"
+
+menu "Nordic Fast Pair Locator tag sample"
+
+choice APP_PLATFORM
+	prompt "Application platform"
+
+config APP_PLATFORM_DK
+	bool "Application runs on the Development Kit"
+	depends on !BOARD_THINGY53
+
+config APP_PLATFORM_THINGY
+	bool "Application runs on the Thingy:53"
+	depends on BOARD_THINGY53
+
+endchoice
+
+rsource "src/ui/Kconfig.ui"
+rsource "src/battery/Kconfig.battery"
+
+endmenu

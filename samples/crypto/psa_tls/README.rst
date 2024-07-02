@@ -11,7 +11,7 @@ The PSA TLS sample shows how to perform a TLS handshake and send encrypted messa
 
 .. note::
 
-   Datagram Transport Layer Security (DTLS) and Pre-shared key (PSK) are currently not supported.
+   Datagram Transport Layer Security (DTLS) and pre-shared key (PSK) are currently not supported.
 
 For information about CMSE and the difference between the two environments, see :ref:`app_boards_spe_nspe`.
 
@@ -69,7 +69,7 @@ During the sample initialization, the certificates and keys are fetched from TF-
 
 .. note::
    Currently, applications with CMSE enabled only support ECDSA certificates.
-   This is automatically enforced in the configuration files for build targets with CMSE enabled (``*_ns``).
+   This is automatically enforced in the configuration files for board targets with CMSE enabled (``*/ns`` :ref:`variant <app_boards_names>`).
 
 Supported cipher suites
 =======================
@@ -137,7 +137,7 @@ After programming the sample to your development kit, complete the following ste
       1. Start a terminal emulator like nRF Connect Serial Terminal and connect to the used serial port with the standard UART settings.
          See :ref:`test_and_optimize` for more information.
       #. Observe the logs from the application using the terminal emulator.
-      #. Start the ``eth_rtt_link`` executable as superuser with your development kit's segger-id and the following IPv4 address as parameters:
+      #. Start the ``eth_rtt_link`` executable as a superuser with your development kit's SEGGER ID and the following IPv4 address as parameters:
 
          .. code-block:: console
 

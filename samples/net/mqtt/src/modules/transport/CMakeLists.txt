@@ -14,16 +14,26 @@ add_subdirectory(client_id)
 # the nRF91 modem.
 add_subdirectory_ifdef(CONFIG_MODEM_KEY_MGMT credentials_provision)
 
-# Make the folder that contains the CA certificate for "test.mosquitto.org" global so that it can
-# be located by the MQTT helper library / local credential provision library.
-#
-# The MQTT helper library provisions the certificate
-# to the Mbed TLS stack for Native Posix and nRF7 Series devices.
-#
-# The credential provision library provisions the certificate
-# to the modem's network stack for nRF91 Series builds.
-#
-# CONFIG_MODEM_KEY_MGMT and CONFIG_MQTT_HELPER_PROVISION_CERTIFICATES are mutually exclusive.
-#
-zephyr_include_directories_ifdef(CONFIG_MODEM_KEY_MGMT credentials)
-zephyr_include_directories_ifdef(CONFIG_MQTT_HELPER_PROVISION_CERTIFICATES credentials)
+if(CONFIG_MODEM_KEY_MGMT)
+	# Generate include files from pem files
+	set(gen_dir ${CMAKE_CURRENT_BINARY_DIR}/certs)
+	zephyr_include_directories(${gen_dir})
+	if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/credentials/ca-cert.pem)
+		generate_inc_file_for_target(app credentials/ca-cert.pem ${gen_dir}/ca-cert.pem)
+	endif()
+	if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/credentials/client-cert.pem)
+		generate_inc_file_for_target(app credentials/client-cert.pem ${gen_dir}/client-cert.pem)
+	endif()
+	if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/credentials/private-key.pem)
+		generate_inc_file_for_target(app credentials/private-key.pem ${gen_dir}/private-key.pem)
+	endif()
+	if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/credentials/ca-cert-2.pem)
+		generate_inc_file_for_target(app credentials/ca-cert-2.pem ${gen_dir}/ca-cert-2.pem)
+	endif()
+	if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/credentials/client-cert-2.pem)
+		generate_inc_file_for_target(app credentials/client-cert-2.pem ${gen_dir}/client-cert-2.pem)
+	endif()
+	if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/credentials/private-key-2.pem)
+		generate_inc_file_for_target(app credentials/private-key-2.pem ${gen_dir}/private-key-2.pem)
+	endif()
+endif()

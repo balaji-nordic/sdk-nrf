@@ -51,7 +51,6 @@ endif
 config BT_MESH_NLC_PERF_CONF
 	bool "Enable NLC performance configurations"
 	select BT_MESH_COMP_PAGE_2
-	select BT_MESH_MODEL_EXTENSIONS
 	select BT_MESH_COMP_PAGE_1
 	help
 	  Enables performance configurations required for NLC profiles.
@@ -121,7 +120,9 @@ config BT_MESH_USES_TFM_PSA
 	select PSA_WANT_ALG_HMAC
 	select PSA_WANT_ALG_ECDH
 	select PSA_WANT_ECC_SECP_R1_256
-	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_GENERATE
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_IMPORT
+	select PSA_WANT_KEY_TYPE_ECC_KEY_PAIR_EXPORT
 
 choice TFM_PROFILE_TYPE
 	depends on BT_MESH_USES_TFM_PSA
@@ -130,9 +131,8 @@ endchoice
 
 config BT_MESH_DFU_METADATA_ON_BUILD
 	bool "Generate DFU metadata on build"
-	default y if BT_MESH_DFU_SRV || BT_MESH_DFU_CLI
+	default y if BT_MESH_DFU_SRV
 	depends on SIGN_IMAGES
-	depends on BT_MESH_DFU_METADATA
 	help
 	  Generate a JSON file containing all DFU related metadata upon
 	  application build. The JSON will be added to dfu application zip

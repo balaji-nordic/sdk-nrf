@@ -127,14 +127,20 @@ BUILD_ASSERT(!IS_ENABLED(CONFIG_BT_PERIPHERAL) ||
 
 #if defined(CONFIG_BT_OBSERVER)
 	#if defined(CONFIG_BT_CTLR_ADV_EXT)
-		#define SDC_SCAN_BUF_SIZE \
-			SDC_MEM_SCAN_BUFFER_EXT(CONFIG_BT_CTLR_SDC_SCAN_BUFFER_COUNT)
+		#define SDC_SCAN_SIZE \
+			SDC_MEM_SCAN_EXT(CONFIG_BT_CTLR_SDC_SCAN_BUFFER_COUNT)
 	#else
-		#define SDC_SCAN_BUF_SIZE \
-			SDC_MEM_SCAN_BUFFER(CONFIG_BT_CTLR_SDC_SCAN_BUFFER_COUNT)
+		#define SDC_SCAN_SIZE \
+			SDC_MEM_SCAN(CONFIG_BT_CTLR_SDC_SCAN_BUFFER_COUNT)
 	#endif
 #else
-	#define SDC_SCAN_BUF_SIZE 0
+	#define SDC_SCAN_SIZE 0
+#endif
+
+#if defined(CONFIG_BT_CTLR_SDC_ALLOW_PARALLEL_SCANNING_AND_INITIATING)
+	#define SDC_INITIATOR_SIZE SDC_MEM_INITIATOR
+#else
+	#define SDC_INITIATOR_SIZE 0
 #endif
 
 #ifdef CONFIG_BT_CTLR_DATA_LENGTH_MAX
@@ -163,11 +169,18 @@ BUILD_ASSERT(!IS_ENABLED(CONFIG_BT_PERIPHERAL) ||
 
 #define SDC_FAL_MEM_SIZE SDC_MEM_FAL(CONFIG_BT_CTLR_FAL_SIZE)
 
+#if defined(CONFIG_BT_CTLR_LE_POWER_CONTROL)
+#define SDC_LE_POWER_CONTROL_MEM_SIZE SDC_MEM_LE_POWER_CONTROL(SDC_CENTRAL_COUNT + PERIPHERAL_COUNT)
+#else
+#define SDC_LE_POWER_CONTROL_MEM_SIZE 0
+#endif
+
 #if defined(CONFIG_BT_CTLR_CONN_ISO)
 #define SDC_MEM_CIG SDC_MEM_PER_CIG(CONFIG_BT_CTLR_CONN_ISO_GROUPS)
 #define SDC_MEM_CIS \
 	SDC_MEM_PER_CIS(CONFIG_BT_CTLR_CONN_ISO_STREAMS) + \
-	SDC_MEM_ISO_RX_SDU_POOL_SIZE(CONFIG_BT_CTLR_CONN_ISO_STREAMS)
+	SDC_MEM_ISO_RX_SDU_POOL_SIZE(CONFIG_BT_CTLR_CONN_ISO_STREAMS, \
+				     CONFIG_BT_ISO_RX_MTU)
 #define SDC_CIS_COUNT CONFIG_BT_CTLR_CONN_ISO_STREAMS
 #else
 #define SDC_MEM_CIG   0
@@ -179,7 +192,8 @@ BUILD_ASSERT(!IS_ENABLED(CONFIG_BT_PERIPHERAL) ||
 #define SDC_MEM_BIS_SINK \
 	SDC_MEM_PER_BIG(CONFIG_BT_CTLR_SCAN_SYNC_ISO_SET) +					\
 		SDC_MEM_PER_BIS(CONFIG_BT_CTLR_SYNC_ISO_STREAM_COUNT) +				\
-		SDC_MEM_ISO_RX_SDU_POOL_SIZE(CONFIG_BT_CTLR_SYNC_ISO_STREAM_COUNT)
+		SDC_MEM_ISO_RX_SDU_POOL_SIZE(CONFIG_BT_CTLR_SYNC_ISO_STREAM_COUNT,              \
+					     CONFIG_BT_ISO_RX_MTU)
 #define SDC_BIS_SINK_COUNT CONFIG_BT_CTLR_SYNC_ISO_STREAM_COUNT
 #else
 #define SDC_MEM_BIS_SINK   0
@@ -208,23 +222,34 @@ BUILD_ASSERT(!IS_ENABLED(CONFIG_BT_PERIPHERAL) ||
 #if defined(CONFIG_BT_CTLR_SDC_ISO_TX_HCI_BUFFER_COUNT) && \
 	defined(CONFIG_BT_CTLR_SDC_ISO_TX_PDU_BUFFER_PER_STREAM_COUNT)
 #define SDC_MEM_ISO_TX_POOL                                                            \
-	SDC_MEM_ISO_TX_POOL_SIZE(CONFIG_BT_CTLR_SDC_ISO_TX_HCI_BUFFER_COUNT,               \
+	SDC_MEM_ISO_TX_PDU_POOL_SIZE(                                                          \
 		CONFIG_BT_CTLR_SDC_ISO_TX_PDU_BUFFER_PER_STREAM_COUNT,                         \
 		SDC_CIS_COUNT,                                                                 \
-		SDC_BIS_SOURCE_COUNT)
+		SDC_BIS_SOURCE_COUNT) +							       \
+	SDC_MEM_ISO_TX_SDU_POOL_SIZE(CONFIG_BT_CTLR_SDC_ISO_TX_HCI_BUFFER_COUNT,               \
+		CONFIG_BT_ISO_TX_MTU)
 #else
 #define SDC_MEM_ISO_TX_POOL 0
+#endif
+
+#if defined(CONFIG_BT_CTLR_SDC_QOS_CHANNEL_SURVEY)
+#define SDC_MEM_CHAN_SURV SDC_MEM_QOS_CHANNEL_SURVEY
+#else
+#define SDC_MEM_CHAN_SURV 0
 #endif
 
 #define MEMPOOL_SIZE ((PERIPHERAL_COUNT * PERIPHERAL_MEM_SIZE) + \
 		      (SDC_CENTRAL_COUNT * CENTRAL_MEM_SIZE) + \
 		      (SDC_ADV_SET_MEM_SIZE) + \
+		      (SDC_LE_POWER_CONTROL_MEM_SIZE) + \
 		      (SDC_PERIODIC_ADV_MEM_SIZE) + \
 		      (SDC_PERIODIC_ADV_RSP_MEM_SIZE) + \
 		      (SDC_PERIODIC_SYNC_MEM_SIZE) + \
 		      (SDC_PERIODIC_ADV_LIST_MEM_SIZE) + \
-		      (SDC_SCAN_BUF_SIZE) + \
+		      (SDC_SCAN_SIZE) + \
+		      (SDC_INITIATOR_SIZE) + \
 		      (SDC_FAL_MEM_SIZE) + \
+		      (SDC_MEM_CHAN_SURV) + \
 		      (SDC_MEM_CIG) + \
 		      (SDC_MEM_CIS) + \
 		      (SDC_MEM_BIS_SINK) + \
@@ -828,6 +853,13 @@ static int configure_supported_features(void)
 		}
 	}
 
+#if defined(CONFIG_BT_CTLR_SDC_ALLOW_PARALLEL_SCANNING_AND_INITIATING)
+	err = sdc_support_parallel_scanning_and_initiating();
+	if (err) {
+		return -ENOTSUP;
+	}
+#endif
+
 	return 0;
 }
 
@@ -1059,30 +1091,26 @@ static int configure_memory_usage(void)
 #endif /* CONFIG_BT_CTLR_SYNC_ISO */
 #endif /* CONFIG_BT_CTLR_BROADCAST_ISO */
 
+#if defined(CONFIG_BT_CTLR_SDC_ISO_RX_PDU_BUFFER_PER_STREAM_COUNT) ||                             \
+	(defined(CONFIG_BT_CTLR_SDC_ISO_TX_HCI_BUFFER_COUNT) &&                                   \
+	defined(CONFIG_BT_CTLR_SDC_ISO_TX_PDU_BUFFER_PER_STREAM_COUNT))
+	memset(&cfg.iso_buffer_cfg, 0, sizeof(cfg.iso_buffer_cfg));
+#endif
+
 #if defined(CONFIG_BT_CTLR_SDC_ISO_RX_PDU_BUFFER_PER_STREAM_COUNT)
 	cfg.iso_buffer_cfg.rx_pdu_buffer_per_stream_count =
 		CONFIG_BT_CTLR_SDC_ISO_RX_PDU_BUFFER_PER_STREAM_COUNT;
 
 	cfg.iso_buffer_cfg.rx_sdu_buffer_count = iso_rx_paths;
-	cfg.iso_buffer_cfg.rx_sdu_buffer_size = SDC_DEFAULT_ISO_RX_SDU_BUFFER_SIZE;
-#else
-	cfg.iso_buffer_cfg.rx_pdu_buffer_per_stream_count =
-		SDC_DEFAULT_ISO_RX_PDU_BUFFER_PER_STREAM_COUNT;
-	cfg.iso_buffer_cfg.rx_sdu_buffer_count = SDC_DEFAULT_ISO_RX_SDU_BUFFER_COUNT;
-	cfg.iso_buffer_cfg.rx_sdu_buffer_size = SDC_DEFAULT_ISO_RX_SDU_BUFFER_SIZE;
+	cfg.iso_buffer_cfg.rx_sdu_buffer_size = CONFIG_BT_ISO_RX_MTU;
 #endif
 
 #if defined(CONFIG_BT_CTLR_SDC_ISO_TX_HCI_BUFFER_COUNT) &&                                         \
 	defined(CONFIG_BT_CTLR_SDC_ISO_TX_PDU_BUFFER_PER_STREAM_COUNT)
-	cfg.iso_buffer_cfg.tx_hci_buffer_count = CONFIG_BT_CTLR_SDC_ISO_TX_HCI_BUFFER_COUNT;
-	cfg.iso_buffer_cfg.tx_hci_buffer_size = SDC_DEFAULT_ISO_TX_HCI_BUFFER_SIZE;
+	cfg.iso_buffer_cfg.tx_sdu_buffer_count = CONFIG_BT_CTLR_SDC_ISO_TX_HCI_BUFFER_COUNT;
+	cfg.iso_buffer_cfg.tx_sdu_buffer_size = CONFIG_BT_ISO_TX_MTU;
 	cfg.iso_buffer_cfg.tx_pdu_buffer_per_stream_count =
 		CONFIG_BT_CTLR_SDC_ISO_TX_PDU_BUFFER_PER_STREAM_COUNT;
-#else
-	cfg.iso_buffer_cfg.tx_hci_buffer_count = SDC_DEFAULT_ISO_TX_HCI_BUFFER_COUNT;
-	cfg.iso_buffer_cfg.tx_hci_buffer_size = SDC_DEFAULT_ISO_TX_HCI_BUFFER_SIZE;
-	cfg.iso_buffer_cfg.tx_pdu_buffer_per_stream_count
-		= SDC_DEFAULT_ISO_TX_PDU_BUFFER_PER_STREAM_COUNT;
 #endif
 
 #if defined(CONFIG_BT_CTLR_SDC_ISO_RX_PDU_BUFFER_PER_STREAM_COUNT) ||                             \
@@ -1305,48 +1333,6 @@ static const struct bt_hci_driver drv = {
 	.close = hci_driver_close,
 	.send = hci_driver_send,
 };
-
-#if !defined(CONFIG_BT_HCI_VS_EXT)
-uint8_t bt_read_static_addr(struct bt_hci_vs_static_addr addrs[], uint8_t size)
-{
-	/* only one supported */
-	ARG_UNUSED(size);
-
-	if (((NRF_FICR->DEVICEADDR[0] != UINT32_MAX) ||
-	    ((NRF_FICR->DEVICEADDR[1] & UINT16_MAX) != UINT16_MAX)) &&
-	     (NRF_FICR->DEVICEADDRTYPE & 0x01)) {
-		sys_put_le32(NRF_FICR->DEVICEADDR[0], &addrs[0].bdaddr.val[0]);
-		sys_put_le16(NRF_FICR->DEVICEADDR[1], &addrs[0].bdaddr.val[4]);
-
-		/* The FICR value is a just a random number, with no knowledge
-		 * of the Bluetooth Specification requirements for random
-		 * static addresses.
-		 */
-		BT_ADDR_SET_STATIC(&addrs[0].bdaddr);
-
-		/* If no public address is provided and a static address is
-		 * available, then it is recommended to return an identity root
-		 * key (if available) from this command.
-		 */
-		if ((NRF_FICR->IR[0] != UINT32_MAX) &&
-		    (NRF_FICR->IR[1] != UINT32_MAX) &&
-		    (NRF_FICR->IR[2] != UINT32_MAX) &&
-		    (NRF_FICR->IR[3] != UINT32_MAX)) {
-			sys_put_le32(NRF_FICR->IR[0], &addrs[0].ir[0]);
-			sys_put_le32(NRF_FICR->IR[1], &addrs[0].ir[4]);
-			sys_put_le32(NRF_FICR->IR[2], &addrs[0].ir[8]);
-			sys_put_le32(NRF_FICR->IR[3], &addrs[0].ir[12]);
-		} else {
-			/* Mark IR as invalid */
-			(void)memset(addrs[0].ir, 0x00, sizeof(addrs[0].ir));
-		}
-
-		return 1;
-	}
-
-	return 0;
-}
-#endif /* !defined(CONFIG_BT_HCI_VS_EXT) */
 
 void bt_ctlr_set_public_addr(const uint8_t *addr)
 {

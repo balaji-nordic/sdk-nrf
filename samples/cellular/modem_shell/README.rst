@@ -929,12 +929,23 @@ LED indications
 
 The LEDs have the following functions:
 
-LED 1 (nRF91 Series DKs)/Purple LED (Thingy:91):
-   Lit for five seconds when the current location has been successfully retrieved by using the ``location get`` command.
-LED 2 (nRF91 Series DKs):
-   Indicates the state of the GPIO pin when pulse counting has been enabled using the ``gpio_count enable`` command.
-LED 3 (nRF91 Series DKs)/Blue LED (Thingy:91):
-   Indicates the LTE registration status.
+nRF91 Series DKs:
+
+* **LED 2** indicates the state of the GPIO pin when pulse counting has been enabled using the ``gpio_count enable`` command.
+* **LED 3** indicates the LTE registration status.
+* **LED 4** is lit for five seconds when the current location has been successfully retrieved by using the ``location get`` command.
+
+Thingy:91 and Thingy:91 X RGB LED:
+
+* LTE connected:
+
+  * Default state constant blue.
+  * Lit purple for five seconds when the current location has been successfully retrieved by using the ``location get`` command.
+
+* LTE disconnected:
+
+  * Default state OFF.
+  * Lit red for five seconds when the current location has been successfully retrieved by using the ``location get`` command.
 
 Power measurements
 ==================
@@ -957,17 +968,9 @@ Testing
 
 After programming the application and all prerequisites to your development kit, test it by performing the following steps:
 
-1. Connect the development kit to the computer using a USB cable.
-   The development kit is assigned a COM port (Windows) or ttyACM device (Linux), which is visible in the Device Manager.
-
-#. Create a serial connection to the development kit (J-Link COM port) with a terminal |ANSI| using the following settings:
-
-   * Hardware flow control: disabled
-   * Baud rate: 115200
-   * Parity bit: no
-
+1. |connect_kit|
+#. |connect_terminal_ANSI|
 #. Reset the development kit.
-
 #. Observe in the terminal window that the application starts.
    This is indicated by output similar to the following (there is also a lot of additional information about the LTE connection):
 
@@ -997,23 +1000,15 @@ To program the certificates and connect to nRF Cloud, complete the following ste
 #. Update the modem firmware on the on-board modem of the nRF91 Series DK to the latest version as instructed in :ref:`nrf9160_updating_fw_modem`.
 #. Build and program the MoSh to the nRF91 Series DK using the default MoSh configuration (with REST as the transport):
 
-   .. tabs::
+.. parsed-literal::
+   :class: highlight
 
-      .. group-tab:: nRF9161 DK
+   west build -p -b *board_target*
+   west flash
 
-         .. code-block:: console
+|board_target|
 
-            $ west build -p -b nrf9161dk_nrf9161_ns -d build
-            $ west flash -d build
-
-      .. group-tab:: nRF9160 DK
-
-         .. code-block:: console
-
-            $ west build -p -b nrf9160dk_nrf9160_ns -d build
-            $ west flash -d build
-
-#. Get certificates from nRF Cloud as explained in the documentation for the :ref:`nRF9161 DK <downloading_cloud_certificate_nRF9161>` or the :ref:`nRF9160 DK <downloading_cloud_certificate_nRF9160>`, depending on the DK you are using.
+#. Get certificates from nRF Cloud as explained in the documentation for the :ref:`nRF91x1 DK <downloading_cloud_certificate_nRF91x1>` or the :ref:`nRF9160 DK <downloading_cloud_certificate_nRF9160>`, depending on the DK you are using.
 #. In the MoSH terminal, power off the modem and start the AT command mode:
 
    .. code-block:: console
@@ -1071,56 +1066,42 @@ To program the certificates and connect to nRF Cloud, complete the following ste
 nRF91 Series DK with nRF7002 EK Wi-Fi support
 =============================================
 
-To build the MoSh sample for an nRF91 Series DK with nRF7002 EK Wi-Fi support, use the ``-DSHIELD=nrf7002ek`` and  ``-DOVERLAY_CONFIG=overlay-nrf7002ek-wifi-scan-only.conf`` options.
+To build the MoSh sample for an nRF91 Series DK with nRF7002 EK Wi-Fi support, use the ``-DSHIELD=nrf7002ek``, ``-DEXTRA_CONF_FILE=overlay-nrf700x-wifi-scan-only.conf``, ``-DSB_CONFIG_WIFI_NRF700X=y`` and ``-DSB_CONFIG_WIFI_NRF700X_SCAN_ONLY=y`` options.
 For example:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
+   west build -p -b *board_target* -- -DSHIELD=nrf7002ek -DEXTRA_CONF_FILE=overlay-nrf700x-wifi-scan-only.conf -DSB_CONFIG_WIFI_NRF700X=y -DSB_CONFIG_WIFI_NRF700X_SCAN_ONLY=y
 
-      .. code-block:: console
-
-         west build -p -b nrf9161dk_nrf9161_ns -- -DSHIELD=nrf7002ek -DOVERLAY_CONFIG=overlay-nrf7002ek-wifi-scan-only.conf
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -- -DSHIELD=nrf7002ek -DOVERLAY_CONFIG=overlay-nrf7002ek-wifi-scan-only.conf
+|board_target|
 
 See :ref:`cmake_options` for more instructions on how to add these options.
 
-ESP8266 Wi-Fi support
-=====================
+Thingy:91 X Wi-Fi support
+=========================
 
-To build the MoSh sample with ESP8266 Wi-Fi chip support, use the ``-DDTC_OVERLAY_FILE=esp_8266_nrf9160ns.overlay`` and  ``-DOVERLAY_CONFIG=overlay-esp-wifi.conf`` options.
+To build the MoSh sample with Thingy:91 X Wi-Fi support, use the ``-DDTC_OVERLAY_FILE=thingy91x_wifi.overlay``, ``-DEXTRA_CONF_FILE=overlay-nrf700x-wifi-scan-only.conf``, ``-DSB_CONFIG_WIFI_NRF700X=y``, and ``-DSB_CONFIG_WIFI_NRF700X_SCAN_ONLY=y`` options.
 For example:
 
 .. code-block:: console
 
-   west build -p -b nrf9160dk_nrf9160_ns -d build -- -DDTC_OVERLAY_FILE=esp_8266_nrf9160ns.overlay -DOVERLAY_CONFIG=overlay-esp-wifi.conf
+   west build -p -b thingy91x/nrf9151/ns -- -DDTC_OVERLAY_FILE=thingy91x_wifi.overlay -DEXTRA_CONF_FILE=overlay-nrf700x-wifi-scan-only.conf -DSB_CONFIG_WIFI_NRF700X=y -DSB_CONFIG_WIFI_NRF700X_SCAN_ONLY=y
 
 See :ref:`cmake_options` for more instructions on how to add these options.
 
 PPP support
 ===========
 
-To build the MoSh sample with PPP/dial up support, use the ``-DDTC_OVERLAY_FILE=ppp.overlay`` and ``-DOVERLAY_CONFIG=overlay-ppp.conf`` options.
+To build the MoSh sample with PPP/dial up support, use the ``-DDTC_OVERLAY_FILE=ppp.overlay`` and ``-DEXTRA_CONF_FILE=overlay-ppp.conf`` options.
 For example:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
+   west build -p -b *board_target* -- -DDTC_OVERLAY_FILE=ppp.overlay -DEXTRA_CONF_FILE=overlay-ppp.conf
 
-      .. code-block:: console
-
-         west build -p -b nrf9161dk_nrf9161_ns -- -DDTC_OVERLAY_FILE=ppp.overlay -DOVERLAY_CONFIG=overlay-ppp.conf
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -- -DDTC_OVERLAY_FILE=ppp.overlay -DOVERLAY_CONFIG=overlay-ppp.conf
+|board_target|
 
 After programming the development kit, test it in the Linux environment by performing the following steps:
 
@@ -1179,163 +1160,104 @@ After programming the development kit, test it in the Linux environment by perfo
 Application FOTA support
 ========================
 
-To build the MoSh sample with application FOTA support, use the ``-DOVERLAY_CONFIG=overlay-app_fota.conf`` option.
+To build the MoSh sample with application FOTA support, use the ``-DEXTRA_CONF_FILE=overlay-app_fota.conf`` and ``-DSB_CONFIG_BOOTLOADER_MCUBOOT=y`` options.
 For example:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
+   west build -p -b *board_target* -- -DEXTRA_CONF_FILE=overlay-app_fota.conf -DSB_CONFIG_BOOTLOADER_MCUBOOT=y
 
-      .. code-block:: console
-
-         west build -p -b nrf9161dk_nrf9161_ns -d build -- -DOVERLAY_CONFIG=overlay-app_fota.conf
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -d build -- -DOVERLAY_CONFIG=overlay-app_fota.conf
+|board_target|
 
 nRF91 Series DK with full modem FOTA support
 ============================================
 
-To build the MoSh sample for an nRF91 Series DK with full modem FOTA support, use the devicetree overlay for external flash corresponding to your device and the ``-DOVERLAY_CONFIG=overlay-modem_fota_full.conf`` option.
-For example:
+To build the MoSh sample for an nRF91 Series DK with full modem FOTA support, use the devicetree overlay for external flash corresponding to your device and the ``-DEXTRA_CONF_FILE=overlay-modem_fota_full.conf`` option.
+The following is an example for the nRF9161 DK:
 
-.. tabs::
+.. code-block:: console
 
-   .. group-tab:: nRF9161 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9161dk_nrf9161_ns -d build -- -DOVERLAY_CONFIG=overlay-modem_fota_full.conf -DDTC_OVERLAY_FILE=nrf9161dk_ext_flash.overlay
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -d build -- -DOVERLAY_CONFIG=overlay-modem_fota_full.conf -DDTC_OVERLAY_FILE=nrf9160dk_ext_flash.overlay
+   west build -p -b nrf9161dk/nrf9161/ns -- -DEXTRA_CONF_FILE=overlay-modem_fota_full.conf -DDTC_OVERLAY_FILE=nrf9161dk_ext_flash.overlay
 
 LwM2M carrier library support
 =============================
 
-To build the MoSh sample with LwM2M carrier library support, use the ``-DOVERLAY_CONFIG=overlay-carrier.conf`` option.
+To build the MoSh sample with LwM2M carrier library support, use the ``-DEXTRA_CONF_FILE=overlay-carrier.conf`` option.
 For example:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
+   west build -p -b *board_target* -- -DEXTRA_CONF_FILE=overlay-carrier.conf
 
-      .. code-block:: console
-
-         west build -p -b nrf9161dk_nrf9161_ns -d build -- -DOVERLAY_CONFIG=overlay-carrier.conf
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -d build -- -DOVERLAY_CONFIG=overlay-carrier.conf
+|board_target|
 
 P-GPS support
 =============
 
-To build the MoSh sample with P-GPS support, use the ``-DOVERLAY_CONFIG=overlay-pgps.conf`` option.
+To build the MoSh sample with P-GPS support, use the ``-DEXTRA_CONF_FILE=overlay-pgps.conf`` option.
 For example:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
+   west build -p -b *board_target* -- -DEXTRA_CONF_FILE=overlay-pgps.conf
 
-      .. code-block:: console
-
-         west build -p -b nrf9161dk_nrf9161_ns -d build -- -DOVERLAY_CONFIG=overlay-pgps.conf
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -d build -- -DOVERLAY_CONFIG=overlay-pgps.conf
+|board_target|
 
 .. _cloud_build:
 
 Cloud over MQTT
 ===============
 
-To build the MoSh sample with cloud connectivity over MQTT, use the ``-DOVERLAY_CONFIG=overlay-cloud_mqtt.conf`` option.
+To build the MoSh sample with cloud connectivity over MQTT, use the ``-DEXTRA_CONF_FILE=overlay-cloud_mqtt.conf`` option.
 For example:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
+   west build -p -b *board_target* -- -DEXTRA_CONF_FILE=overlay-cloud_mqtt.conf
 
-      .. code-block:: console
-
-         west build -p -b nrf9161dk_nrf9161_ns -d build -- -DOVERLAY_CONFIG=overlay-cloud_mqtt.conf
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -d build -- -DOVERLAY_CONFIG=overlay-cloud_mqtt.conf
+|board_target|
 
 Cloud over CoAP
 ===============
 
-To build the MoSh sample with cloud connectivity over CoAP, use the ``-DOVERLAY_CONFIG=overlay-cloud_coap.conf`` option.
+To build the MoSh sample with cloud connectivity over CoAP, use the ``-DEXTRA_CONF_FILE=overlay-cloud_coap.conf`` option.
 For example:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
+   west build -p -b *board_target* -- -DEXTRA_CONF_FILE=overlay-cloud_coap.conf
 
-      .. code-block:: console
-
-         west build -p -b nrf9161dk_nrf9161_ns -d build -- -DOVERLAY_CONFIG=overlay-cloud_coap.conf
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -d build -- -DOVERLAY_CONFIG=overlay-cloud_coap.conf
+|board_target|
 
 Location service handled in application
 =======================================
 
 This sample is using cloud service for positioning through the :ref:`lib_location` library by default.
 To build the sample with location cloud services handled in the MoSh,
-use the ``-DOVERLAY_CONFIG="overlay-cloud_mqtt.conf"`` and ``-DCONFIG_LOCATION_SERVICE_EXTERNAL=y`` options.
+use the ``-DEXTRA_CONF_FILE="overlay-cloud_mqtt.conf"`` and ``-DCONFIG_LOCATION_SERVICE_EXTERNAL=y`` options.
 For example:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
+   west build -p -b *board_target* -- -DEXTRA_CONF_FILE=overlay-cloud_mqtt.conf -DCONFIG_LOCATION_SERVICE_EXTERNAL=y
 
-      .. code-block:: console
+|board_target|
 
-         west build -p -b nrf9161dk_nrf9161_ns -d build -- -DOVERLAY_CONFIG="overlay-cloud_mqtt.conf" -DCONFIG_LOCATION_SERVICE_EXTERNAL=y
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -d build -- -DOVERLAY_CONFIG="overlay-cloud_mqtt.conf" -DCONFIG_LOCATION_SERVICE_EXTERNAL=y
-
-To add P-GPS on top of that, use the ``-DOVERLAY_CONFIG="overlay-cloud_mqtt.conf;overlay-pgps.conf"``, ``-DCONFIG_LOCATION_SERVICE_EXTERNAL=y`` and ``-DCONFIG_NRF_CLOUD_PGPS_TRANSPORT_NONE=y`` options.
+To add P-GPS on top of that, use the ``-DEXTRA_CONF_FILE="overlay-cloud_mqtt.conf;overlay-pgps.conf"``, ``-DCONFIG_LOCATION_SERVICE_EXTERNAL=y`` and ``-DCONFIG_NRF_CLOUD_PGPS_TRANSPORT_NONE=y`` options.
 For example:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
+   west build -p -b *board_target* -- -DEXTRA_CONF_FILE="overlay-cloud_mqtt.conf;overlay-pgps.conf" -DCONFIG_LOCATION_SERVICE_EXTERNAL=y -DCONFIG_NRF_CLOUD_PGPS_TRANSPORT_NONE=y
 
-      .. code-block:: console
-
-         west build -p -b nrf9161dk_nrf9161_ns -d build -- -DOVERLAY_CONFIG="overlay-cloud_mqtt.conf;overlay-pgps.conf" -DCONFIG_LOCATION_SERVICE_EXTERNAL=y -DCONFIG_NRF_CLOUD_PGPS_TRANSPORT_NONE=y
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -d build -- -DOVERLAY_CONFIG="overlay-cloud_mqtt.conf;overlay-pgps.conf" -DCONFIG_LOCATION_SERVICE_EXTERNAL=y -DCONFIG_NRF_CLOUD_PGPS_TRANSPORT_NONE=y
+|board_target|
 
 Remote control using nRF Cloud over MQTT
 ========================================
@@ -1345,35 +1267,28 @@ To enable the remote control feature, you need to build the sample with cloud co
 nRF91 Series DK with Zephyr native TCP/IP stack
 ===============================================
 
-To build the MoSh sample for an nRF91 Series DK with the nRF91 device driver that does not offload the TCP/IP stack to modem, use the ``-DOVERLAY_CONFIG=overlay-non-offloading.conf`` option.
+To build the MoSh sample for an nRF91 Series DK with the nRF91 device driver that does not offload the TCP/IP stack to modem, use the ``-DEXTRA_CONF_FILE=overlay-non-offloading.conf`` option.
 With this configuration, the configured MoSh commands, for example ``iperf3``, use the Zephyr native TCP/IP stack over the default LTE PDN context.
 For example:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
+   west build -p -b *board_target* -- -DEXTRA_CONF_FILE=overlay-non-offloading.conf
 
-      .. code-block:: console
-
-         west build -p -b nrf9161dk_nrf9161_ns -- -DOVERLAY_CONFIG=overlay-non-offloading.conf
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -- -DOVERLAY_CONFIG=overlay-non-offloading.conf
+|board_target|
 
 BT shell support
 ================
 
-To build the MoSh sample with Zephyr BT shell command support, use the :file:`-DDTC_OVERLAY_FILE=bt.overlay` and :file:`-DOVERLAY_CONFIG=overlay-bt.conf` options.
+To build the MoSh sample with Zephyr BT shell command support, use the :file:`-DDTC_OVERLAY_FILE=bt.overlay` and :file:`-DEXTRA_CONF_FILE=overlay-bt.conf` options.
 When running this configuration, you can perform BT scanning and advertising using the ``bt`` command.
 
 Compile as follows:
 
 .. code-block:: console
 
-   west build -p -b nrf9160dk_nrf9160_ns -- -DDTC_OVERLAY_FILE="bt.overlay" -DOVERLAY_CONFIG="overlay-bt.conf"
+   west build -p -b nrf9160dk/nrf9160/ns -- -DDTC_OVERLAY_FILE="bt.overlay" -DEXTRA_CONF_FILE="overlay-bt.conf"
 
 Additionally, you need to program the nRF52840 side of the nRF9160 DK as instructed in :ref:`lte_sensor_gateway`.
 
@@ -1381,7 +1296,7 @@ Compile the :ref:`bluetooth-hci-lpuart-sample` sample as follows:
 
 .. code-block:: console
 
-   west build -p -b nrf9160dk_nrf52840
+   west build -p -b nrf9160dk/nrf52840
 
 The following example demonstrates how to use MoSh with two development kits, where one acts as a broadcaster and the other one as an observer.
 
@@ -1425,78 +1340,58 @@ DK #2, where MoSh is used in observer (scanning) role:
       mosh:~$
 
 .. note::
-   The MoSh sample with Zephyr BT shell command is not supported by the nRF9161 DK.
+   The MoSh sample with Zephyr BT shell command is not supported by the nRF91x1 DK.
 
 SEGGER RTT support
 ==================
 
-To build the MoSh sample with SEGGER's Real Time Transfer (RTT) support, use the ``-DOVERLAY_CONFIG=overlay-rtt.conf`` option.
+To build the MoSh sample with SEGGER's Real Time Transfer (RTT) support, use the ``-DEXTRA_CONF_FILE=overlay-rtt.conf`` option.
 When running this configuration, RTT is used as the shell backend instead of UART.
 For example:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
+   west build -p -b *board_target* -- -DEXTRA_CONF_FILE=overlay-rtt.conf
 
-      .. code-block:: console
-
-         west build -p -b nrf9161dk_nrf9161_ns -- -DOVERLAY_CONFIG=overlay-rtt.conf
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -- -DOVERLAY_CONFIG=overlay-rtt.conf
+|board_target|
 
 LwM2M support
 =============
 
-Before building and running the sample, select the LwM2M server for testing.
+Before building and running the sample, select the LwM2M Server for testing.
 Follow the instructions in :ref:`server_setup_lwm2m_client` to set up the server and register your device to the server.
 With the default LwM2M configuration, the device connects directly to the device management server without bootstrap support.
-You can change the LwM2M server address by setting the :kconfig:option:`CONFIG_LWM2M_CLIENT_UTILS_SERVER` Kconfig option.
+You can change the LwM2M Server address by setting the :kconfig:option:`CONFIG_LWM2M_CLIENT_UTILS_SERVER` Kconfig option.
 
-Location assistance uses a proprietary mechanism to fetch location assistance data from nRF Cloud by proxying it through the LwM2M server.
-As of now, you can only use AVSystem's Coiote LwM2M server for the location assistance data from nRF Cloud.
+Location assistance uses a proprietary mechanism to fetch location assistance data from nRF Cloud by proxying it through the LwM2M Server.
+As of now, you can only use AVSystem's Coiote LwM2M Server for the location assistance data from nRF Cloud.
 To know more about the AVSystem integration with |NCS|, see :ref:`ug_avsystem`.
 
 You can build the MoSh sample with different LwM2M configurations:
 
-  * To build the MoSh sample with the default LwM2M configuration, use the ``-DOVERLAY_CONFIG=overlay-lwm2m.conf`` option and set the used Pre-Shared-Key (PSK) using :kconfig:option:`CONFIG_MOSH_LWM2M_PSK` Kconfig option.
+  * To build the MoSh sample with the default LwM2M configuration, use the ``-DEXTRA_CONF_FILE=overlay-lwm2m.conf`` option and set the used Pre-Shared-Key (PSK) using :kconfig:option:`CONFIG_MOSH_LWM2M_PSK` Kconfig option.
   * To enable bootstrapping, use the optional overlay file :file:`overlay-lwm2m_bootstrap.conf`.
   * To enable P-GPS support, use the optional overlay files :file:`overlay-lwm2m_pgps.conf` and :file:`overlay-pgps.conf`.
 
 To build the sample with LwM2M support, use the following command:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9161dk_nrf9161_ns -- -DOVERLAY_CONFIG=overlay-lwm2m.conf -DCONFIG_MOSH_LWM2M_PSK=\"000102030405060708090a0b0c0d0e0f\"
+   west build -p -b *board_target* -- -DEXTRA_CONF_FILE=overlay-lwm2m.conf -DCONFIG_MOSH_LWM2M_PSK=\"000102030405060708090a0b0c0d0e0f\"
 
 
-      To also enable P-GPS, use the following command:
+To also enable P-GPS, use the following command:
 
-      .. code-block:: console
+.. parsed-literal::
+   :class: highlight
 
-         west build -p -b nrf9160dk_nrf9160_ns -- -DOVERLAY_CONFIG="overlay-lwm2m.conf;overlay-lwm2m_pgps.conf;overlay-pgps.conf" -DCONFIG_MOSH_LWM2M_PSK=\"000102030405060708090a0b0c0d0e0f\"
+   west build -p -b *board_target* -- -DEXTRA_CONF_FILE="overlay-lwm2m.conf;overlay-lwm2m_pgps.conf;overlay-pgps.conf" -DCONFIG_MOSH_LWM2M_PSK=\"000102030405060708090a0b0c0d0e0f\"
 
+|board_target|
 
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -- -DOVERLAY_CONFIG=overlay-lwm2m.conf -DCONFIG_MOSH_LWM2M_PSK=\"000102030405060708090a0b0c0d0e0f\"
-
-      To also enable P-GPS, use the following command:
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -- -DOVERLAY_CONFIG="overlay-lwm2m.conf;overlay-lwm2m_pgps.conf;overlay-pgps.conf" -DCONFIG_MOSH_LWM2M_PSK=\"000102030405060708090a0b0c0d0e0f\"
-
-Use the following command to establish connection to the LwM2M server:
+Use the following command to establish connection to the LwM2M Server:
 
 .. code-block:: console
 
@@ -1504,7 +1399,7 @@ Use the following command to establish connection to the LwM2M server:
    LwM2M: Starting LwM2M client
    LwM2M: Registration complete
 
-Use the following command to disconnect from the LwM2M server:
+Use the following command to disconnect from the LwM2M Server:
 
 .. code-block:: console
 
@@ -1520,22 +1415,14 @@ nRF91 Series DK with modem trace flash backend support
 ======================================================
 
 To build the MoSh sample for an nRF91 Series DK with modem trace flash backend support, use the snippet ``nrf91-modem-trace-ext-flash``.
-
 For example:
 
-.. tabs::
+.. parsed-literal::
+   :class: highlight
 
-   .. group-tab:: nRF9161 DK
+   west build -p -b *board_target* -- -Dmodem_shell_SNIPPET="nrf91-modem-trace-ext-flash"
 
-      .. code-block:: console
-
-         west build -p -b nrf9161dk_nrf9161_ns -S nrf91-modem-trace-ext-flash
-
-   .. group-tab:: nRF9160 DK
-
-      .. code-block:: console
-
-         west build -p -b nrf9160dk_nrf9160_ns -S nrf91-modem-trace-ext-flash
+|board_target|
 
 References
 **********

@@ -37,10 +37,10 @@ function(partition_manager)
   cmake_parse_arguments(PM "" "DOMAIN" "IN_FILES;REGIONS" ${ARGN})
 
   if(DEFINED PM_DOMAIN)
+    string(CONFIGURE "${${image_name}_PM_STATIC_YML_FILE}" user_def_pm_static)
     get_property(image_name GLOBAL PROPERTY DOMAIN_APP_${PM_DOMAIN})
-    set(user_def_pm_static ${${image_name}_PM_STATIC_YML_FILE})
   else()
-    set(user_def_pm_static ${PM_STATIC_YML_FILE})
+    string(CONFIGURE "${PM_STATIC_YML_FILE}" user_def_pm_static)
     get_property(image_name GLOBAL PROPERTY DOMAIN_APP_APP)
   endif()
 
@@ -83,9 +83,23 @@ function(partition_manager)
       place the image correctly in flash.")
   endif()
 
+  if(NOT "${PM_DOMAIN}" STREQUAL "CPUNET" AND NOT static_configuration AND
+     (SB_CONFIG_BOOTLOADER_MCUBOOT OR SB_CONFIG_SECURE_BOOT))
+    message(WARNING "
+      ---------------------------------------------------------------------
+      --- WARNING: Using a bootloader without pm_static.yml.            ---
+      --- There are cases where a deployed product can consist of       ---
+      --- multiple images, and only a subset of these images can be     ---
+      --- upgraded through a firmware update mechanism. In such cases,  ---
+      --- the upgradable images must have partitions that are static    ---
+      --- and are matching the partition map used by the bootloader     ---
+      --- programmed onto the device.                                   ---
+      ---------------------------------------------------------------------
+      \n"
+    )
+  endif()
 
-# We must set this when running for the domain, so how is the domain name partition handled in settings ?
-  if("${PM_DOMAIN}" STREQUAL "CPUNET")
+  if(NOT "${PM_DOMAIN}" STREQUAL "")
     set(dynamic_partition ${${PM_DOMAIN}_PM_DOMAIN_DYNAMIC_PARTITION})
     set(
       dynamic_partition_argument
@@ -175,6 +189,11 @@ function(partition_manager)
     if(${part} STREQUAL "app")
       if(DEFINED PM_DOMAIN)
         get_property(part GLOBAL PROPERTY DOMAIN_APP_${PM_DOMAIN})
+
+        if(DEFINED ${part}_PM_HEX_FILE)
+          # The main image for this domain has already been pocessed, no need to process it again
+          continue()
+        endif()
       else()
         set(part "${DEFAULT_IMAGE}")
       endif()
@@ -210,7 +229,7 @@ function(partition_manager)
       set(${part}_PM_TARGET ${part})
     else()
       if(${part} IN_LIST containers)
-        set_ifndef(${part}_PM_HEX_FILE ${PROJECT_BINARY_DIR}/${part}.hex)
+        set_ifndef(${part}_PM_HEX_FILE ${CMAKE_BINARY_DIR}/${part}.hex)
         set_ifndef(${part}_PM_TARGET ${part}_hex)
       endif()
       list(APPEND implicitly_assigned ${part})
@@ -255,11 +274,11 @@ function(partition_manager)
     # And under which circumstances.
     # Add command to merge files.
     add_custom_command(
-      OUTPUT ${PROJECT_BINARY_DIR}/${container}.hex
+      OUTPUT ${CMAKE_BINARY_DIR}/${container}.hex
       COMMAND
       ${PYTHON_EXECUTABLE}
       ${ZEPHYR_BASE}/scripts/build/mergehex.py
-      -o ${PROJECT_BINARY_DIR}/${container}.hex
+      -o ${CMAKE_BINARY_DIR}/${container}.hex
       ${${container}overlap_arg}
       ${${container}hex_files}
       DEPENDS
@@ -271,16 +290,16 @@ function(partition_manager)
     add_custom_target(
       ${container}_hex
       ALL DEPENDS
-      ${PROJECT_BINARY_DIR}/${container}.hex
+      ${CMAKE_BINARY_DIR}/${container}.hex
       )
 
     if (DEFINED PM_DOMAIN)
       get_property(image_name GLOBAL PROPERTY DOMAIN_APP_${PM_DOMAIN})
-      update_runner(IMAGE ${image_name} HEX ${PROJECT_BINARY_DIR}/${container}.hex)
+      update_runner(IMAGE ${image_name} HEX ${CMAKE_BINARY_DIR}/${container}.hex)
     endif()
 
     if ("${container}" STREQUAL "merged")
-      update_runner(IMAGE ${DEFAULT_IMAGE} HEX ${PROJECT_BINARY_DIR}/${container}.hex)
+      update_runner(IMAGE ${DEFAULT_IMAGE} HEX ${CMAKE_BINARY_DIR}/${container}.hex)
     endif()
   endforeach()
 
@@ -485,10 +504,10 @@ foreach(d APP ${PM_DOMAINS})
   sysbuild_get(${image_name}_CONFIG_PM_SRAM_SIZE IMAGE ${image_name} VAR CONFIG_PM_SRAM_SIZE KCONFIG)
   sysbuild_get(${image_name}_CONFIG_PM_SRAM_BASE IMAGE ${image_name} VAR CONFIG_PM_SRAM_BASE KCONFIG)
 
-  sysbuild_get(${image_name}_CONFIG_SOC_NRF9160 IMAGE ${image_name} VAR CONFIG_SOC_NRF9160 KCONFIG)
+  sysbuild_get(${image_name}_CONFIG_SOC_SERIES_NRF91X IMAGE ${image_name} VAR CONFIG_SOC_SERIES_NRF91X KCONFIG)
   sysbuild_get(${image_name}_CONFIG_SOC_NRF5340_CPUAPP IMAGE ${image_name} VAR CONFIG_SOC_NRF5340_CPUAPP KCONFIG)
 
-  if (${image_name}_CONFIG_SOC_NRF9160)
+  if (${image_name}_CONFIG_SOC_SERIES_NRF91X)
     # See nRF9160 Product Specification, chapter "UICR"
     set(otp_start_addr "0xff8108")
     set(otp_size 756) # 189 * 4
@@ -496,6 +515,15 @@ foreach(d APP ${PM_DOMAINS})
     # See nRF5340 Product Specification, chapter Application Core -> ... "UICR"
     set(otp_start_addr "0xff8100")
     set(otp_size 764)  # 191 * 4
+  endif()
+
+  sysbuild_get(${image_name}_CONFIG_SOC_SERIES_NRF54LX IMAGE ${image_name} VAR CONFIG_SOC_SERIES_NRF54LX KCONFIG)
+  if(${image_name}_CONFIG_SOC_SERIES_NRF54LX)
+    set(soc_nvs_controller rram_controller)
+    set(soc_nvs_controller_driver_kc CONFIG_SOC_FLASH_NRF_RRAM)
+  else()
+    set(soc_nvs_controller flash_controller)
+    set(soc_nvs_controller_driver_kc CONFIG_SOC_FLASH_NRF)
   endif()
 
   add_region(
@@ -510,7 +538,7 @@ foreach(d APP ${PM_DOMAINS})
   sysbuild_get(${image_name}_CONFIG_FLASH_SIZE IMAGE ${image_name} VAR CONFIG_FLASH_SIZE KCONFIG)
   math(EXPR flash_size "${${image_name}_CONFIG_FLASH_SIZE} * 1024" OUTPUT_FORMAT HEXADECIMAL)
 
-  if (${image_name}_CONFIG_SOC_NRF9160 OR ${image_name}_CONFIG_SOC_NRF5340_CPUAPP)
+  if (${image_name}_CONFIG_SOC_SERIES_NRF91X OR ${image_name}_CONFIG_SOC_NRF5340_CPUAPP)
     add_region(
       NAME otp
       SIZE ${otp_size}
@@ -525,8 +553,8 @@ foreach(d APP ${PM_DOMAINS})
     SIZE ${flash_size}
     BASE ${${image_name}_CONFIG_FLASH_BASE_ADDRESS}
     PLACEMENT complex
-    DEVICE flash_controller
-    DEFAULT_DRIVER_KCONFIG CONFIG_SOC_FLASH_NRF
+    DEVICE ${soc_nvs_controller}
+    DEFAULT_DRIVER_KCONFIG ${soc_nvs_controller_driver_kc}
     DOMAIN ${d}
     )
 
@@ -753,7 +781,7 @@ else()
 # End - Code related to network core update. Multi image updates are part of NCSDK-17807
 
   # Explicitly add the root image domain hex file to the list
-  list(APPEND domain_hex_files ${PROJECT_BINARY_DIR}/${merged}.hex)
+  list(APPEND domain_hex_files ${CMAKE_BINARY_DIR}/${merged}.hex)
   list(APPEND global_hex_depends ${merged}_hex)
 
   # Now all partition manager configuration from all images and domains are

@@ -5,6 +5,7 @@
  */
 
 #include "bridge_manager.h"
+#include "bridge/bridge_storage_manager.h"
 
 #include "binding/binding_handler.h"
 
@@ -43,6 +44,11 @@ CHIP_ERROR BridgeManager::Init(LoadStoredBridgedDevicesCallback loadStoredBridge
 	/* Disable the placeholder endpoint */
 	emberAfEndpointEnableDisable(emberAfEndpointFromIndex(static_cast<uint16_t>(emberAfFixedEndpointCount() - 1)),
 				     false);
+
+	if (!Nrf::BridgeStorageManager::Instance().Init()) {
+		LOG_INF("BridgeStorageManager initialization failed.");
+		return CHIP_ERROR_INTERNAL;
+	}
 
 	Nrf::Matter::BindingHandler::Init();
 
@@ -237,6 +243,9 @@ CHIP_ERROR BridgeManager::AddSingleDevice(MatterBridgedDevice *device, BridgedDe
 				mCurrentDynamicEndpointId > endpointId ? mCurrentDynamicEndpointId : endpointId + 1;
 		} else {
 			/* The pair was added to a map, so we have to take care about removing it in case of failure. */
+			if (err == CHIP_ERROR_NO_MEMORY) {
+				LOG_ERR("The device object was not constructed properly due to the lack of memory");
+			}
 			mDevicesMap.Erase(index);
 		}
 
@@ -251,6 +260,9 @@ CHIP_ERROR BridgeManager::AddSingleDevice(MatterBridgedDevice *device, BridgedDe
 						err = CreateEndpoint(index, mCurrentDynamicEndpointId);
 
 						if (err != CHIP_NO_ERROR) {
+							if (err == CHIP_ERROR_NO_MEMORY) {
+								LOG_ERR("The device object was not constructed properly due to the lack of memory");
+							}
 							/* The pair was added to a map, so we have to take care about
 							 * removing it in case of failure. */
 							mDevicesMap.Erase(index);
@@ -291,17 +303,25 @@ CHIP_ERROR BridgeManager::CreateEndpoint(uint8_t index, uint16_t endpointId)
 	}
 
 	auto *storedDevice = mDevicesMap[index].mDevice;
-	EmberAfStatus ret = emberAfSetDynamicEndpoint(
+
+	/* Make sure that data that is going to be wrapped in the Span objects is valid,
+	   otherwise, the Span may make the application abort(). */
+	VerifyOrReturnError(storedDevice, CHIP_ERROR_NO_MEMORY);
+	VerifyOrReturnError(storedDevice->mDataVersion && storedDevice->mDataVersionSize > 0, CHIP_ERROR_NO_MEMORY);
+	VerifyOrReturnError(storedDevice->mDeviceTypeList && storedDevice->mDeviceTypeListSize > 0,
+			    CHIP_ERROR_NO_MEMORY);
+
+	CHIP_ERROR err = emberAfSetDynamicEndpoint(
 		index, endpointId, storedDevice->mEp,
 		Span<DataVersion>(storedDevice->mDataVersion, storedDevice->mDataVersionSize),
 		Span<const EmberAfDeviceType>(storedDevice->mDeviceTypeList, storedDevice->mDeviceTypeListSize),
 		kAggregatorEndpointId);
 
-	if (ret == EMBER_ZCL_STATUS_SUCCESS) {
+	if (err == CHIP_NO_ERROR) {
 		LOG_INF("Added device to dynamic endpoint %d (index=%d)", endpointId, index);
 		storedDevice->Init(endpointId);
 		return CHIP_NO_ERROR;
-	} else if (ret != EMBER_ZCL_STATUS_DUPLICATE_EXISTS) {
+	} else if (err != CHIP_ERROR_ENDPOINT_EXISTS) {
 		LOG_ERR("Failed to add dynamic endpoint: Internal error!");
 		if (CHIP_NO_ERROR != SafelyRemoveDevice(index)) {
 			LOG_ERR("Cannot remove device from the map!");
@@ -393,12 +413,40 @@ CHIP_ERROR BridgeManager::HandleWrite(uint16_t index, ClusterId clusterId,
 		return device->HandleWriteIdentify(attributeMetadata->attributeId, buffer, attributeMetadata->size);
 	}
 
-	CHIP_ERROR err = device->HandleWrite(clusterId, attributeMetadata->attributeId, buffer);
+	uint8_t *data;
+	size_t dataLen;
+
+	/* The buffer content differs depending on the attribute type, so there are some conversions required. */
+	switch (attributeMetadata->attributeType) {
+	case ZCL_OCTET_STRING_ATTRIBUTE_TYPE:
+	case ZCL_CHAR_STRING_ATTRIBUTE_TYPE:
+		/* These are pascal strings that contain length encoded as a first byte of data. */
+		data = buffer + 1;
+		memcpy(&dataLen, buffer, 1);
+		break;
+	case ZCL_LONG_OCTET_STRING_ATTRIBUTE_TYPE:
+	case ZCL_LONG_CHAR_STRING_ATTRIBUTE_TYPE:
+		/* These are pascal long strings that contain length encoded as a first two bytes of data. */
+		data = buffer + 2;
+		memcpy(&dataLen, buffer, 2);
+		break;
+	default:
+		/* Other numerical attribute types are represented in a normal way. */
+		data = buffer;
+		dataLen = attributeMetadata->size;
+		break;
+	}
+
+	CHIP_ERROR err = device->HandleWrite(clusterId, attributeMetadata->attributeId, data, dataLen);
 
 	/* After updating MatterBridgedDevice state, forward request to the non-Matter device. */
 	if (err == CHIP_NO_ERROR) {
-		return Instance().mDevicesMap[index].mProvider->UpdateState(clusterId, attributeMetadata->attributeId,
-									    buffer);
+		CHIP_ERROR updateError = Instance().mDevicesMap[index].mProvider->UpdateState(
+			clusterId, attributeMetadata->attributeId, buffer);
+		/* This is acceptable that not all writable attributes can be reflected in the provider device. */
+		if (updateError != CHIP_ERROR_UNSUPPORTED_CHIP_FEATURE) {
+			return updateError;
+		}
 	}
 	return err;
 }
@@ -462,29 +510,31 @@ BridgedDeviceDataProvider *BridgeManager::GetProvider(EndpointId endpoint, uint1
 
 } /* namespace Nrf */
 
-EmberAfStatus emberAfExternalAttributeReadCallback(EndpointId endpoint, ClusterId clusterId,
-						   const EmberAfAttributeMetadata *attributeMetadata, uint8_t *buffer,
-						   uint16_t maxReadLength)
+Protocols::InteractionModel::Status
+emberAfExternalAttributeReadCallback(EndpointId endpoint, ClusterId clusterId,
+				     const EmberAfAttributeMetadata *attributeMetadata, uint8_t *buffer,
+				     uint16_t maxReadLength)
 {
 	uint16_t endpointIndex = emberAfGetDynamicIndexFromEndpoint(endpoint);
 
 	if (CHIP_NO_ERROR == Nrf::BridgeManager::Instance().HandleRead(endpointIndex, clusterId, attributeMetadata,
 								       buffer, maxReadLength)) {
-		return EMBER_ZCL_STATUS_SUCCESS;
+		return Protocols::InteractionModel::Status::Success;
 	} else {
-		return EMBER_ZCL_STATUS_FAILURE;
+		return Protocols::InteractionModel::Status::Failure;
 	}
 }
 
-EmberAfStatus emberAfExternalAttributeWriteCallback(EndpointId endpoint, ClusterId clusterId,
-						    const EmberAfAttributeMetadata *attributeMetadata, uint8_t *buffer)
+Protocols::InteractionModel::Status
+emberAfExternalAttributeWriteCallback(EndpointId endpoint, ClusterId clusterId,
+				      const EmberAfAttributeMetadata *attributeMetadata, uint8_t *buffer)
 {
 	uint16_t endpointIndex = emberAfGetDynamicIndexFromEndpoint(endpoint);
 
 	if (CHIP_NO_ERROR ==
 	    Nrf::BridgeManager::Instance().HandleWrite(endpointIndex, clusterId, attributeMetadata, buffer)) {
-		return EMBER_ZCL_STATUS_SUCCESS;
+		return Protocols::InteractionModel::Status::Success;
 	} else {
-		return EMBER_ZCL_STATUS_FAILURE;
+		return Protocols::InteractionModel::Status::Failure;
 	}
 }

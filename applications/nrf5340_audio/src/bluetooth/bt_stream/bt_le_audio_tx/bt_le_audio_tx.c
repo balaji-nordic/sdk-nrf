@@ -10,8 +10,9 @@
 #include <zephyr/zbus/zbus.h>
 #include <../subsys/bluetooth/audio/bap_stream.h>
 
-#include "nrf5340_audio_common.h"
+#include "zbus_common.h"
 #include "audio_sync_timer.h"
+#include "sdc_hci_vs.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(bt_le_audio_tx, CONFIG_BLE_LOG_LEVEL);
@@ -19,15 +20,7 @@ LOG_MODULE_REGISTER(bt_le_audio_tx, CONFIG_BLE_LOG_LEVEL);
 ZBUS_CHAN_DEFINE(sdu_ref_chan, struct sdu_ref_msg, NULL, NULL, ZBUS_OBSERVERS_EMPTY,
 		 ZBUS_MSG_INIT(0));
 
-#ifdef CONFIG_BT_BAP_UNICAST_SERVER
-#define SRC_STREAM_COUNT CONFIG_BT_ASCS_ASE_SRC_COUNT
-#elif CONFIG_BT_BAP_UNICAST_CLIENT
-#define SRC_STREAM_COUNT CONFIG_BT_BAP_UNICAST_CLIENT_ASE_SNK_COUNT
-#elif CONFIG_BT_BAP_BROADCAST_SOURCE
-#define SRC_STREAM_COUNT CONFIG_BT_BAP_BROADCAST_SRC_STREAM_COUNT
-#else
-#define SRC_STREAM_COUNT 0
-#endif
+#define HANDLE_INVALID 0xFFFF
 
 #define HCI_ISO_BUF_ALLOC_PER_CHAN 2
 
@@ -36,13 +29,14 @@ ZBUS_CHAN_DEFINE(sdu_ref_chan, struct sdu_ref_msg, NULL, NULL, ZBUS_OBSERVERS_EM
 	NET_BUF_POOL_FIXED_DEFINE(iso_tx_pool_##i, HCI_ISO_BUF_ALLOC_PER_CHAN,                     \
 				  BT_ISO_SDU_BUF_SIZE(CONFIG_BT_ISO_TX_MTU), 8, NULL);
 #define NET_BUF_POOL_PTR_ITERATE(i, ...) IDENTITY(&iso_tx_pool_##i)
-LISTIFY(SRC_STREAM_COUNT, NET_BUF_POOL_ITERATE, (;))
+LISTIFY(CONFIG_BT_ISO_MAX_CHAN, NET_BUF_POOL_ITERATE, (;))
 /* clang-format off */
-static struct net_buf_pool *iso_tx_pools[] = { LISTIFY(SRC_STREAM_COUNT,
+static struct net_buf_pool *iso_tx_pools[] = { LISTIFY(CONFIG_BT_ISO_MAX_CHAN,
 						       NET_BUF_POOL_PTR_ITERATE, (,)) };
 /* clang-format on */
 
 struct tx_inf {
+	uint16_t iso_conn_handle;
 	struct bt_iso_tx_info iso_tx;
 	struct bt_iso_tx_info iso_tx_readback;
 	struct net_buf_pool *iso_tx_pool;
@@ -51,7 +45,7 @@ struct tx_inf {
 };
 
 static bool initialized;
-static struct tx_inf tx_info_arr[SRC_STREAM_COUNT];
+static struct tx_inf tx_info_arr[CONFIG_BT_ISO_MAX_CHAN];
 
 /**
  * @brief Sends audio data over a single BAP stream.
@@ -106,11 +100,10 @@ static int iso_stream_send(uint8_t const *const data, size_t size, struct bt_bap
 
 	atomic_inc(&tx_info->iso_tx_pool_alloc);
 
-	if (IS_ENABLED(CONFIG_BT_LL_ACS_NRF53)) {
-		ret = bt_bap_stream_send(bap_stream, buf, tx_info->iso_tx.seq_num,
-					 BT_ISO_TIMESTAMP_NONE);
+	if (ts_tx == 0) {
+		ret = bt_bap_stream_send(bap_stream, buf, tx_info->iso_tx.seq_num);
 	} else {
-		ret = bt_bap_stream_send(bap_stream, buf, tx_info->iso_tx.seq_num, ts_tx);
+		ret = bt_bap_stream_send_ts(bap_stream, buf, tx_info->iso_tx.seq_num, ts_tx);
 	}
 
 	if (ret < 0) {
@@ -127,8 +120,69 @@ static int iso_stream_send(uint8_t const *const data, size_t size, struct bt_bap
 	return 0;
 }
 
-int bt_le_audio_tx_send(struct bt_bap_stream **bap_streams, struct le_audio_encoded_audio enc_audio,
-			uint8_t streams_to_tx)
+static int get_tx_sync_sdc(uint16_t iso_conn_handle, struct bt_iso_tx_info *info)
+{
+	int ret;
+	struct net_buf *buf;
+	struct net_buf *rsp;
+	sdc_hci_cmd_vs_iso_read_tx_timestamp_t *cmd_read_tx_timestamp;
+
+	buf = bt_hci_cmd_create(SDC_HCI_OPCODE_CMD_VS_ISO_READ_TX_TIMESTAMP,
+				sizeof(*cmd_read_tx_timestamp));
+	if (!buf) {
+		LOG_ERR("Could not allocate command buffer");
+		return -ENOBUFS;
+	}
+
+	cmd_read_tx_timestamp = net_buf_add(buf, sizeof(*cmd_read_tx_timestamp));
+	cmd_read_tx_timestamp->conn_handle = iso_conn_handle;
+
+	ret = bt_hci_cmd_send_sync(SDC_HCI_OPCODE_CMD_VS_ISO_READ_TX_TIMESTAMP, buf, &rsp);
+	if (ret) {
+		return ret;
+	}
+
+	if (rsp) {
+		sdc_hci_cmd_vs_iso_read_tx_timestamp_return_t *rsp_params = (void *)&rsp->data[1];
+
+		info->ts = rsp_params->tx_time_stamp;
+		info->seq_num = rsp_params->packet_sequence_number;
+		info->offset = 0;
+
+		net_buf_unref(rsp);
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
+static int iso_conn_handle_set(struct bt_bap_stream *bap_stream, uint16_t *iso_conn_handle)
+{
+	int ret;
+
+	if (*iso_conn_handle == HANDLE_INVALID) {
+		struct bt_bap_ep_info ep_info;
+
+		ret = bt_bap_ep_get_info(bap_stream->ep, &ep_info);
+		if (ret) {
+			LOG_WRN("Unable to get info for ep");
+			return -EACCES;
+		}
+
+		ret = bt_hci_get_conn_handle(ep_info.iso_chan->iso, iso_conn_handle);
+		if (ret) {
+			LOG_ERR("Failed obtaining conn_handle (ret:%d)", ret);
+			return ret;
+		}
+	} else {
+		/* Already set. */
+	}
+
+	return 0;
+}
+
+int bt_le_audio_tx_send(struct bt_bap_stream **bap_streams, uint8_t *audio_mapping_mask,
+			struct le_audio_encoded_audio enc_audio, uint8_t streams_to_tx)
 {
 	int ret;
 	size_t data_size_pr_stream = 0;
@@ -146,16 +200,11 @@ int bt_le_audio_tx_send(struct bt_bap_stream **bap_streams, struct le_audio_enco
 		return 0;
 	}
 
-	if (streams_to_tx > SRC_STREAM_COUNT) {
+	if (streams_to_tx > CONFIG_BT_ISO_MAX_CHAN) {
 		return -ENOMEM;
 	}
 
-	if ((enc_audio.num_ch == 1) || (enc_audio.num_ch == streams_to_tx)) {
-		data_size_pr_stream = enc_audio.size / enc_audio.num_ch;
-	} else {
-		LOG_ERR("Num encoded channels must be 1 or equal to num streams");
-		return -EINVAL;
-	}
+	data_size_pr_stream = enc_audio.size / enc_audio.num_ch;
 
 	/* When sending ISO data, we always send ts = 0 to the first active transmitting channel.
 	 * The controller will populate with a ts which is fetched using bt_iso_chan_get_tx_sync.
@@ -179,6 +228,11 @@ int bt_le_audio_tx_send(struct bt_bap_stream **bap_streams, struct le_audio_enco
 
 		if (!le_audio_ep_state_check(bap_streams[i]->ep, BT_BAP_EP_STATE_STREAMING)) {
 			/* This bap_stream is not streaming*/
+			continue;
+		}
+
+		if (audio_mapping_mask[i] > enc_audio.num_ch) {
+			LOG_WRN("Unsupported audio_channel: %d", audio_mapping_mask[i]);
 			continue;
 		}
 
@@ -206,9 +260,10 @@ int bt_le_audio_tx_send(struct bt_bap_stream **bap_streams, struct le_audio_enco
 			ret = iso_stream_send(enc_audio.data, data_size_pr_stream, bap_streams[i],
 					      &tx_info_arr[i], common_tx_sync_ts_us);
 		} else {
-			ret = iso_stream_send(&enc_audio.data[data_size_pr_stream * i],
-					      data_size_pr_stream, bap_streams[i], &tx_info_arr[i],
-					      common_tx_sync_ts_us);
+			ret = iso_stream_send(
+				&enc_audio.data[data_size_pr_stream * audio_mapping_mask[i]],
+				data_size_pr_stream, bap_streams[i], &tx_info_arr[i],
+				common_tx_sync_ts_us);
 		}
 
 		if (ret) {
@@ -218,11 +273,17 @@ int bt_le_audio_tx_send(struct bt_bap_stream **bap_streams, struct le_audio_enco
 			continue;
 		}
 
-		/* Strictly, it is only required to call get_tx_sync on the first streaming channel
-		 * to get the timestamp which is sent to all other channels. However, to be able to
-		 * detect errors, this is called on each TX.
+		ret = iso_conn_handle_set(bap_streams[i], &tx_info_arr[i].iso_conn_handle);
+		if (ret) {
+			continue;
+		}
+
+		/* Strictly, it is only required to call get_tx_sync_sdc on the first streaming
+		 * channel to get the timestamp which is sent to all other channels.
+		 * However, to be able to detect errors, this is called on each TX.
 		 */
-		ret = bt_bap_stream_get_tx_sync(bap_streams[i], &tx_info_arr[i].iso_tx_readback);
+		ret = get_tx_sync_sdc(tx_info_arr[i].iso_conn_handle,
+				      &tx_info_arr[i].iso_tx_readback);
 		if (ret) {
 			if (ret != -ENOTCONN) {
 				LOG_WRN("Unable to get tx sync. ret: %d stream: %p", ret,
@@ -239,11 +300,6 @@ int bt_le_audio_tx_send(struct bt_bap_stream **bap_streams, struct le_audio_enco
 	}
 
 	if (ts_common_acquired) {
-		/*TODO: Disabled for LL_ACS_NRF53 BIS due to timestamp issue */
-		if (IS_ENABLED(CONFIG_BT_LL_ACS_NRF53) && IS_ENABLED(CONFIG_TRANSPORT_BIS)) {
-			return 0;
-		}
-
 		struct sdu_ref_msg msg;
 
 		msg.tx_sync_ts_us = common_tx_sync_ts_us;
@@ -266,7 +322,6 @@ int bt_le_audio_tx_stream_stopped(uint8_t stream_idx)
 	}
 
 	atomic_clear(&tx_info_arr[stream_idx].iso_tx_pool_alloc);
-	tx_info_arr[stream_idx].hci_wrn_printed = false;
 
 	return 0;
 }
@@ -277,6 +332,8 @@ int bt_le_audio_tx_stream_started(uint8_t stream_idx)
 		return -EACCES;
 	}
 
+	tx_info_arr[stream_idx].hci_wrn_printed = false;
+	tx_info_arr[stream_idx].iso_conn_handle = HANDLE_INVALID;
 	tx_info_arr[stream_idx].iso_tx.seq_num = 0;
 	tx_info_arr[stream_idx].iso_tx_readback.seq_num = 0;
 	return 0;
@@ -298,9 +355,10 @@ int bt_le_audio_tx_init(void)
 		return -EALREADY;
 	}
 
-	for (int i = 0; i < SRC_STREAM_COUNT; i++) {
+	for (int i = 0; i < CONFIG_BT_ISO_MAX_CHAN; i++) {
 		tx_info_arr[i].iso_tx_pool = iso_tx_pools[i];
 		tx_info_arr[i].hci_wrn_printed = false;
+		tx_info_arr[i].iso_conn_handle = HANDLE_INVALID;
 		tx_info_arr[i].iso_tx.ts = 0;
 		tx_info_arr[i].iso_tx.offset = 0;
 		tx_info_arr[i].iso_tx.seq_num = 0;

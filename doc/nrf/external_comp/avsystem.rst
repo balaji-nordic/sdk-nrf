@@ -176,7 +176,7 @@ Applications and samples
 
 The following application uses the AVSystem integration in |NCS|:
 
-* :ref:`asset_tracker_v2` - The :ref:`asset_tracker_v2_cloud_module` is set to communicate with AVSystem's Coiote Device Management, with a runtime provisioned Pre-shared key (PSK) set by the ``CONFIG_LWM2M_INTEGRATION_PSK`` Kconfig option.
+* :ref:`asset_tracker_v2` - The :ref:`asset_tracker_v2_cloud_module` is set to communicate with AVSystem's Coiote Device Management, with a runtime provisioned pre-shared key (PSK) set by the ``CONFIG_LWM2M_INTEGRATION_PSK`` Kconfig option.
   For more information, see :ref:`assettracker_v2_cloudmodule_lwm2m`.
 
 The following samples use the AVSystem integration in |NCS|:
@@ -185,7 +185,7 @@ The following samples use the AVSystem integration in |NCS|:
 * :ref:`lwm2m_carrier`
 * :ref:`modem_shell_application`
 
-All these samples offer LwM2M support and can be used to fetch location assistance data from nRF Cloud by proxying it through AVSystem's Coiote LwM2M server.
+All these samples offer LwM2M support and can be used to fetch location assistance data from nRF Cloud by proxying it through AVSystem's Coiote LwM2M Server.
 
 Library support
 ***************

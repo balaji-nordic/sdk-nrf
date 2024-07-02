@@ -48,17 +48,6 @@ Configuration
 
 |config|
 
-You must configure the following Wi-Fi credentials in the :file:`prj.conf` file:
-
-* Network name (SSID)
-* Key management
-* Password
-
-.. note::
-   You can also use ``menuconfig`` to enable ``Key management`` option.
-
-See :ref:`zephyr:menuconfig` in the Zephyr documentation for instructions on how to run ``menuconfig``.
-
 Configuration options
 =====================
 
@@ -66,6 +55,15 @@ The following sample-specific Kconfig options are used in this sample (located i
 
 .. options-from-kconfig::
    :show-type:
+
+You must configure the following Wi-Fi credentials in the :file:`prj.conf` file:
+
+.. include:: /includes/wifi_credentials_static.txt
+
+.. note::
+   You can also use ``menuconfig`` to configure ``Wi-Fi credentials``.
+
+See :ref:`zephyr:menuconfig` in the Zephyr documentation for instructions on how to run ``menuconfig``.
 
 IP addressing
 *************
@@ -90,12 +88,12 @@ Building and running
 
 Currently, only the nRF7002 DK is supported.
 
-To build for the nRF7002 DK, use the ``nrf7002dk_nrf5340_cpuapp`` build target.
+To build for the nRF7002 DK, use the ``nrf7002dk/nrf5340/cpuapp`` board target.
 The following is an example of the CLI command:
 
 .. code-block:: console
 
-   west build -b nrf7002dk_nrf5340_cpuapp
+   west build -b nrf7002dk/nrf5340/cpuapp
 
 Testing
 =======

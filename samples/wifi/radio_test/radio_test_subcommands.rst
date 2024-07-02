@@ -88,10 +88,10 @@ Wi-Fi radio test subcommands
      - Configuration
      - Enable/Disable Short guard interval (GI) while transmitting the packet.
    * - tx_pkt_preamble
-     - | 0 - Short Preamble
-       | 1 - Long Preamble
+     - | 0 - Long Preamble
+       | 1 - Short Preamble
        | 2 - Mixed Preamble
-     - 1
+     - 0
      - Configuration
      - Type of preamble to be used for each packet. Short/Long Preamble are applicable only when tx_pkt_tput_mode is set to Legacy and Mixed Preamble is applicable only when tx_pkt_tput_mode is set to HT/VHT.
    * - tx_pkt_mcs
@@ -248,8 +248,16 @@ Wi-Fi radio test subcommands
      - 0
      - Configuration
      - Configure WLAN to bypass current regulatory domain in TX test.
-
-
+   * - set_ant_gain
+     - <val> - Antenna gain in dB (Min: 0, Max: 6)
+     - 0
+     - Configuration
+     - <val> is subtracted from the transmit power.
+   * - set_edge_bo
+     - <val> - Edge backoff in dB (Min: 0, Max: 10)
+     - 0
+     - Configuration
+     - If the channel is an edge channel, the value of <val> is subtracted from the transmit power.
 
 
 .. _wifi_radio_test_stats:

@@ -27,6 +27,7 @@ The |NCS| provides the following feature sets:
 * :kconfig:option:`CONFIG_OPENTHREAD_NORDIC_LIBRARY_MASTER` - Enable the complete set of OpenThread features for the Thread Specification.
 * :kconfig:option:`CONFIG_OPENTHREAD_NORDIC_LIBRARY_FTD` - Enable optimized OpenThread features for FTD.
 * :kconfig:option:`CONFIG_OPENTHREAD_NORDIC_LIBRARY_MTD` - Enable optimized OpenThread features for MTD.
+* :kconfig:option:`CONFIG_OPENTHREAD_NORDIC_LIBRARY_RCP` - Enable optimized feature set for RCP.
 * :kconfig:option:`CONFIG_OPENTHREAD_USER_CUSTOM_LIBRARY` - Create a custom feature set for compilation when :ref:`building OpenThread libraries from source <ug_thread_configuring_basic_building>`.
   This option is the default.
   If you use pre-built libraries, you must choose a different feature set.
@@ -48,8 +49,10 @@ For more information about Thread 1.2 features, see the `Thread 1.2 Base Feature
       - Master
       - FTD
       - MTD
+      - RCP
       - Custom
     * - BORDER_AGENT
+      -
       -
       -
       -
@@ -59,18 +62,22 @@ For more information about Thread 1.2 features, see the `Thread 1.2 Base Feature
       -
       -
       -
+      -
     * - CHILD_SUPERVISION
       - ✔
       - ✔
       - ✔
+      -
       -
     * - COAP
       - ✔
       - ✔
       - ✔
       -
+      -
     * - COAPS
       - ✔
+      -
       -
       -
       -
@@ -79,8 +86,10 @@ For more information about Thread 1.2 features, see the `Thread 1.2 Base Feature
       -
       -
       -
+      -
     * - DIAGNOSTIC
       - ✔
+      -
       -
       -
       -
@@ -89,8 +98,10 @@ For more information about Thread 1.2 features, see the `Thread 1.2 Base Feature
       - ✔
       - ✔
       -
+      -
     * - DHCP6_SERVER
       - ✔
+      -
       -
       -
       -
@@ -99,18 +110,22 @@ For more information about Thread 1.2 features, see the `Thread 1.2 Base Feature
       -
       -
       -
+      -
     * - ECDSA
       - ✔
       - ✔
       - ✔
+      -
       -
     * - IP6_FRAGM
       - ✔
       - ✔
       - ✔
       -
+      -
     * - JAM_DETECTION
       - ✔
+      -
       -
       -
       -
@@ -119,8 +134,10 @@ For more information about Thread 1.2 features, see the `Thread 1.2 Base Feature
       -
       -
       -
+      -
     * - LINK_RAW
       - ✔
+      -
       -
       -
       -
@@ -129,8 +146,10 @@ For more information about Thread 1.2 features, see the `Thread 1.2 Base Feature
       -
       -
       -
+      -
     * - MTD_NETDIAG
       - ✔
+      -
       -
       -
       -
@@ -139,13 +158,16 @@ For more information about Thread 1.2 features, see the `Thread 1.2 Base Feature
       -
       -
       -
+      -
     * - SLAAC
       - ✔
       - ✔
       - ✔
       -
+      -
     * - SNTP_CLIENT
       - ✔
+      -
       -
       -
       -
@@ -154,8 +176,10 @@ For more information about Thread 1.2 features, see the `Thread 1.2 Base Feature
       - ✔
       - ✔
       -
+      -
     * - UDP_FORWARD
       - ✔
+      -
       -
       -
       -
@@ -164,9 +188,11 @@ For more information about Thread 1.2 features, see the `Thread 1.2 Base Feature
       -
       -
       -
+      -
     * - CSL_RECEIVER (Thread 1.2)
       - ✔
       -
+      - ✔
       - ✔
       -
     * - DUA (Thread 1.2)
@@ -174,20 +200,24 @@ For more information about Thread 1.2 features, see the `Thread 1.2 Base Feature
       - ✔
       - ✔
       -
+      -
     * - LINK_METRICS_INITIATOR (Thread 1.2)
       - ✔
       -
       -
+      - ✔
       -
     * - LINK_METRICS_SUBJECT (Thread 1.2)
       - ✔
       - ✔
       -
+      - ✔
       -
     * - MLR (Thread 1.2)
       - ✔
       - ✔
       - ✔
+      -
       -
 
 For the full list of configuration options that were used during compilation, including their default values, see the :file:`openthread_lib_configuration.txt` file within each library folder in the nrfxlib repository.
@@ -235,24 +265,21 @@ Use this functionality for :ref:`certification <ug_thread_cert>` of your configu
 You can install the libraries either with or without debug symbols.
 Installing the libraries with debug symbols can be useful when debugging, but will take a significant amount of storage memory.
 
-.. note::
-   When you select :kconfig:option:`CONFIG_OPENTHREAD_USER_CUSTOM_LIBRARY`, the location of the directory for the libraries depends on the chosen :ref:`nrf_security backend <nrf_security_readme>`, either :kconfig:option:`CONFIG_CC3XX_BACKEND` or :kconfig:option:`CONFIG_OBERON_BACKEND`.
-   For example, when building the complete set of libraries for a device that uses the ARM Cortex-M4 with FPU support, the directories are :file:`ncs/nrfxlib/openthread/cortex-m4/hard-float/v1.3/master/cc3xx` and :file:`ncs/nrfxlib/openthread/cortex-m4/hard-float/v1.3/master/oberon`, respectively.
-
 Updating the libraries without debug symbols
 ============================================
 
-There is a single command to update the libraries without debug symbols.
+There is a set of commands to update the libraries without debug symbols.
 
-* When using the command line, run the command in the project folder.
-* When using the |nRFVSC|, open a terminal and choose :guilabel:`nRF Terminal`, then run the command there.
+* When using the command line, run the commands in the project folder.
+* When using the |nRFVSC|, open a terminal and choose :guilabel:`nRF Terminal`, then run the commands there.
 
-Use the following command:
+Use the following commands:
 
 .. parsed-literal::
    :class: highlight
 
-   west build -b nrf52840dk_nrf52840 -t install_openthread_libraries -- -DOPENTHREAD_BUILD_OUTPUT_STRIPPED=y
+   west build -b nrf52840dk/nrf52840 -- -DOPENTHREAD_BUILD_OUTPUT_STRIPPED=y
+   west build -d build/cli -t install_openthread_libraries
 
 This command builds two versions of the libraries, with and without debug symbols, and installs only the version without debug symbols.
 |board_note_for_updating_libs|
@@ -261,17 +288,18 @@ The :kconfig:option:`CONFIG_OPENTHREAD_BUILD_OUTPUT_STRIPPED` Kconfig option wil
 Updating the libraries with debug symbols
 =========================================
 
-There is a single command to update the libraries with debug symbols.
+There is a set of commands to update the libraries with debug symbols.
 
-* When using the command line, run the command in the project folder.
-* When using the |nRFVSC|, open a terminal and choose :guilabel:`nRF Terminal`, then run the command there.
+* When using the command line, run the commands in the project folder.
+* When using the |nRFVSC|, open a terminal and choose :guilabel:`nRF Terminal`, then run the commands there.
 
-Use the following command:
+Use the following commands:
 
 .. parsed-literal::
    :class: highlight
 
-   west build -b nrf52840dk_nrf52840 -t install_openthread_libraries
+   west build -b nrf52840dk/nrf52840
+   west build -d build/cli -t install_openthread_libraries
 
 |board_note_for_updating_libs|
 

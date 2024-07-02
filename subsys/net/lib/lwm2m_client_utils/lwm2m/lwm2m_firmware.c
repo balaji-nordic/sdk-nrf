@@ -307,7 +307,7 @@ static int write_resource_to_settings(uint16_t inst, uint16_t res, uint8_t *data
 	return 0;
 }
 
-static int write_image_type_to_settings(uint16_t inst, uint16_t img_type)
+static int write_image_type_to_settings(uint16_t inst, int img_type)
 {
 	char path[SETTINGS_FIRM_PATH_LEN];
 
@@ -409,6 +409,9 @@ static int firmware_target_reset(uint16_t obj_inst_id)
 	int dfu_image_type;
 
 	dfu_image_type = target_image_type_get(obj_inst_id);
+	if (dfu_image_type == DFU_TARGET_IMAGE_TYPE_NONE) {
+		return 0;
+	}
 
 	return fota_download_util_image_reset(dfu_image_type);
 }
@@ -594,7 +597,7 @@ static void *firmware_get_buf(uint16_t obj_inst_id, uint16_t res_id, uint16_t re
 
 static int firmware_update_result(uint16_t obj_inst_id, uint16_t res_id, uint16_t res_inst_id,
 				  uint8_t *data, uint16_t data_len, bool last_block,
-				  size_t total_size)
+				  size_t total_size, size_t offset)
 {
 	/* Store state to pernament memory */
 	write_resource_to_settings(obj_inst_id, res_id, data, data_len);
@@ -627,7 +630,7 @@ static void init_firmware_variables(void)
 
 static int firmware_update_state(uint16_t obj_inst_id, uint16_t res_id, uint16_t res_inst_id,
 				 uint8_t *data, uint16_t data_len, bool last_block,
-				 size_t total_size)
+				 size_t total_size, size_t offset)
 {
 	int ret;
 
@@ -643,6 +646,7 @@ static int firmware_update_state(uint16_t obj_inst_id, uint16_t res_id, uint16_t
 			if (ret < 0) {
 				LOG_ERR("Failed to reset DFU target, err: %d", ret);
 			}
+			target_image_type_store(obj_inst_id, DFU_TARGET_IMAGE_TYPE_NONE);
 			init_firmware_variables();
 		}
 		if (update_data.object_instance == obj_inst_id) {
@@ -668,11 +672,11 @@ static void dfu_target_cb(enum dfu_target_evt_id evt)
 
 static int firmware_block_received_cb(uint16_t obj_inst_id, uint16_t res_id, uint16_t res_inst_id,
 				      uint8_t *data, uint16_t data_len, bool last_block,
-				      size_t total_size)
+				      size_t total_size, size_t offset)
 {
 	uint8_t curent_percent;
 	uint32_t current_bytes;
-	size_t offset;
+	size_t target_offset;
 	size_t skip = 0;
 	int ret = 0;
 	int image_type;
@@ -681,7 +685,7 @@ static int firmware_block_received_cb(uint16_t obj_inst_id, uint16_t res_id, uin
 		return -EINVAL;
 	}
 
-	if (bytes_downloaded == 0) {
+	if (bytes_downloaded == 0 && offset == 0) {
 		if (ongoing_obj_id != UNUSED_OBJ_ID) {
 			LOG_INF("DFU is allocated already");
 			return -EAGAIN;
@@ -716,7 +720,12 @@ static int firmware_block_received_cb(uint16_t obj_inst_id, uint16_t res_id, uin
 				"Application");
 	}
 
-	ret = dfu_target_offset_get(&offset);
+	if (offset < bytes_downloaded) {
+		LOG_DBG("Skipping already downloaded bytes");
+		return 0;
+	}
+
+	ret = dfu_target_offset_get(&target_offset);
 	if (ret < 0) {
 		LOG_ERR("Failed to obtain current offset, err: %d", ret);
 		goto cleanup;
@@ -738,8 +747,8 @@ static int firmware_block_received_cb(uint16_t obj_inst_id, uint16_t res_id, uin
 		}
 	}
 
-	if (bytes_downloaded < offset) {
-		skip = MIN(data_len, offset - bytes_downloaded);
+	if (bytes_downloaded < target_offset) {
+		skip = MIN(data_len, target_offset - bytes_downloaded);
 
 		LOG_INF("Skipping bytes %d-%d, already written.", bytes_downloaded,
 			bytes_downloaded + skip);
@@ -824,10 +833,9 @@ static void fota_download_callback(const struct fota_download_evt *evt)
 		LOG_INF("FOTA download failed, target %d", dfu_image_type);
 		target_image_type_store(ongoing_obj_id, dfu_image_type);
 		switch (evt->cause) {
-		/* No error, used when event ID is not FOTA_DOWNLOAD_EVT_ERROR. */
-		case FOTA_DOWNLOAD_ERROR_CAUSE_NO_ERROR:
-			set_result(ongoing_obj_id, RESULT_CONNECTION_LOST);
-			break;
+		/* Connecting to the FOTA server failed. */
+		case FOTA_DOWNLOAD_ERROR_CAUSE_CONNECT_FAILED:
+			/* FALLTHROUGH */
 		/* Downloading the update failed. The download may be retried. */
 		case FOTA_DOWNLOAD_ERROR_CAUSE_DOWNLOAD_FAILED:
 			set_result(ongoing_obj_id, RESULT_CONNECTION_LOST);
@@ -891,6 +899,9 @@ static void lwm2m_start_download_image(uint8_t *data, uint16_t obj_instance)
 	case -EINVAL:
 		set_result(obj_instance, RESULT_INVALID_URI);
 		break;
+	case -EPROTONOSUPPORT:
+		set_result(obj_instance, RESULT_UNSUP_PROTO);
+		break;
 	case -EBUSY:
 		/* Failed to init MCUBoot or download client */
 		set_result(obj_instance, RESULT_NO_STORAGE);
@@ -936,17 +947,16 @@ static void start_pending_fota_download(struct k_work *work)
 }
 
 static int write_dl_uri(uint16_t obj_inst_id, uint16_t res_id, uint16_t res_inst_id, uint8_t *data,
-			uint16_t data_len, bool last_block, size_t total_size)
+			uint16_t data_len, bool last_block, size_t total_size, size_t offset)
 {
 	uint8_t state;
 	char *package_uri = (char *)data;
 
-
-	LOG_DBG("write URI: %s", package_uri);
-
+	LOG_DBG("write URI: %s", package_uri ? package_uri : "NULL");
 	state = get_state(obj_inst_id);
+	bool empty_uri = data_len == 0 || strnlen(data, data_len) == 0;
 
-	if (state == STATE_IDLE && data_len > 0) {
+	if (state == STATE_IDLE && !empty_uri) {
 		set_state(obj_inst_id, STATE_DOWNLOADING);
 
 		if (ongoing_obj_id == UNUSED_OBJ_ID) {
@@ -957,7 +967,7 @@ static int write_dl_uri(uint16_t obj_inst_id, uint16_t res_id, uint16_t res_inst
 				set_result(obj_inst_id, RESULT_ADV_CONFLICT_STATE);
 			}
 		}
-	} else if (data_len == 0) {
+	} else if (empty_uri) {
 		if (ongoing_obj_id == UNUSED_OBJ_ID || ongoing_obj_id == obj_inst_id) {
 			ongoing_obj_id = obj_inst_id;
 			/* reset to state idle and result default */
@@ -1006,12 +1016,12 @@ static void lwm2m_firmware_object_pull_protocol_init(int instance_id)
 #endif
 }
 
-static bool modem_has_credentials(int sec_tag)
+static bool modem_has_credentials(int sec_tag, enum modem_key_mgmt_cred_type cred_type)
 {
 	bool exist;
 	int ret;
 
-	ret = modem_key_mgmt_exists(sec_tag, MODEM_KEY_MGMT_CRED_TYPE_CA_CHAIN, &exist);
+	ret = modem_key_mgmt_exists(sec_tag, cred_type, &exist);
 	if (ret < 0) {
 		return false;
 	}
@@ -1028,12 +1038,22 @@ static void lwm2m_firware_pull_protocol_support_resource_init(int instance_id)
 		lwm2m_firmware_object_pull_protocol_init(instance_id);
 	}
 
-	if (modem_has_credentials(CONFIG_LWM2M_CLIENT_UTILS_DOWNLOADER_SEC_TAG)) {
-		/* Enable non-security &  Security protocols for download client */
-		supported_protocol_count = 4;
+	int tag = CONFIG_LWM2M_CLIENT_UTILS_DOWNLOADER_SEC_TAG;
+
+	/* Check which protocols from pull_protocol_support[] may work.
+	 * Order in that list is CoAP, HTTP, CoAPS, HTTPS.
+	 * So unsecure protocols are first, those should always work.
+	 */
+
+	if (modem_has_credentials(tag, MODEM_KEY_MGMT_CRED_TYPE_CA_CHAIN)) {
+		/* CA chain means that HTTPS and CoAPS might work, support all */
+		supported_protocol_count = ARRAY_SIZE(pull_protocol_support);
+	} else if (modem_has_credentials(tag, MODEM_KEY_MGMT_CRED_TYPE_PSK)) {
+		/* PSK might work on CoAPS, not HTTPS. Drop it from the list */
+		supported_protocol_count = ARRAY_SIZE(pull_protocol_support) - 1;
 	} else {
-		/* Enable non-security protocols for download client */
-		supported_protocol_count = 2;
+		/* Drop both secure protocols from list as we don't have credentials */
+		supported_protocol_count = ARRAY_SIZE(pull_protocol_support) - 2;
 	}
 
 	for (int i = 0; i < supported_protocol_count; i++) {
@@ -1294,10 +1314,6 @@ int lwm2m_init_firmware_cb(lwm2m_firmware_event_cb_t cb)
 	return 0;
 }
 
-int lwm2m_init_firmware(void)
-{
-	return lwm2m_init_firmware_cb(NULL);
-}
 
 int lwm2m_init_image(void)
 {

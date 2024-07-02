@@ -5,7 +5,7 @@
 #
 
 function(b0_gen_keys)
-  set(GENERATED_PATH ${PROJECT_BINARY_DIR}/nrf/subsys/bootloader/generated)
+  set(GENERATED_PATH ${CMAKE_BINARY_DIR}/nrf/subsys/bootloader/generated)
 
   # This is needed for make, ninja is able to resolve and create the path but make
   # is not able to resolve it.
@@ -32,6 +32,7 @@ function(b0_gen_keys)
   elseif(SB_CONFIG_SECURE_BOOT_SIGNING_CUSTOM)
     set(SIGNATURE_PUBLIC_KEY_FILE ${SB_CONFIG_SECURE_BOOT_SIGNING_PUBLIC_KEY})
     set(SIGNATURE_PUBLIC_KEY_FILE ${SB_CONFIG_SECURE_BOOT_SIGNING_PUBLIC_KEY} PARENT_SCOPE)
+
     if(NOT EXISTS ${SIGNATURE_PUBLIC_KEY_FILE} OR IS_DIRECTORY ${SIGNATURE_PUBLIC_KEY_FILE})
       message(WARNING "Invalid public key file: ${SIGNATURE_PUBLIC_KEY_FILE}")
     endif()
@@ -40,22 +41,22 @@ function(b0_gen_keys)
     return()
   endif()
 
-# TODO: this config is gone
-#if(SB_CONFIG_SECURE_BOOT_PRIVATE_KEY_PROVIDED)
-  add_custom_command(
-    OUTPUT
-    ${SIGNATURE_PUBLIC_KEY_FILE}
-    COMMAND
-    ${PUB_GEN_CMD}
-    DEPENDS
-    ${SIGNATURE_PRIVATE_KEY_FILE}
-    COMMENT
-    "Creating public key from private key used for signing"
-    WORKING_DIRECTORY
-    ${PROJECT_BINARY_DIR}
-    USES_TERMINAL
-    )
-#endif()
+  if(NOT SB_CONFIG_SECURE_BOOT_SIGNING_CUSTOM)
+    add_custom_command(
+        OUTPUT
+        ${SIGNATURE_PUBLIC_KEY_FILE}
+        COMMAND
+        ${PUB_GEN_CMD}
+        DEPENDS
+        ${SIGNATURE_PRIVATE_KEY_FILE}
+        ${PROJECT_BINARY_DIR}/.config
+        COMMENT
+        "Creating public key from private key used for signing"
+        WORKING_DIRECTORY
+        ${PROJECT_BINARY_DIR}
+        USES_TERMINAL
+      )
+  endif()
 
   # Public key file target is required for all signing options
   add_custom_target(
@@ -66,8 +67,7 @@ function(b0_gen_keys)
 endfunction()
 
 function(b0_sign_image slot)
-  set(GENERATED_PATH ${PROJECT_BINARY_DIR}/nrf/subsys/bootloader/generated)
-  set(SIGNATURE_PUBLIC_KEY_FILE ${GENERATED_PATH}/public.pem)
+  set(GENERATED_PATH ${CMAKE_BINARY_DIR}/nrf/subsys/bootloader/generated)
 
   # Get variables for secure boot usage
   sysbuild_get(${slot}_sb_validation_info_version IMAGE ${slot} VAR CONFIG_SB_VALIDATION_INFO_VERSION KCONFIG)
@@ -87,8 +87,8 @@ function(b0_sign_image slot)
 
   set(VALIDATION_INFO_MAGIC    "${${slot}_fw_info_magic_common},${${slot}_sb_validation_info_magic},${MAGIC_COMPATIBILITY_VALIDATION_INFO}")
 
-  set(signed_hex ${PROJECT_BINARY_DIR}/signed_by_b0_${slot}.hex)
-  set(signed_bin ${PROJECT_BINARY_DIR}/signed_by_b0_${slot}.bin)
+  set(signed_hex ${CMAKE_BINARY_DIR}/signed_by_b0_${slot}.hex)
+  set(signed_bin ${CMAKE_BINARY_DIR}/signed_by_b0_${slot}.bin)
 
   if(NCS_SYSBUILD_PARTITION_MANAGER)
     # A container can be merged, in which case we should use old style below,

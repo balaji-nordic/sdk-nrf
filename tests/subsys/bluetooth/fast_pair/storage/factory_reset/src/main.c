@@ -14,6 +14,10 @@ LOG_MODULE_REGISTER(test_main);
 #include "fp_storage.h"
 #include "fp_storage_ak.h"
 #include "fp_storage_ak_priv.h"
+#include "fp_storage_clock.h"
+#include "fp_storage_clock_priv.h"
+#include "fp_storage_eik.h"
+#include "fp_storage_eik_priv.h"
 #include "fp_storage_pn.h"
 #include "fp_storage_pn_priv.h"
 #include "fp_storage_manager.h"
@@ -188,19 +192,55 @@ static int fp_settings_data_validate_empty_cb(const char *key, size_t len, setti
 static void fp_ram_clear(void)
 {
 	fp_storage_ak_ram_clear();
+	fp_storage_clock_ram_clear();
+	fp_storage_eik_ram_clear();
 	fp_storage_pn_ram_clear();
 	fp_storage_manager_ram_clear();
+}
+
+static void fp_storage_validate_unloaded_eik(void)
+{
+	static const uint8_t eik_store[FP_STORAGE_EIK_LEN] = {
+		0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+		0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+		0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+		0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+	};
+
+	int err;
+	int ret;
+	uint8_t eik[FP_STORAGE_EIK_LEN];
+
+	err = fp_storage_eik_save(eik_store);
+	zassert_equal(err, -EACCES, "Expected error before settings load");
+
+	err = fp_storage_eik_delete();
+	zassert_equal(err, -EACCES, "Expected error before settings load");
+
+	ret = fp_storage_eik_is_provisioned();
+	zassert_equal(ret, -EACCES, "Expected error before settings load");
+
+	err = fp_storage_eik_get(eik);
+	zassert_equal(err, -EACCES, "Expected error before settings load");
 }
 
 static void fp_storage_validate_unloaded(void)
 {
 	int err;
 	char read_name[FP_STORAGE_PN_BUF_LEN];
+	uint32_t clock_checkpoint;
 
 	cu_account_keys_validate_uninitialized();
 
 	err = fp_storage_pn_get(read_name);
 	zassert_equal(err, -EACCES, "Expected error before settings load");
+
+	err = fp_storage_clock_boot_checkpoint_get(&clock_checkpoint);
+	zassert_equal(err, -EACCES, "Expected error before settings load");
+	err = fp_storage_clock_current_checkpoint_get(&clock_checkpoint);
+	zassert_equal(err, -EACCES, "Expected error before settings load");
+
+	fp_storage_validate_unloaded_eik();
 }
 
 static void before_fn(void *f)
@@ -303,6 +343,50 @@ static void personalized_name_validate_loaded(const char *name)
 	zassert_equal(ret, 0, "Invalid Personalized Name");
 }
 
+static void clock_checkpoint_store(uint32_t clock)
+{
+	int err;
+
+	err = fp_storage_clock_checkpoint_update(clock);
+	zassert_ok(err, "Unexpected error in clock checkpoint update");
+}
+
+static void clock_checkpoint_validate_loaded(uint32_t clock_current, uint32_t clock_boot)
+{
+	int err;
+	uint32_t clock_checkpoint;
+
+	err = fp_storage_clock_boot_checkpoint_get(&clock_checkpoint);
+	zassert_ok(err, "Unexpected error in clock boot checkpoint get");
+	zassert_equal(clock_checkpoint, clock_boot, "Invalid clock boot checkpoint");
+
+	err = fp_storage_clock_current_checkpoint_get(&clock_checkpoint);
+	zassert_ok(err, "Unexpected error in clock current checkpoint get");
+	zassert_equal(clock_checkpoint, clock_current, "Invalid clock current checkpoint");
+}
+
+static void eik_store(const uint8_t *eik)
+{
+	int err;
+
+	err = fp_storage_eik_save(eik);
+	zassert_ok(err, "Unexpected error in EIK store operation");
+}
+
+static void eik_validate_loaded(const uint8_t *eik)
+{
+	int err;
+	int ret;
+	uint8_t eik_loaded[FP_STORAGE_EIK_LEN];
+
+	ret = fp_storage_eik_is_provisioned();
+	zassert_equal(ret, 1, "EIK unprovisioned or unexpected error during state check");
+
+	err = fp_storage_eik_get(eik_loaded);
+	zassert_ok(err, "Unexpected error in EIK get");
+	zassert_mem_equal(eik_loaded, eik, sizeof(eik_loaded), "Invalid EIK");
+}
+
 static void fp_storage_validate_empty(void)
 {
 	int err;
@@ -310,6 +394,8 @@ static void fp_storage_validate_empty(void)
 	char read_name[FP_STORAGE_PN_BUF_LEN];
 	struct fp_account_key account_key_list[ACCOUNT_KEY_MAX_CNT];
 	size_t read_cnt = ACCOUNT_KEY_MAX_CNT;
+	uint32_t clock_checkpoint;
+	uint8_t eik[FP_STORAGE_EIK_LEN];
 
 	err = settings_validate(fp_settings_data_validate_empty_cb);
 	zassert_ok(err, "Non-volatile Fast Pair data storage is not empty after reset");
@@ -319,6 +405,18 @@ static void fp_storage_validate_empty(void)
 	err = fp_storage_ak_get(account_key_list, &read_cnt);
 	zassert_ok(err, "Unexpected error in Account Key get");
 	zassert_equal(read_cnt, 0, "Invalid Account Key count");
+
+	err = fp_storage_clock_boot_checkpoint_get(&clock_checkpoint);
+	zassert_ok(err, "Unexpected error in clock boot checkpoint get");
+	zassert_equal(clock_checkpoint, 0, "Invalid clock boot checkpoint");
+	err = fp_storage_clock_current_checkpoint_get(&clock_checkpoint);
+	zassert_ok(err, "Unexpected error in clock current checkpoint get");
+	zassert_equal(clock_checkpoint, 0, "Invalid clock current checkpoint");
+
+	ret = fp_storage_eik_is_provisioned();
+	zassert_equal(ret, 0, "Expected unprovisioned EIK");
+	err = fp_storage_eik_get(eik);
+	zassert_equal(err, -ENODATA, "Expected no EIK data");
 
 	err = fp_storage_pn_get(read_name);
 	zassert_ok(err, "Unexpected error in name get");
@@ -331,15 +429,28 @@ static void fp_storage_self_test_run(void)
 	static const uint8_t seed = 5;
 	static const uint8_t key_count = ACCOUNT_KEY_MAX_CNT;
 	static const char *name = "fp_storage_self_test_run";
+	static const uint32_t clock_current = 0xDEADBEEF;
+	static const uint32_t clock_boot_first;
+	static const uint32_t clock_boot_second = clock_current;
+	static const uint8_t eik[FP_STORAGE_EIK_LEN] = {
+		0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+		0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+		0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+		0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+	};
 	int err;
 
 	fp_storage_validate_empty();
 
 	cu_account_keys_generate_and_store(seed, key_count);
 	personalized_name_store(name);
+	clock_checkpoint_store(clock_current);
+	eik_store(eik);
 
 	cu_account_keys_validate_loaded(seed, key_count);
 	personalized_name_validate_loaded(name);
+	clock_checkpoint_validate_loaded(clock_current, clock_boot_first);
+	eik_validate_loaded(eik);
 
 	fp_ram_clear();
 	fp_storage_validate_unloaded();
@@ -350,6 +461,8 @@ static void fp_storage_self_test_run(void)
 
 	cu_account_keys_validate_loaded(seed, key_count);
 	personalized_name_validate_loaded(name);
+	clock_checkpoint_validate_loaded(clock_current, clock_boot_second);
+	eik_validate_loaded(eik);
 }
 
 ZTEST(suite_fast_pair_storage_factory_reset_01, test_01_store)
@@ -364,13 +477,25 @@ static void store_data_and_factory_reset(void)
 	static const uint8_t seed = 50;
 	static const uint8_t key_count = ACCOUNT_KEY_MAX_CNT;
 	static const char *name = "store_data_and_factory_reset";
+	static const uint32_t clock_current = 0xDEADBEEF;
+	static const uint32_t clock_boot;
+	static const uint8_t eik[FP_STORAGE_EIK_LEN] = {
+		0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+		0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+		0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+		0xDE, 0xAD, 0xBE, 0xEF, 0xDE, 0xAD, 0xBE, 0xEF,
+	};
 	int err;
 
 	cu_account_keys_generate_and_store(seed, key_count);
 	personalized_name_store(name);
+	clock_checkpoint_store(clock_current);
+	eik_store(eik);
 
 	cu_account_keys_validate_loaded(seed, key_count);
 	personalized_name_validate_loaded(name);
+	clock_checkpoint_validate_loaded(clock_current, clock_boot);
+	eik_validate_loaded(eik);
 
 	err = fp_storage_factory_reset();
 	zassert_ok(err, "Unexpected error in factory reset");
@@ -477,5 +602,5 @@ void test_main(void)
 		 (test_stage == RESET_TEST_STAGE_INTERRUPTED),
 		 "Invalid test stage");
 
-	ztest_run_all(NULL);
+	ztest_run_all(NULL, false, 1, 1);
 }

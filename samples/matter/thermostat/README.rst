@@ -35,8 +35,8 @@ IPv6 network support
 
 The development kits for this sample offer the following IPv6 network support for Matter:
 
-* Matter over Thread is supported for ``nrf52840dk_nrf52840`` and ``nrf5340dk_nrf5340_cpuapp``.
-* Matter over Wi-Fi is supported for ``nrf5340dk_nrf5340_cpuapp`` with the ``nrf7002_ek`` shield attached or for ``nrf7002dk_nrf5340_cpuapp``.
+* Matter over Thread is supported for ``nrf52840dk/nrf52840``, ``nrf5340dk/nrf5340/cpuapp``, and ``nrf54l15pdk/nrf54l15/cpuapp``.
+* Matter over Wi-Fi is supported for ``nrf5340dk/nrf5340/cpuapp`` with the ``nrf7002_ek`` shield attached or for ``nrf7002dk/nrf5340/cpuapp``.
 
 Overview
 ********
@@ -103,37 +103,14 @@ Binding
 In this sample, the thermostat device prints simulated temperature data by default and it does not know the remote endpoints of the temperature sensors (on remote nodes).
 Using binding, the thermostat device updates its Binding cluster with all relevant information about the temperature sensor devices, such as their IPv6 address, node ID, and the IDs of the remote endpoints that contain the temperature measurement cluster.
 
-Matter thermostat build types
-=============================
+.. _matter_thermostat_custom_configs:
 
-The sample does not use a single :file:`prj.conf` file.
-Configuration files are provided for different build types, and they are located in the sample root directory.
-Before you start testing the application, you can select one of the build types supported by the application.
+Matter thermostat custom configurations
+=======================================
 
-See :ref:`app_build_additions_build_types` and :ref:`modifying_build_types` for more information about this feature of the |NCS|.
-
-The sample supports the following build types:
-
-.. list-table:: Sample build types
-   :widths: auto
-   :header-rows: 1
-
-   * - Build type
-     - File name
-     - Supported board
-     - Description
-   * - Debug (default)
-     - :file:`prj.conf`
-     - All from `Requirements`_
-     - Debug version of the application; can be used to enable additional features for verifying the application behavior, such as logs or command-line shell.
-   * - Release
-     - :file:`prj_release.conf`
-     - All from `Requirements`_
-     - Release version of the application; can be used to enable only the necessary application functionalities to optimize its performance.
-   * - No DFU
-     - :file:`prj_no_dfu.conf`
-     - nRF52840 DK, nRF5340 DK, and nRF7002 DK
-     - Debug version of the application without Device Firmware Upgrade feature support.
+.. include:: ../light_bulb/README.rst
+    :start-after: matter_light_bulb_sample_configuration_file_types_start
+    :end-before: matter_light_bulb_sample_configuration_file_types_end
 
 Device Firmware Upgrade support
 ===============================
@@ -161,23 +138,39 @@ Factory data support
 User interface
 **************
 
-.. include:: ../lock/README.rst
-    :start-after: matter_door_lock_sample_led1_start
-    :end-before: matter_door_lock_sample_led1_end
+.. tabs::
 
-.. include:: ../lock/README.rst
-    :start-after: matter_door_lock_sample_button1_start
-    :end-before: matter_door_lock_sample_button1_end
+   .. group-tab:: nRF52, nRF53 and nRF70 DKs
 
-Button 2:
-    * Prints the most recent thermostat data to terminal.
+      LED 1:
+         .. include:: /includes/matter_sample_state_led.txt
 
-.. include:: ../lock/README.rst
-    :start-after: matter_door_lock_sample_jlink_start
-    :end-before: matter_door_lock_sample_jlink_end
+      Button 1:
+         .. include:: /includes/matter_sample_button.txt
 
-NFC port with antenna attached:
-    Optionally used for obtaining the `Onboarding information`_ from the Matter accessory device to start the :ref:`commissioning procedure <matter_thermostat_sample_remote_control>`.
+      Button 2:
+         Prints the most recent thermostat data to terminal.
+
+      .. include:: /includes/matter_segger_usb.txt
+
+      NFC port with antenna attached:
+          Optionally used for obtaining the `Onboarding information`_ from the Matter accessory device to start the :ref:`commissioning procedure <matter_thermostat_sample_remote_control>`.
+
+   .. group-tab:: nRF54 DKs
+
+      LED 0:
+         .. include:: /includes/matter_sample_state_led.txt
+
+      Button 0:
+         .. include:: /includes/matter_sample_button.txt
+
+      Button 1:
+         Prints the most recent thermostat data to terminal.
+
+      .. include:: /includes/matter_segger_usb.txt
+
+      NFC port with antenna attached:
+          Optionally used for obtaining the `Onboarding information`_ from the Matter accessory device to start the :ref:`commissioning procedure <matter_thermostat_sample_remote_control>`.
 
 Building and running
 ********************
@@ -189,8 +182,8 @@ Building and running
 Selecting a build type
 ======================
 
-Before you start testing the application, you can select one of the `Matter thermostat build types`_, depending on your building method.
-See :ref:`modifying_build_types` for detailed steps how to select a build type.
+Before you start testing the application, you can select one of the :ref:`matter_thermostat_custom_configs`, depending on your building method.
+See :ref:`app_build_file_suffixes` and :ref:`cmake_options` for more information how to select a configuration.
 
 .. _matter_thermostat_testing:
 
@@ -206,16 +199,33 @@ Testing basic features
 
 After building the sample and programming it to your development kit, complete the following steps to test its basic features:
 
-1. |connect_kit|
-#. |connect_terminal_ANSI|
-#. Observe that the **LED1** starts flashing (short flash on).
-   This means that the sample has automatically started the Bluetooth LE advertising.
-#. Observe the UART terminal.
-   The sample starts automatically printing the simulated temperature data to the terminal with 30-second intervals.
-#. Press **Button 2** to print the most recent temperature data to the terminal.
-#. Press **Button 1** for six seconds to initiate the factory reset of the device.
+.. tabs::
 
-The device reboots after all its settings are erased.
+   .. group-tab:: nRF52, nRF53 and nRF70 DKs
+
+      1. |connect_kit|
+      #. |connect_terminal_ANSI|
+      #. Observe that **LED 1** starts flashing (short flash on).
+         This means that the sample has automatically started the Bluetooth LE advertising.
+      #. Observe the UART terminal.
+         The sample starts automatically printing the simulated temperature data to the terminal with 30-second intervals.
+      #. Press **Button 2** to print the most recent temperature data to the terminal.
+      #. Keep **Button 1** pressed for more than six seconds to initiate factory reset of the device.
+
+         The device reboots after all its settings are erased.
+
+   .. group-tab:: nRF52, nRF53 and nRF70 DKs
+
+      1. |connect_kit|
+      #. |connect_terminal_ANSI|
+      #. Observe that **LED 0** starts flashing (short flash on).
+         This means that the sample has automatically started the Bluetooth LE advertising.
+      #. Observe the UART terminal.
+         The sample starts automatically printing the simulated temperature data to the terminal with 30-second intervals.
+      #. Press **Button 1** to print the most recent temperature data to the terminal.
+      #. Keep **Button 0** pressed for more than six seconds to initiate factory reset of the device.
+
+         The device reboots after all its settings are erased.
 
 .. _matter_thermostat_sensor_testing:
 
@@ -230,6 +240,7 @@ After building this sample and the :ref:`Matter weather station <matter_weather_
 #. On each device, press the button that starts the Bluetooth LE advertising.
 #. Commission devices to the Matter network.
    See `Commissioning the device`_ for more information.
+
    During the commissioning process, write down the values for the thermostat node ID, the temperature sensor node ID, and the temperature sensor endpoint ID.
    These IDs are going to be used in the next steps (*<thermostat_node_ID>*, *<temperature_sensor_node_ID>*, and *<temperature_sensor_endpoint_ID>*, respectively).
 #. Use the :doc:`CHIP Tool <matter:chip_tool_guide>` ("Writing ACL to the ``accesscontrol`` cluster" section) to add proper ACL for the temperature sensor device.
@@ -251,7 +262,7 @@ After building this sample and the :ref:`Matter weather station <matter_weather_
    The thermostat is now able to read the real temperature data from the temperature sensor device.
    The connection is ensured by :ref:`matter_thermostat_sample_binding` to Matter's temperature measurement cluster.
 
-#. Press **Button 2** to print the most recent temperature data from the thermostat device to the UART terminal.
+#. Press the button that prints the most recent temperature data from the thermostat device to the UART terminal.
 
 .. _matter_thermostat_sample_remote_control:
 

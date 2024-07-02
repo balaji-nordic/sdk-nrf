@@ -9,9 +9,9 @@
 #include <stdlib.h>
 #include <zephyr/net/lwm2m.h>
 #include <net/lwm2m_client_utils.h>
-
 #include <modem/lte_lc.h>
 #include <modem/modem_info.h>
+#include "lwm2m_engine.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(lwm2m_connmon, CONFIG_LWM2M_CLIENT_UTILS_LOG_LEVEL);
@@ -30,7 +30,8 @@ LOG_MODULE_REGISTER(lwm2m_connmon, CONFIG_LWM2M_CLIENT_UTILS_LOG_LEVEL);
 #define CONNMON_CELLID				8
 #define CONNMON_SMNC				9
 #define CONNMON_SMCC				10
-#if defined(CONFIG_LWM2M_CONNMON_OBJECT_VERSION_1_2)
+#if defined(CONFIG_LWM2M_CONNMON_OBJECT_VERSION_1_2) ||                                            \
+	defined(CONFIG_LWM2M_CONNMON_OBJECT_VERSION_1_3)
 #define CONNMON_SIGNAL_SNR			11
 #define CONNMON_LAC				12
 #endif
@@ -106,7 +107,7 @@ static void modem_data_update(struct k_work *work)
 		      modem_param.network.mnc.value);
 	lwm2m_set_u16(&LWM2M_OBJ(LWM2M_OBJECT_CONNECTIVITY_MONITORING_ID, 0, CONNMON_SMCC),
 		      modem_param.network.mcc.value);
-#if defined(CONFIG_LWM2M_CONNMON_OBJECT_VERSION_1_2)
+#if defined(CONNMON_LAC)
 	lwm2m_set_u16(&LWM2M_OBJ(LWM2M_OBJECT_CONNECTIVITY_MONITORING_ID, 0, CONNMON_LAC),
 		      modem_param.network.area_code.value);
 #endif
@@ -194,7 +195,7 @@ static void connmon_lte_notify_handler(const struct lte_lc_evt *const evt)
 	}
 }
 
-int lwm2m_init_connmon(void)
+static int lwm2m_init_connmon_cb(void)
 {
 	int ret;
 
@@ -218,4 +219,4 @@ int lwm2m_init_connmon(void)
 	return 0;
 }
 
-SYS_INIT(lwm2m_init_connmon, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);
+LWM2M_APP_INIT(lwm2m_init_connmon_cb);

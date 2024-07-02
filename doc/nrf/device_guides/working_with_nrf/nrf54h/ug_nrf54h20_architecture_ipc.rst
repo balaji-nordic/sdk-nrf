@@ -1,5 +1,3 @@
-:orphan:
-
 .. _ug_nrf54h20_architecture_ipc:
 
 Interprocessor Communication in nRF54H20
@@ -89,7 +87,7 @@ The following tables show signals received only by specified cores.
       FLPR               13
       =================  ==========
 
-   Radio Core:
+   Radio core:
 
       This assignment applies only when BBPROC owner is set to the Radio.
 
@@ -107,16 +105,18 @@ MAC, Network, Transport
 The layers responsible for maintaining a stable full-duplex stream of data between two cores (MAC, Network, Transport) are implemented in an IPC transport library.
 The default IPC transport library for nRF54H20 is :ref:`ICMsg <zephyr:ipc_service_backend_icmsg>`.
 This lightweight library maintains the connection between a pair of cores for each IPC instance with minimal memory overhead.
-Each IPC instance requires an instance of the icmsg library.
-Each icmsg library instance requires the following:
+Each IPC instance between the application core and the PPR core requires an instance of the ICMsg library.
+Each IPC instance between the application core and cores other than PPR (like the radio core) requires an instance of the ICBMsg library.
 
-   * One memory buffer for A->B messages
-   * One memory buffer for B->A messages
+Each ICMsg library instance requires the following:
+
+   * One memory buffer for A->B messages.
+   * One memory buffer for B->A messages.
    * A pair of signaling channels (one for A->B, one for B->A).
 
-The icmsg library is designed to efficiently send short messages to a peer.
+The ICMsg library is designed to efficiently send short messages to a peer.
 Its buffer allocation is not optimized for bulk transfer of long messages and it does not provide a zero-copy model.
-To transfer bigger amount of data (like network packets) between two cores, icmsg can be used as control plane.
+To transfer bigger amount of data (like network packets) between two cores, ICMsg can be used as control plane.
 However, you must use as data plane memory allocation mechanisms optimized for bigger data and supporting flexible memory allocation and a zero-copy model (like Zephyr's :ref:`zephyr:net_buf_interface`).
 
 .. note::
@@ -124,7 +124,9 @@ However, you must use as data plane memory allocation mechanisms optimized for b
    It does not have to involve another IPC transport.
    The ownership of the shared buffers is passed between the cores using the control plane, but only one of the cores is responsible for managing (allocating, resizing, freeing) the buffers.
 
-For more information, consult the :ref:`ICMsg <zephyr:ipc_service_backend_icmsg>` backend documentation.
+For more information on ICMsg, consult the :ref:`ICMsg <zephyr:ipc_service_backend_icmsg>` backend documentation.
+For more information on ICBMsg, consult the :ref:`ICMsg <zephyr:ipc_multi_endpoint_sample>` page.
+
 
 Session
 =======
@@ -144,7 +146,7 @@ Presentation and Application layers
 The presentation and application layers are connection specific.
 Each connection has other requirements regarding the type and the nature of the exchanged messages.
 
-The solutions selected for each connection are listed in the table below:
+The solutions selected for each connection are listed in the following table:
 
 ======================  =====================
 Connection              Communication library
@@ -170,15 +172,15 @@ The following figures show the IPC connection schemes in the nRF54H20 SoC:
 Radio core
 ==========
 
-The Radio core exposes radio communication services to the Application Core through IPC.
+The Radio core exposes radio communication services to the application core through IPC.
 These services include:
 
-   * Bluetooth (HCI or host API)
+   * Bluetooth® (HCI or host API)
    * IEEE 802.15.4 radio driver API
 
-These services are hidden behind Zephyr APIs available in the Application Core, like the Bluetooth host API or the IEEE 802.15.4 driver API.
+These services are hidden behind Zephyr APIs available in the application core, like the Bluetooth host API or the IEEE 802.15.4 driver API.
 All services can be enabled simultaneously using separated endpoints in a shared IPC instance.
-You can implement other services running in the Radio Core and expose them to the Application Core using more endpoints from the shared IPC instance.
+You can implement other services running in the radio core and expose them to the application core using more endpoints from the shared IPC instance.
 
 Secure Domain core
 ==================
@@ -221,4 +223,4 @@ Peripheral Processor (PPR)
 The Peripheral Processor (PPR) exposes IPC communication for its owner to manage its operations.
 The communication details depends on the PPR role in the system.
 
-In the :ref:`nrf_machine_learning_app` application, PPR uses an :ref:`event_manager_proxy` through IPC to extend the Event Manager framework running in the Application Core.
+In the :ref:`nrf_machine_learning_app` application, PPR uses an :ref:`event_manager_proxy` through IPC to extend the Event Manager framework running in the application core.

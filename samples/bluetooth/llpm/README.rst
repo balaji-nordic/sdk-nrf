@@ -97,7 +97,7 @@ Testing
 
 After programming the sample to both development kits, test it by performing the following steps:
 
-1. Connect to both kits with a terminal emulator (for example, nRF Connect Serial Terminal).
+1. Connect to both kits with a terminal emulator (for example, `nRF Connect Serial Terminal`_).
    See :ref:`test_and_optimize` for the required settings and steps.
 #. Reset both kits.
 #. In one of the terminal emulators, type "c" to start the application on the connected board in the central (tester) role.
@@ -185,7 +185,7 @@ The result should look similar to the following output.
    Filter does not match. Address: EA:0E:68:82:9D:0C (random) connectable: 1
    Filter does not match. Address: 1B:CC:D4:7C:9E:31 (random) connectable: 0
    Connected as central
-   Conn. interval is 3329 units (1.25 ms/unit)
+   Conn. interval is 1 ms
    Security changed: level 2, err: 0
    Service discovery completed
    Press any key to start measuring transmission latency
@@ -256,7 +256,7 @@ The result should look similar to the following output.
    Connection event reports enabled
    W: opcode 0x200a status 0x0d
    Connected as peripheral
-   Conn. interval is 3329 units (1.25 ms/unit)
+   Conn. interval is 1 ms
    W: opcode 0x2032 status 0x3a
    E: Failed LE Set PHY (-5)
    Security changed: level 2, err: 0

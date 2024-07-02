@@ -97,9 +97,8 @@ Initializing
 
 The Advanced Firmware Update functionality is implemented in :file:`lwm2m_firmware.c` and :file:`lwm2m_adv_firmware.c`.
 The Advanced Firmware Update object shares the same API with the standard LwM2M Firmware Update object as implemented in the :ref:`lib_lwm2m_client_utils` library.
-This object is initialized by calling the :c:func:`lwm2m_init_firmware` function and by confirming the currently booted application image as valid by calling the :c:func:`lwm2m_init_image` function.
-The validation of the image marks the FOTA process as complete, and the result is reported to the server.
-The modem FOTA process is automatically validated.
+The image is automatically confirmed to be valid on the boot and that marks the FOTA process as completed.
+The modem FOTA process is automatically validated during update; it does not reboot the device.
 
 LwM2M Client utilities library setup
 ====================================
@@ -149,7 +148,7 @@ The following example output shows the allocation of a resource id ``lwm2m_clien
 
 .. tabs::
 
-   .. group-tab:: nRF9161 DK
+   .. group-tab:: nRF91x1 DK
 
       .. code-block:: console
 
@@ -193,7 +192,7 @@ Following is an example of updating a modem instance by giving a binary file:
 
 .. tabs::
 
-   .. group-tab:: nRF9161 DK
+   .. group-tab:: nRF91x1 DK
 
       .. code-block:: console
 
@@ -219,7 +218,7 @@ Following is an example of uploading a binary and updating a modem by referring 
 
 .. tabs::
 
-      .. group-tab:: nRF9161 DK
+      .. group-tab:: nRF91x1 DK
 
          .. code-block:: console
 
@@ -249,7 +248,7 @@ Complete the following steps to test the advanced FOTA firmware update with the 
 
    .. tabs::
 
-      .. group-tab:: nRF9161 DK
+      .. group-tab:: nRF91x1 DK
 
          * :file:`mfw_nrf91x1_update_from_2.x.x_to_2.x.x-FOTA-TEST.bin`
          * :file:`mfw_nrf91x1_update_from_2.x.x-FOTA-TEST_to_2.x.x.bin`
@@ -287,7 +286,7 @@ Complete the following steps to test the advanced FOTA firmware update with the 
 
       .. tabs::
 
-         .. group-tab:: nRF9160 DK
+         .. group-tab:: nRF91x1 DK
 
             .. code-block:: console
 
@@ -336,7 +335,7 @@ Complete the following steps to test the advanced FOTA firmware update with the 
 
       .. tabs::
 
-         .. group-tab:: nRF9161 DK
+         .. group-tab:: nRF91x1 DK
 
             .. code-block:: console
 

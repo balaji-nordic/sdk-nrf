@@ -6,6 +6,16 @@
 
 #include <stdio.h>
 #include <string.h>
+
+#if defined(CONFIG_POSIX_API)
+#include <zephyr/posix/arpa/inet.h>
+#include <zephyr/posix/netdb.h>
+#include <zephyr/posix/sys/socket.h>
+#include <zephyr/posix/poll.h>
+#else
+#include <zephyr/net/socket.h>
+#endif /* CONFIG_POSIX_API */
+
 #include <zephyr/kernel.h>
 #include <zephyr/sys/reboot.h>
 #include <zephyr/net/coap.h>
@@ -216,6 +226,16 @@ int main(void)
 		LOG_ERR("conn_mgr_all_if_connect, error: %d", err);
 		FATAL_ERROR();
 		return err;
+	}
+
+	/* Resend connection status if the sample is built for NATIVE_SIM.
+	 * This is necessary because the network interface is automatically brought up
+	 * at SYS_INIT() before main() is called.
+	 * This means that NET_EVENT_L4_CONNECTED fires before the
+	 * appropriate handler l4_event_handler() is registered.
+	 */
+	if (IS_ENABLED(CONFIG_BOARD_NATIVE_SIM)) {
+		conn_mgr_mon_resend_status();
 	}
 
 	wait_for_network();

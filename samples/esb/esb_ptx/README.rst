@@ -33,9 +33,9 @@ Therefore, if packets are successfully received and acknowledged by the Receiver
 User interface
 ***************
 
-LED 1-4:
+All LEDs:
    Indicate that packets are sent or received.
-   The first four packets turn on LED 1, 2, 3, and 4.
+   The first four packets turn on the LEDs sequentially.
    The next four packets turn them off again in the same order.
 
 Configuration
@@ -49,6 +49,8 @@ Building and running
 The Transmitter sample can be found under :file:`samples/esb/esb_ptx` in the |NCS| folder structure.
 
 See :ref:`building` and :ref:`programming` for information about how to build and program the application, respectively.
+
+.. include:: /includes/nRF54H20_erase_UICR.txt
 
 FEM support
 ===========

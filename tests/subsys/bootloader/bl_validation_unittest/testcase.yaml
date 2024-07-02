@@ -1,6 +1,10 @@
 tests:
   bootloader.bl_validation.unittest:
-    platform_allow: native_posix
+    sysbuild: true
+    platform_allow:
+      - native_posix
+      - native_sim
     integration_platforms:
       - native_posix
-    tags: b0 bl_validation unittest
+      - native_sim
+    tags: b0 bl_validation unittest sysbuild

@@ -13,7 +13,6 @@
 #include <zephyr/net/tls_credentials.h>
 #include <zephyr/net/http/parser_url.h>
 #include <zephyr/device.h>
-#include <zephyr/storage/stream_flash.h>
 #include <zephyr/sys/reboot.h>
 #include <net/fota_download.h>
 #include <fota_download_util.h>
@@ -23,7 +22,6 @@
 #include "slm_settings.h"
 #include "slm_at_host.h"
 #include "slm_at_fota.h"
-#include "pm_config.h"
 
 LOG_MODULE_REGISTER(slm_fota, CONFIG_SLM_LOG_LEVEL);
 
@@ -292,8 +290,9 @@ static void fota_dl_handler(const struct fota_download_evt *evt)
 	}
 }
 
-/* Handles AT#XFOTA commands. */
-int handle_at_fota(enum at_cmd_type cmd_type)
+SLM_AT_CMD_CUSTOM(xfota, "AT#XFOTA", handle_at_fota);
+static int handle_at_fota(enum at_cmd_type cmd_type, const struct at_param_list *param_list,
+			  uint32_t param_count)
 {
 	int err = -EINVAL;
 	uint16_t op;
@@ -303,7 +302,7 @@ int handle_at_fota(enum at_cmd_type cmd_type)
 
 	switch (cmd_type) {
 	case AT_CMD_TYPE_SET_COMMAND:
-		err = at_params_unsigned_short_get(&slm_at_param_list, 1, &op);
+		err = at_params_unsigned_short_get(param_list, 1, &op);
 		if (err < 0) {
 			return err;
 		}
@@ -322,12 +321,12 @@ int handle_at_fota(enum at_cmd_type cmd_type)
 			sec_tag_t sec_tag = INVALID_SEC_TAG;
 			enum dfu_target_image_type type;
 
-			err = util_string_get(&slm_at_param_list, 2, uri, &size);
+			err = util_string_get(param_list, 2, uri, &size);
 			if (err) {
 				return err;
 			}
-			if (at_params_valid_count_get(&slm_at_param_list) > 3) {
-				at_params_unsigned_int_get(&slm_at_param_list, 3, &sec_tag);
+			if (param_count > 3) {
+				at_params_unsigned_int_get(param_list, 3, &sec_tag);
 			}
 			if (op == SLM_FOTA_START_APP) {
 				type = DFU_TARGET_IMAGE_TYPE_MCUBOOT;
@@ -356,8 +355,8 @@ int handle_at_fota(enum at_cmd_type cmd_type)
 			else {
 				type = DFU_TARGET_IMAGE_TYPE_MODEM_DELTA;
 			}
-			if (at_params_valid_count_get(&slm_at_param_list) > 4) {
-				at_params_unsigned_short_get(&slm_at_param_list, 4, &pdn_id);
+			if (param_count > 4) {
+				at_params_unsigned_short_get(param_list, 4, &pdn_id);
 				err = do_fota_start(op, uri, sec_tag, pdn_id, type);
 			} else {
 				err = do_fota_start(op, uri, sec_tag, 0, type);
@@ -426,8 +425,34 @@ void slm_fota_init_state(void)
 	slm_fota_info = 0;
 }
 
+#if defined(CONFIG_LWM2M_CARRIER)
+static K_SEM_DEFINE(carrier_app_fota_status, 0, 1);
+static bool carrier_app_fota_success;
+
+bool lwm2m_os_dfu_application_update_validate(void)
+{
+	/* Wait for the application FOTA status to be checked by the main thread. This can
+	 * trigger an AT notification, so the UART backend must also be initialized.
+	 */
+	if (k_sem_take(&carrier_app_fota_status, K_SECONDS(10)) != 0) {
+		return false;
+	}
+
+	return carrier_app_fota_success;
+}
+#endif /* CONFIG_LWM2M_CARRIER */
+
 void slm_fota_post_process(void)
 {
+#if defined(CONFIG_LWM2M_CARRIER)
+	if ((slm_fota_type == DFU_TARGET_IMAGE_TYPE_MCUBOOT) &&
+	    (slm_fota_status == FOTA_STATUS_OK) &&
+	    (slm_fota_stage == FOTA_STAGE_COMPLETE)) {
+		carrier_app_fota_success = true;
+	}
+
+	k_sem_give(&carrier_app_fota_status);
+#endif /* CONFIG_LWM2M_CARRIER */
 	if (slm_fota_stage != FOTA_STAGE_COMPLETE && slm_fota_stage != FOTA_STAGE_ACTIVATE) {
 		return;
 	}

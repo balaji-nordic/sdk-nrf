@@ -7,8 +7,8 @@ Bluetooth Mesh: Sensor observer
    :local:
    :depth: 2
 
-The Bluetooth® mesh sensor observer sample demonstrates how to set up a basic Bluetooth Mesh :ref:`bt_mesh_sensor_cli_readme` model application that gets sensor data from one :ref:`bt_mesh_sensor_srv_readme` model.
-Five different sensor types are used to showcase different ways for the server to publish data.
+The Bluetooth® Mesh sensor observer sample demonstrates how to set up a basic Bluetooth Mesh :ref:`bt_mesh_sensor_cli_readme` model application that gets sensor data from one :ref:`bt_mesh_sensor_srv_readme` model.
+Eight different sensor types are used to showcase different ways for the server to publish data.
 In addition, the samples demonstrate usage of both :ref:`single-channel sensor types and sensor series types <bt_mesh_sensor_types_channels>`, as well as how to add and write to a sensor setting.
 
 .. note::
@@ -40,14 +40,18 @@ The following Bluetooth Mesh sensor types, and their settings, are used in this 
 
 * :c:var:`bt_mesh_sensor_rel_runtime_in_a_dev_op_temp_range` - Periodically requested by the client.
 * :c:var:`bt_mesh_sensor_presence_detected` - Published when a button is pressed on the server.
-* :c:var:`bt_mesh_sensor_time_since_presence_detected` - Periodically requested by the client and published by the server according to its publishing period.
 
   * :c:var:`bt_mesh_sensor_motion_threshold` - Used as a setting for the :c:var:`bt_mesh_sensor_presence_detected` sensor type to set the time (0-10 seconds) before the presence is detected.
 
-* :c:var:`bt_mesh_sensor_present_amb_light_level` - Periodically requested by the client and published by the server according to its publishing period.
+* :c:var:`bt_mesh_sensor_time_since_presence_detected` - Periodically requested by the client and published by the server according to its publishing period.
+* :c:var:`bt_mesh_sensor_motion_sensed` - Published when a button is pressed on the server.
+* :c:var:`bt_mesh_sensor_time_since_motion_sensed` - Periodically requested by the client and published by the server according to its publishing period.
+* :c:var:`bt_mesh_sensor_present_amb_light_level` - Periodically requested by the client and published by the server according to its publishing period, and published when a button is pressed on the server.
 
   * :c:var:`bt_mesh_sensor_gain` - Used as a setting for the :c:var:`bt_mesh_sensor_present_amb_light_level` sensor type to set the gain the ambient light sensor value is multiplied with.
   * :c:var:`bt_mesh_sensor_present_amb_light_level` - Used as a setting for the :c:var:`bt_mesh_sensor_present_amb_light_level` sensor type to calculate sensor gain based on measured reference ambient light level. This value does only have a set command.
+
+* :c:var:`bt_mesh_sensor_people_count` - Published when a button is pressed on the server.
 
 Provisioning
 ============
@@ -91,17 +95,35 @@ Buttons:
 
 Once the provisioning procedure has completed, the buttons will have the following functionality:
 
-Button 1:
-   Sends a get message for a setting.
+.. tabs::
 
-Button 2:
-   Sends a set message for a setting, switching between the ranges specified in the :c:var:`temp_ranges` variable.
+   .. group-tab:: nRF21 and nRF52 DKs
 
-Button 3:
-   Sends a get message for a descriptor, requesting information about the :c:var:`bt_mesh_sensor_present_dev_op_temp` sensor.
+      Button 1:
+         Sends a get message for the :c:var:`bt_mesh_sensor_dev_op_temp_range_spec` setting of the :c:var:`bt_mesh_sensor_present_dev_op_temp` sensor.
 
-Button 4:
-   Sends a set message for a sensor setting, switching between the ranges specified in the :c:var:`presence_motion_threshold` variable.
+      Button 2:
+         Sends a set message for the :c:var:`bt_mesh_sensor_dev_op_temp_range_spec` setting of the :c:var:`bt_mesh_sensor_present_dev_op_temp` sensor, switching between the ranges specified in the :c:var:`temp_ranges` variable.
+
+      Button 3:
+         Sends a get message for a descriptor, requesting information about the :c:var:`bt_mesh_sensor_present_dev_op_temp` sensor.
+
+      Button 4:
+         Sends a set message for the :c:var:`bt_mesh_sensor_motion_threshold` setting of the :c:var:`bt_mesh_sensor_presence_detected` sensor, switching between the ranges specified in the :c:var:`presence_motion_threshold` variable.
+
+   .. group-tab:: nRF54 DKs
+
+      Button 0:
+         Sends a get message for the :c:var:`bt_mesh_sensor_dev_op_temp_range_spec` setting of the :c:var:`bt_mesh_sensor_present_dev_op_temp` sensor.
+
+      Button 1:
+         Sends a set message for the :c:var:`bt_mesh_sensor_dev_op_temp_range_spec` setting of the :c:var:`bt_mesh_sensor_present_dev_op_temp` sensor, switching between the ranges specified in the :c:var:`temp_ranges` variable.
+
+      Button 2:
+         Sends a get message for a descriptor, requesting information about the :c:var:`bt_mesh_sensor_present_dev_op_temp` sensor.
+
+      Button 3:
+         Sends a set message for the :c:var:`bt_mesh_sensor_motion_threshold` setting of the :c:var:`bt_mesh_sensor_presence_detected` sensor, switching between the ranges specified in the :c:var:`presence_motion_threshold` variable.
 
 Terminal:
    All sensor values gathered from the server are printed over UART.

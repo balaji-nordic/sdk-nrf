@@ -178,41 +178,6 @@ static int nrf_wifi_util_set_he_ltf_gi(const struct shell *shell,
 	return 0;
 }
 
-
-static int nrf_wifi_util_set_rts_threshold(const struct shell *shell,
-					   size_t argc,
-					   const char *argv[])
-{
-	enum nrf_wifi_status status = NRF_WIFI_STATUS_FAIL;
-	char *ptr = NULL;
-	unsigned long val = 0;
-	struct nrf_wifi_umac_set_wiphy_info wiphy_info;
-
-	memset(&wiphy_info, 0, sizeof(struct nrf_wifi_umac_set_wiphy_info));
-
-	val = strtoul(argv[1], &ptr, 10);
-
-	if (ctx->conf_params.rts_threshold != val) {
-
-		wiphy_info.rts_threshold = val;
-
-		status = nrf_wifi_fmac_set_wiphy_params(ctx->rpu_ctx,
-							0,
-							&wiphy_info);
-
-		if (status != NRF_WIFI_STATUS_SUCCESS) {
-			shell_fprintf(shell,
-				      SHELL_ERROR,
-				      "Programming threshold failed\n");
-			return -ENOEXEC;
-		}
-
-		ctx->conf_params.rts_threshold = val;
-	}
-
-	return 0;
-}
-
 #ifdef CONFIG_NRF700X_STA_MODE
 static int nrf_wifi_util_set_uapsd_queue(const struct shell *shell,
 					 size_t argc,
@@ -282,11 +247,6 @@ static int nrf_wifi_util_show_cfg(const struct shell *shell,
 		      SHELL_INFO,
 		      "set_he_ltf_gi = %d\n",
 		      conf_params->set_he_ltf_gi);
-
-	shell_fprintf(shell,
-		      SHELL_INFO,
-		      "rts_threshold = %d\n",
-		      conf_params->rts_threshold);
 
 	shell_fprintf(shell,
 		      SHELL_INFO,
@@ -825,7 +785,9 @@ static int nrf_wifi_util_dump_rpu_stats(const struct shell *shell,
 				  "scan_complete: %u\n"
 				  "scan_abort_req: %u\n"
 				  "scan_abort_complete: %u\n"
-				  "internal_buf_pool_null: %u\n\n",
+				  "internal_buf_pool_null: %u\n"
+				  "rpu_hw_lockup_count: %u\n"
+				  "rpu_hw_lockup_recovery_done: %u\n\n",
 				  lmac->reset_cmd_cnt,
 				  lmac->reset_complete_event_cnt,
 				  lmac->unable_gen_event,
@@ -860,7 +822,9 @@ static int nrf_wifi_util_dump_rpu_stats(const struct shell *shell,
 				  lmac->scan_complete,
 				  lmac->scan_abort_req,
 				  lmac->scan_abort_complete,
-				  lmac->internal_buf_pool_null);
+				  lmac->internal_buf_pool_null,
+				  lmac->rpu_hw_lockup_count,
+				  lmac->rpu_hw_lockup_recovery_done);
 	}
 
 	if (stats_type == RPU_STATS_TYPE_PHY || stats_type == RPU_STATS_TYPE_ALL) {
@@ -887,6 +851,39 @@ static int nrf_wifi_util_dump_rpu_stats(const struct shell *shell,
 }
 #endif /* CONFIG_NRF700X_RADIO_TEST */
 
+#ifdef CONFIG_NRF_WIFI_RPU_RECOVERY
+static int nrf_wifi_util_trigger_rpu_recovery(const struct shell *shell,
+					      size_t argc,
+					      const char *argv[])
+{
+	enum nrf_wifi_status status = NRF_WIFI_STATUS_FAIL;
+	struct nrf_wifi_fmac_dev_ctx *fmac_dev_ctx = NULL;
+
+	if (!ctx || !ctx->rpu_ctx) {
+		shell_fprintf(shell,
+			      SHELL_ERROR,
+			      "RPU context not initialized\n");
+		return -ENOEXEC;
+	}
+
+	fmac_dev_ctx = ctx->rpu_ctx;
+
+	status = nrf_wifi_fmac_rpu_recovery_callback(fmac_dev_ctx, NULL, 0);
+	if (status != NRF_WIFI_STATUS_SUCCESS) {
+		shell_fprintf(shell,
+			      SHELL_ERROR,
+			      "Failed to trigger RPU recovery\n");
+		return -ENOEXEC;
+	}
+
+	shell_fprintf(shell,
+		      SHELL_INFO,
+		      "RPU recovery triggered\n");
+
+	return 0;
+}
+#endif /* CONFIG_NRF_WIFI_RPU_RECOVERY */
+
 SHELL_STATIC_SUBCMD_SET_CREATE(
 	nrf_wifi_util_subcmds,
 	SHELL_CMD_ARG(he_ltf,
@@ -910,12 +907,6 @@ SHELL_STATIC_SUBCMD_SET_CREATE(
 		      "0 - Disable\n"
 		      "1 - Enable",
 		      nrf_wifi_util_set_he_ltf_gi,
-		      2,
-		      0),
-	SHELL_CMD_ARG(rts_threshold,
-		      NULL,
-		      "<val> - Value  > 0",
-		      nrf_wifi_util_set_rts_threshold,
 		      2,
 		      0),
 #ifdef CONFIG_NRF700X_STA_MODE
@@ -982,6 +973,14 @@ SHELL_STATIC_SUBCMD_SET_CREATE(
 		      1,
 		      1),
 #endif /* CONFIG_NRF700X_RADIO_TEST */
+#ifdef CONFIG_NRF_WIFI_RPU_RECOVERY
+	SHELL_CMD_ARG(rpu_recovery_test,
+		      NULL,
+		      "Trigger RPU recovery",
+		      nrf_wifi_util_trigger_rpu_recovery,
+		      1,
+		      0),
+#endif /* CONFIG_NRF_WIFI_RPU_RECOVERY */
 	SHELL_SUBCMD_SET_END);
 
 

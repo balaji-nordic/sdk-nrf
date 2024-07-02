@@ -267,6 +267,7 @@ struct iperf_test
     struct sockaddr remote_addr;
     char *resp_std_out_buff;
     int resp_std_out_buff_len;
+    int i_errno;
 #endif
 
     TAILQ_HEAD(xbind_addrhead, xbind_entry) xbind_addrs; /* all -X opts */
@@ -328,6 +329,9 @@ struct iperf_test
     int       max_fd;
     fd_set    read_set;                         /* set of read sockets */
     fd_set    write_set;                        /* set of write sockets */
+#if defined(CONFIG_NRF_IPERF3_INTEGRATION)
+    fd_set    err_set;
+#endif
 
     /* Interval related members */ 
     int       omitting;

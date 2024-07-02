@@ -8,7 +8,8 @@
 
 #include <zephyr/zbus/zbus.h>
 
-#include "nrf5340_audio_common.h"
+#include "unicast_server.h"
+#include "zbus_common.h"
 #include "nrf5340_audio_dk.h"
 #include "led.h"
 #include "button_assignments.h"
@@ -17,12 +18,12 @@
 #include "button_handler.h"
 #include "bt_le_audio_tx.h"
 #include "bt_mgmt.h"
-#include "bt_rend.h"
+#include "bt_rendering_and_capture.h"
 #include "audio_datapath.h"
 #include "bt_content_ctrl.h"
-#include "unicast_server.h"
 #include "le_audio.h"
 #include "le_audio_rx.h"
+#include "fw_info_app.h"
 
 #include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(main, CONFIG_MAIN_LOG_LEVEL);
@@ -82,19 +83,18 @@ static void button_msg_sub_thread(void)
 
 		switch (msg.button_pin) {
 		case BUTTON_PLAY_PAUSE:
-			if (IS_ENABLED(CONFIG_STREAM_BIDIRECTIONAL)) {
-				LOG_WRN("Play/pause not supported in walkie-talkie and "
-					"bidirectional mode");
+			if (IS_ENABLED(CONFIG_WALKIE_TALKIE_DEMO)) {
+				LOG_WRN("Play/pause not supported in walkie-talkie mode");
 				break;
 			}
 
-			if (strm_state == STATE_STREAMING) {
+			if (bt_content_ctlr_media_state_playing()) {
 				ret = bt_content_ctrl_stop(NULL);
 				if (ret) {
 					LOG_WRN("Could not stop: %d", ret);
 				}
 
-			} else if (strm_state == STATE_PAUSED) {
+			} else if (!bt_content_ctlr_media_state_playing()) {
 				ret = bt_content_ctrl_start(NULL);
 				if (ret) {
 					LOG_WRN("Could not start: %d", ret);
@@ -107,7 +107,7 @@ static void button_msg_sub_thread(void)
 			break;
 
 		case BUTTON_VOLUME_UP:
-			ret = bt_rend_volume_up();
+			ret = bt_r_and_c_volume_up();
 			if (ret) {
 				LOG_WRN("Failed to increase volume: %d", ret);
 			}
@@ -115,7 +115,7 @@ static void button_msg_sub_thread(void)
 			break;
 
 		case BUTTON_VOLUME_DOWN:
-			ret = bt_rend_volume_down();
+			ret = bt_r_and_c_volume_down();
 			if (ret) {
 				LOG_WRN("Failed to decrease volume: %d", ret);
 			}
@@ -146,7 +146,7 @@ static void button_msg_sub_thread(void)
 
 		case BUTTON_5:
 			if (IS_ENABLED(CONFIG_AUDIO_MUTE)) {
-				ret = bt_rend_volume_mute(false);
+				ret = bt_r_and_c_volume_mute(false);
 				if (ret) {
 					LOG_WRN("Failed to mute, ret: %d", ret);
 				}
@@ -331,17 +331,21 @@ static void bt_mgmt_evt_handler(const struct zbus_channel *chan)
 {
 	int ret;
 	const struct bt_mgmt_msg *msg;
+	uint8_t num_conn = 0;
 
 	msg = zbus_chan_const_msg(chan);
+	bt_mgmt_num_conn_get(&num_conn);
 
 	switch (msg->event) {
 	case BT_MGMT_CONNECTED:
-		LOG_INF("Connected");
+		/* NOTE: The string below is used by the Nordic CI system */
+		LOG_INF("Connection event. Num connections: %u", num_conn);
 
 		break;
 
 	case BT_MGMT_DISCONNECTED:
-		LOG_INF("Disconnected");
+		/* NOTE: The string below is used by the Nordic CI system */
+		LOG_INF("Disconnection event. Num connections: %u", num_conn);
 
 		ret = bt_content_ctrl_conn_disconnected(msg->conn);
 		if (ret) {
@@ -352,11 +356,6 @@ static void bt_mgmt_evt_handler(const struct zbus_channel *chan)
 
 	case BT_MGMT_SECURITY_CHANGED:
 		LOG_INF("Security changed");
-
-		ret = bt_rend_discover(msg->conn);
-		if (ret) {
-			LOG_WRN("Failed to discover rendering services");
-		}
 
 		ret = bt_content_ctrl_discover(msg->conn);
 		if (ret == -EALREADY) {
@@ -416,20 +415,31 @@ static int zbus_link_producers_observers(void)
 	return 0;
 }
 
+/*
+ * @brief  The following configures the data for the extended advertising. This includes the
+ *         Audio Stream Control Service requirements [BAP 3.7.2.1.1] in the AUX_ADV_IND Extended
+ *         Announcements.
+ *
+ * @param  ext_adv_buf       Pointer to the bt_data used for extended advertising.
+ * @param  ext_adv_buf_size  Size of @p ext_adv_buf.
+ * @param  ext_adv_count     Pointer to the number of elements added to @p adv_buf.
+ *
+ * @return  0 for success, error otherwise.
+ */
+
 static int ext_adv_populate(struct bt_data *ext_adv_buf, size_t ext_adv_buf_size,
 			    size_t *ext_adv_count)
 {
 	int ret;
 	size_t ext_adv_buf_cnt = 0;
 
-	NET_BUF_SIMPLE_DEFINE(uuid_buf, CONFIG_EXT_ADV_UUID_BUF_MAX);
+	NET_BUF_SIMPLE_DEFINE_STATIC(uuid_buf, CONFIG_EXT_ADV_UUID_BUF_MAX);
 
 	ext_adv_buf[ext_adv_buf_cnt].type = BT_DATA_UUID16_SOME;
-	ext_adv_buf[ext_adv_buf_cnt].data_len = 0;
 	ext_adv_buf[ext_adv_buf_cnt].data = uuid_buf.data;
 	ext_adv_buf_cnt++;
 
-	ret = bt_rend_uuid_populate(&uuid_buf);
+	ret = bt_r_and_c_uuid_populate(&uuid_buf);
 
 	if (ret) {
 		LOG_ERR("Failed to add adv data from renderer: %d", ret);
@@ -440,6 +450,12 @@ static int ext_adv_populate(struct bt_data *ext_adv_buf, size_t ext_adv_buf_size
 
 	if (ret) {
 		LOG_ERR("Failed to add adv data from content ctrl: %d", ret);
+		return ret;
+	}
+
+	ret = bt_mgmt_manufacturer_uuid_populate(&uuid_buf, CONFIG_BT_DEVICE_MANUFACTURER_ID);
+	if (ret) {
+		LOG_ERR("Failed to add adv data with manufacturer ID: %d", ret);
 		return ret;
 	}
 
@@ -494,16 +510,24 @@ void streamctrl_send(void const *const data, size_t size, uint8_t num_ch)
 int main(void)
 {
 	int ret;
+	enum bt_audio_location location;
+	enum audio_channel channel;
+	static struct bt_data ext_adv_buf[CONFIG_EXT_ADV_BUF_MAX];
 
-	LOG_DBG("nRF5340 APP core started");
+	LOG_DBG("Main started");
 
-	struct bt_data ext_adv_buf[CONFIG_EXT_ADV_BUF_MAX];
 	size_t ext_adv_buf_cnt = 0;
 
 	ret = nrf5340_audio_dk_init();
 	ERR_CHK(ret);
 
-	ret = nrf5340_audio_common_init();
+	ret = fw_info_app_print();
+	ERR_CHK(ret);
+
+	ret = bt_mgmt_init();
+	ERR_CHK(ret);
+
+	ret = audio_system_init();
 	ERR_CHK(ret);
 
 	ret = zbus_subscribers_create();
@@ -515,10 +539,18 @@ int main(void)
 	ret = le_audio_rx_init();
 	ERR_CHK_MSG(ret, "Failed to initialize rx path");
 
-	ret = unicast_server_enable(le_audio_rx_data_handler);
+	channel_assignment_get(&channel);
+
+	if (channel == AUDIO_CH_L) {
+		location = BT_AUDIO_LOCATION_FRONT_LEFT;
+	} else {
+		location = BT_AUDIO_LOCATION_FRONT_RIGHT;
+	}
+
+	ret = unicast_server_enable(le_audio_rx_data_handler, location);
 	ERR_CHK_MSG(ret, "Failed to enable LE Audio");
 
-	ret = bt_rend_init();
+	ret = bt_r_and_c_init();
 	ERR_CHK(ret);
 
 	ret = bt_content_ctrl_init();
@@ -527,7 +559,7 @@ int main(void)
 	ret = ext_adv_populate(ext_adv_buf, ARRAY_SIZE(ext_adv_buf), &ext_adv_buf_cnt);
 	ERR_CHK(ret);
 
-	ret = bt_mgmt_adv_start(ext_adv_buf, ext_adv_buf_cnt, NULL, 0, true);
+	ret = bt_mgmt_adv_start(0, ext_adv_buf, ext_adv_buf_cnt, NULL, 0, true);
 	ERR_CHK(ret);
 
 	return 0;

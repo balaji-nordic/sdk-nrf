@@ -7,7 +7,7 @@ Bluetooth Mesh: Light
    :local:
    :depth: 2
 
-The Bluetooth® mesh light sample demonstrates how to set up a mesh server model application, and control LEDs with Bluetooth Mesh using the :ref:`bt_mesh_onoff_readme`.
+The Bluetooth® Mesh light sample demonstrates how to set up a mesh server model application, and control LEDs with Bluetooth Mesh using the :ref:`bt_mesh_onoff_readme`.
 
 .. note::
    This sample is self-contained, and can be tested on its own.
@@ -35,10 +35,11 @@ The sample also requires a smartphone with Nordic Semiconductor's nRF Mesh mobil
 DFU requirements
 ================
 
-The configuration overlay :file:`overlay-dfu.conf` enables DFU support in the application, and applies for the following platforms:
+The configuration overlay file :file:`overlay-dfu.conf` and the :ref:`sysbuild <configuration_system_overview_sysbuild>` configuration file :file:`sysbuild-dfu.conf` enable DFU support in the application, and apply to the following platforms:
 
-* nrf52840dk_nrf52840
-* nrf21540dk_nrf52840
+* nrf52840dk/nrf52840
+* nrf21540dk/nrf52840
+* nrf54l15pdk/nrf54l15/cpuapp
 
 While this overlay configuration is only applicable for the mentioned platforms in this sample, DFU over Bluetooth Low Energy may be used on other platforms as well.
 
@@ -131,16 +132,39 @@ This sample is split into the following source files:
 DFU configuration
 =================
 
-To enable the DFU feature for the supported nRF52 Series development kits, set :makevar:`OVERLAY_CONFIG` to :file:`overlay-dfu.conf` when building the sample.
-For example, when building from the command line, use the following command:
+.. tabs::
 
-  .. code-block:: console
+   .. tab:: nRF52840 DK and nRF54L15 PDK
 
-     west build -b <BOARD> -p -- -DOVERLAY_CONFIG="overlay-dfu.conf"
+      To enable the DFU feature for the nRF52840 and nRF54L15 development kits, set :makevar:`SB_CONF_FILE` to :file:`sysbuild-dfu.conf` and :makevar:`EXTRA_CONF_FILE` to :file:`overlay-dfu.conf` when building the sample.
+      For example, when building from the command line, use the following command, where *board_target* is the target for the development kit for which you are building:
 
-The configuration overlay :file:`overlay-dfu.conf` enables the DFU feature.
-To review the required configuration alterations, open and inspect the :file:`overlay-dfu.conf` file.
+      .. parsed-literal::
+         :class: highlight
+
+         west build -b *board_target* -p -- -DSB_CONF_FILE="sysbuild-dfu.conf" -DEXTRA_CONF_FILE="overlay-dfu.conf"
+
+      The configuration overlay file :file:`overlay-dfu.conf` and the sysbuild configuration file :file:`sysbuild-dfu.conf` enable the DFU feature.
+      To review the required configuration alterations, open and inspect the two files.
+
+   .. tab:: nRF5340 DK
+
+      To enable the DFU feature for the nRF5340 development kit, set :makevar:`SB_CONF_FILE` to :file:`sysbuild-dfu.conf` and :makevar:`EXTRA_CONF_FILE` to :file:`overlay-dfu.conf` when building the sample.
+      Additionally, you need to set the :makevar:`EXTRA_CONF_FILE` for the ipc_radio network image to :file:`overlay-dfu.conf` as well.
+      This is an additional network image specific configuration overlay file, which allocates the necessary resources to enable the DFU feature.
+      For example, when building from the command line, use the following command, where *board_target* is the target for the development kit for which you are building:
+
+      .. parsed-literal::
+         :class: highlight
+
+         west build -b *board_target* -p -- -DSB_CONF_FILE="sysbuild-dfu.conf" -DEXTRA_CONF_FILE="overlay-dfu.conf" -Dipc_radio_EXTRA_CONF_FILE="overlay-dfu.conf"
+
+      .. note::
+         Currently, the nRF5340 development kit only supports DFU for the application core.
+         This implies that all application DFU images must be compatible with the network core image running on the device.
+
 For more information about using configuration overlay files, see :ref:`zephyr:important-build-vars` in the Zephyr documentation.
+For more information about selecting a sysbuild configuration file, see the sysbuild Kconfig file section on the :ref:`zephyr:sysbuild` page in the Zephyr documentation.
 
 FEM support
 ===========
@@ -186,7 +210,7 @@ Make sure to complete the configuration on each of the elements on the node to e
 Running DFU
 ===========
 
-After the sample is built with the :file:`overlay-dfu.conf` and programmed to your development kit, support for FOTA update is enabled.
+After the sample is built with the :file:`overlay-dfu.conf` file and the :file:`sysbuild-dfu.conf` file, and programmed to your development kit, support for FOTA update is enabled.
 See :ref:`FOTA over Bluetooth Low Energy<ug_nrf52_developing_ble_fota>` for instructions on how to perform FOTA update and initiate the DFU process.
 
 Dependencies

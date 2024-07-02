@@ -52,13 +52,13 @@ const struct wifi_scan_params tests[] = {
 #ifdef CONFIG_WIFI_SCAN_PROFILE_ACTIVE
 	{
 	.scan_type = WIFI_SCAN_TYPE_ACTIVE,
-	.dwell_time_active = CONFIG_WIFI_MGMT_SCAN_DWELL_TIME_ACTIVE
+	.dwell_time_active = CONFIG_WIFI_SCAN_DWELL_TIME_ACTIVE
 	},
 #endif
 #ifdef CONFIG_WIFI_SCAN_PROFILE_PASSIVE
 	{
 	.scan_type = WIFI_SCAN_TYPE_PASSIVE,
-	.dwell_time_passive = CONFIG_WIFI_MGMT_SCAN_DWELL_TIME_PASSIVE
+	.dwell_time_passive = CONFIG_WIFI_SCAN_DWELL_TIME_PASSIVE
 	},
 #endif
 #ifdef CONFIG_WIFI_SCAN_PROFILE_2_4GHz_ACTIVE
@@ -327,11 +327,6 @@ int main(void)
 
 	net_mgmt_add_event_callback(&wifi_shell_mgmt_cb);
 
-#if defined(CLOCK_FEATURE_HFCLK_DIVIDE_PRESENT) || NRF_CLOCK_HAS_HFCLK192M
-	/* For now hardcode to 128MHz */
-	nrfx_clock_divider_set(NRF_CLOCK_DOMAIN_HFCLK,
-			       NRF_CLOCK_HFCLK_DIV_1);
-#endif
 	k_sleep(K_SECONDS(1));
 	printk("Starting %s with CPU frequency: %d MHz\n", CONFIG_BOARD, SystemCoreClock / MHZ(1));
 

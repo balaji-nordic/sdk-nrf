@@ -13,6 +13,11 @@ The sensor will periodically generate the simulated temperature sensor value and
 This application will form a Matter device within a Matter network.
 
 .. note::
+   The sensor sample used in this instruction is used here as an example, and does not follow the Matter Device Type Library Specification.
+   When creating an official product, follow the Matter Device Type Library Specification.
+
+
+.. note::
    Make sure you are familiar with Matter in the |NCS| and you have tested some of the available :ref:`matter_samples` before you work with this user guide.
 
 .. _ug_matter_creating_accessory_overview:
@@ -90,18 +95,24 @@ This is a JSON file that contains the data model configuration of clusters, comm
 It is not used directly by Matter applications, but it is used to generate the source files for handling given clusters.
 
 The ZAP file can be edited using `ZCL Advanced Platform`_ (ZAP tool), a third-party tool that is a generic templating engine for applications and libraries based on Zigbee Cluster Library.
-This tool is provided with the Matter repository in the |NCS|.
+
+This guide uses the :ref:`ug_matter_gs_tools_matter_west_commands_zap_tool` to install and run the ZAP tool GUI, and generate the data model's C++ source files.
 
 To edit clusters using the ZAP tool, complete the following steps:
 
-1. Complete the installation steps for the ZAP tool listed in :ref:`ug_matter_tools_installing_zap`.
-#. Open the :file:`src/template.zap` for editing by running the following command, where *sample_location* stands for the path where you copied the template sample in the first step of this guide, and *matter_root_location* stands for the path where Matter project is located:
+1. Navigate to your sample directory and run the following command:
 
    .. code-block::
 
-      zap *sample_location*/src/template.zap --zcl *matter_root_location*/src/app/zap-templates/zcl/zcl.json --gen *matter_root_location*/src/app/zap-templates/app-templates.json
+      west zap-gui
 
-   The ZAP tool's Zigbee Cluster Configurator window appears.
+
+   .. note::
+      The ZAP tool UI may vary depending on the ZAP version.
+      The following steps should be considered as guidelines.
+
+
+   The ZAP tool's Matter Cluster Configurator window appears.
 
    .. figure:: images/matter_create_accessory_zcl_configurator.png
       :alt: Zigbee Cluster Configurator window in ZAP tool
@@ -120,7 +131,7 @@ To edit clusters using the ZAP tool, complete the following steps:
       Create New Endpoint menu in ZAP tool
 
    The new endpoint is created with both the Descriptor and Identify clusters enabled.
-#. Configure the On/Off cluster required for this endpoint:
+#. Configure the On/Off cluster for this endpoint, as it will be used in this example:
 
    a. In the :guilabel:`Search Clusters` menu, find the On/Off cluster.
    #. Set the :guilabel:`Server` option for the On/Off cluster.
@@ -151,11 +162,11 @@ To edit clusters using the ZAP tool, complete the following steps:
    #. Go to the Temperature Measurement cluster configuration and make sure that you have the ``MeasuredValue`` attribute enabled.
 
 #. Save the file and exit.
-#. Use the modified ZAP file to generate the C++ code that contains the selected clusters by running the following command, where ``samples/matter/sensor`` stands for the path where you copied the template sample in the first step of this guide:
+#. Use the modified ZAP file to generate the C++ code that contains the selected clusters by running the following command:
 
    .. code-block::
 
-      python ./scripts/tools/zap/generate.py ../../../nrf/samples/matter/sensor/src/template.zap -t src/app/zap-templates/app-templates.json -o ../../../nrf/samples/matter/sensor/src/zap-generated
+      west zap-generate
 
 At this point, new clusters have been added to the Matter device.
 
@@ -349,10 +360,19 @@ Testing the new sensor application
 
 To check if the sensor device is working, complete the following steps:
 
-.. include:: ../../../../../samples/matter/template/README.rst
-   :start-after: matter_template_sample_testing_start
-   :end-before: #. Press **Button 1**
+1. |connect_kit|
+#. |connect_terminal_ANSI|
+#. Commission the device into a Matter network by following the guides linked on the :ref:`ug_matter_configuring` page for the Matter controller you want to use.
+   The guides walk you through the following steps:
 
+   * Only if you are configuring Matter over Thread: Configure the Thread Border Router.
+   * Build and install the Matter controller.
+   * Commission the device.
+     You can use the :ref:`matter_template_network_mode_onboarding` listed earlier on this page.
+   * Send Matter commands.
+
+   At the end of this procedure, the LED indicating the state of the Matter device programmed with the sample starts presenting the Solid On state.
+   This indicates that the device is fully provisioned, and has established a CASE session with the controller.
 #. Activate the sensor by running the following command on the On/off cluster with the correct *node_ID* assigned during commissioning:
 
    .. parsed-literal::
@@ -373,6 +393,8 @@ To check if the sensor device is working, complete the following steps:
       :class: highlight
 
       ./chip-tool onoff off *node_ID* 1
+
+#. Read the measurement after the device has received the turning-off command.
 
 #. Read the measurement again.
    The measurement should not change.

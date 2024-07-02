@@ -60,6 +60,7 @@ config DFU_TARGET_STREAM_SAVE_PROGRESS
 	depends on DFU_TARGET_STREAM || ZTEST # ZTEST for testing purposes
 	depends on SETTINGS
 	depends on !SETTINGS_NONE
+	depends on !DFU_MULTI_IMAGE
 	help
 	  Enable this option to cause dfu_target_stream to store the current
 	  write progress to flash. In case of power failure or device reset,
@@ -111,6 +112,18 @@ config DFU_TARGET_FULL_MODEM_USE_EXT_PARTITION
 	depends on DFU_TARGET_FULL_MODEM
 	select PM_PARTITION_REGION_FMFU_STORAGE_EXTERNAL
 	bool "Use a dedicated FMFU partition on the external flash device"
+
+config DFU_TARGET_SUIT
+	bool "SUIT DFU target support"
+	default y
+	depends on SUIT
+	imply MPU_ALLOW_FLASH_WRITE
+	select SUIT_UTILS
+	select ZCBOR
+	select ZCBOR_CANONICAL
+	select DFU_TARGET_STREAM
+	help
+	  Enable support for updates using DFU target based on SUIT
 
 module=DFU_TARGET
 module-dep=LOG

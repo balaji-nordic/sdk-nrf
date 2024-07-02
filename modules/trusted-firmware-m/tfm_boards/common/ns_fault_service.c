@@ -54,15 +54,33 @@
  * that is triggered by events external to the CPU, such as an EasyDMA access.
  */
 
-#define EXCEPTION_TYPE_SPUFAULT    (NVIC_USER_IRQ_OFFSET + SPU_IRQn)
+#if SPU_IRQn
+#define EXCEPTION_TYPE_SPUFAULT (NVIC_USER_IRQ_OFFSET + SPU_IRQn)
+#endif
 
-typedef void (*ns_funcptr) (void) __attribute__((cmse_nonsecure_call));
+#if SPU00_IRQn
+#define EXCEPTION_TYPE_SPU00FAULT (NVIC_USER_IRQ_OFFSET + SPU00_IRQn)
+#endif
 
-static struct tfm_ns_fault_service_handler_context  *ns_callback_context;
+#if SPU10_IRQn
+#define EXCEPTION_TYPE_SPU10FAULT (NVIC_USER_IRQ_OFFSET + SPU10_IRQn)
+#endif
+
+#if SPU20_IRQn
+#define EXCEPTION_TYPE_SPU20FAULT (NVIC_USER_IRQ_OFFSET + SPU20_IRQn)
+#endif
+
+#if SPU30_IRQn
+#define EXCEPTION_TYPE_SPU30FAULT (NVIC_USER_IRQ_OFFSET + SPU30_IRQn)
+#endif
+
+typedef void (*ns_funcptr)(void) __attribute__((cmse_nonsecure_call));
+
+static struct tfm_ns_fault_service_handler_context *ns_callback_context;
 static ns_funcptr ns_callback;
 
-int ns_fault_service_set_handler(struct tfm_ns_fault_service_handler_context  *context,
-					tfm_ns_fault_service_handler_callback callback)
+int ns_fault_service_set_handler(struct tfm_ns_fault_service_handler_context *context,
+				 tfm_ns_fault_service_handler_callback callback)
 {
 	ns_callback_context = context;
 	ns_callback = (ns_funcptr)callback;
@@ -131,15 +149,33 @@ void ns_fault_service_call_handler(void)
 
 	if (!exc_ctx_valid || is_return_secure_stack(exc_ctx.EXC_RETURN)) {
 		/* If exception is triggered by secure continue with secure
-		* fault handling.
-		*/
+		 * fault handling.
+		 */
 		return;
 	}
 
 	switch (exc_ctx.VECTACTIVE) {
 	case EXCEPTION_TYPE_SECUREFAULT:
 	case EXCEPTION_TYPE_BUSFAULT:
+#ifdef EXCEPTION_TYPE_SPUFAULT
 	case EXCEPTION_TYPE_SPUFAULT:
+#endif
+
+#ifdef EXCEPTION_TYPE_SPU00FAULT
+	case EXCEPTION_TYPE_SPU00FAULT:
+#endif
+
+#ifdef EXCEPTION_TYPE_SPU10FAULT
+	case EXCEPTION_TYPE_SPU10FAULT:
+#endif
+
+#ifdef EXCEPTION_TYPE_SPU20FAULT
+	case EXCEPTION_TYPE_SPU20FAULT:
+#endif
+
+#ifdef EXCEPTION_TYPE_SPU30FAULT
+	case EXCEPTION_TYPE_SPU30FAULT:
+#endif
 		break;
 	default:
 		/* Always handle HardFaults in secure.

@@ -7,7 +7,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/net/lwm2m.h>
 #include <lwm2m_resource_ids.h>
-
+#include "lwm2m_engine.h"
 #include "env_sensor.h"
 #include "lwm2m_app_utils.h"
 
@@ -25,13 +25,14 @@
 static time_t timestamp;
 
 static int update_timestamp_cb(uint16_t obj_inst_id, uint16_t res_id, uint16_t res_inst_id,
-			       uint8_t *data, uint16_t data_len, bool last_block, size_t total_size)
+			       uint8_t *data, uint16_t data_len, bool last_block,
+			       size_t total_size, size_t offset)
 {
 	set_ipso_obj_timestamp(IPSO_OBJECT_PRESSURE_ID, obj_inst_id);
 	return 0;
 }
 
-int lwm2m_init_press_sensor(void)
+static int lwm2m_init_press_sensor(void)
 {
 	double min_range_val = MIN_RANGE_VALUE;
 	double max_range_val = MAX_RANGE_VALUE;
@@ -60,3 +61,5 @@ int lwm2m_init_press_sensor(void)
 
 	return 0;
 }
+
+LWM2M_APP_INIT(lwm2m_init_press_sensor);

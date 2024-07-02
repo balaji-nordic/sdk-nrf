@@ -21,7 +21,7 @@ The sample supports the following development kits:
 
 .. table-from-sample-yaml::
 
-The nRF5340 DK (``nrf5340dk_nrf5340_cpuapp``) is supported only for development.
+The nRF5340 DK (``nrf5340dk/nrf5340/cpuapp``) is supported only for development.
 
 You can use any of the development kits listed above.
 
@@ -74,7 +74,7 @@ See :ref:`ug_zigbee_configuring_eui64` for information about how to configure th
 Serial communication setup
 ==========================
 
-The communication channel uses Zephyr's :ref:`zephyr:uart_api` API. The serial device is selected in Devicetree like this:
+The communication channel uses Zephyr's :ref:`zephyr:uart_api` API. The serial device is selected in devicetree like this:
 
 .. code-block:: devicetree
 
@@ -86,18 +86,18 @@ By default, Zephyr's logger uses ``uart0`` and the NCP sample communicates throu
 The DTS overlay file configures ``uart1`` to be connected to the on-board J-Link instead of ``uart0``.
 As the result, Zephyr's logger ``uart0`` is available only through GPIO pins (**P1.00** and **P1.01**).
 
-The ``uart0`` pins are configured by Devicetree overlay files for each supported development kit in the :file:`boards` directory.
+The ``uart0`` pins are configured by devicetree overlay files for each supported development kit in the :file:`boards` directory.
 
 Communication through USB
 -------------------------
 
-To change the communication channel from the default UART to nRF USB CDC ACM ``cdc_acm_uart0``, use the :file:`prj_usb.conf` configuration file and add the ``-DCONF_FILE='prj_usb.conf'`` flag to the build command.
+To change the communication channel from the default UART to nRF USB CDC ACM ``cdc_acm_uart0``, use the :file:`prj_usb.conf` configuration file and add the ``-DFILE_SUFFIX=usb`` flag to the build command.
 See :ref:`cmake_options` for instructions on how to add this flag to your build.
 For example, when building from the command line, use the following command:
 
 .. code-block:: console
 
-   west build samples/zigbee/ncp -b nrf52840dk_nrf52840 -- -DCONF_FILE='prj_usb.conf'
+   west build samples/zigbee/ncp -b nrf52840dk/nrf52840 -- -DFILE_SUFFIX=usb
 
 The USB device VID and PID are configured by the sample's Kconfig file.
 
@@ -167,10 +167,10 @@ For more configuration options, see :ref:`Zigbee stack logs <zigbee_ug_logging_s
 Bootloader support
 ==================
 
-The bootloader support in the NCP sample depends on the development kit, its respective build target, and `Serial communication setup`_:
+The bootloader support in the NCP sample depends on the development kit, its respective board target, and `Serial communication setup`_:
 
-* For the ``nrf52840dongle_nrf52840`` build target, the `nRF5 SDK Bootloader`_ is used by default because the dongle comes with this bootloader preinstalled.
-* For the ``nrf52840dk_nrf52840``, ``nrf52833dk_nrf52833``, and ``nrf21540dk_nrf52840`` build targets, the following scenarios are possible when building for them:
+* For the ``nrf52840dongle/nrf52840`` board target, the `nRF5 SDK Bootloader`_ is used by default because the dongle comes with this bootloader preinstalled.
+* For the ``nrf52840dk/nrf52840``, ``nrf52833dk/nrf52833``, and ``nrf21540dk/nrf52840`` board targets, the following scenarios are possible when building for them:
 
   * If you select `Communication through USB`_, `MCUboot`_ is enabled by default.
   * If you use the default UART serial communication channel, the bootloader support is not enabled, but you can enable MCUboot.
@@ -185,7 +185,7 @@ To use the same MCUboot configuration as in `Communication through USB`_, you ne
 See :ref:`ug_multi_image_variables` to learn how to set the required options.
 
 MCUboot with the USB DFU requires a larger partition.
-To increase the partition, define the ``PM_STATIC_YML_FILE`` variable that provides the path to the :file:`pm_static.yml` static configuration file in the :file:`configuration` directory for the build target of your choice.
+To increase the partition, define the ``PM_STATIC_YML_FILE`` variable that provides the path to the :file:`pm_static.yml` static configuration file in the :file:`configuration` directory for the board target of your choice.
 
 For instructions on how to set these additional options and configuration at build time, see :ref:`cmake_options` and :ref:`configure_application`.
 
@@ -193,7 +193,7 @@ See the following command-line instruction for an example:
 
 .. code-block:: console
 
-   west build samples/zigbee/ncp -b nrf52840dk_nrf52840 -- -DCONFIG_BOOTLOADER_MCUBOOT=y  -Dmcuboot_CONFIG_MULTITHREADING=y -Dmcuboot_CONFIG_BOOT_USB_DFU_WAIT=y -Dmcuboot_CONFIG_SINGLE_APPLICATION_SLOT=y -DPM_STATIC_YML_FILE=samples/zigbee/ncp/configuration/nrf52840dk_nrf52840/pm_static.yml
+   west build samples/zigbee/ncp -b nrf52840dk/nrf52840 -- -DCONFIG_BOOTLOADER_MCUBOOT=y  -Dmcuboot_CONFIG_MULTITHREADING=y -Dmcuboot_CONFIG_BOOT_USB_DFU_WAIT=y -Dmcuboot_CONFIG_SINGLE_APPLICATION_SLOT=y -DPM_STATIC_YML_FILE=samples/zigbee/ncp/configuration/nrf52840dk_nrf52840/pm_static.yml
 
 When building the sample, the build system also generates the signed :file:`app_update.bin` image file in the :file:`build` directory.
 You can use this file to upgrade a device.
@@ -208,7 +208,7 @@ To learn more about configuring bootloader for an application in |NCS|, see the 
 nRF5 SDK Bootloader
 -------------------
 
-When the sample is built for ``nrf52840dongle_nrf52840``, the build system does not produce an upgrade image.
+When the sample is built for ``nrf52840dongle/nrf52840``, the build system does not produce an upgrade image.
 To upgrade the dongle, you can use one of the following options:
 
 * nRF Connect Programmer application (part of `nRF Connect for Desktop`_).

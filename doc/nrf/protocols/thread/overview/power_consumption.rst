@@ -14,26 +14,27 @@ This page provides information about the amount of power used by Sleepy End Devi
 Measurements methodology
 ************************
 
-The measurement setup consists of:
+The measurement setup consists of the following:
 
-* An nrf52840dk_nrf52840 board used as a Thread leader.
+* An nRF52840 DK board used as a Thread leader.
 * A DUT board used as a Thread child.
 * A `Power Profiler Kit II (PPK2)`_ attached to the DUT according to the instructions in its Quick start guide.
 
 The leader board is flashed with the regular :ref:`Thread CLI sample <ot_cli_sample>` firmware.
 
-   .. code-block::
+.. code-block::
 
-      cd ncs/nrf/samples/openthread/cli/
-      west build -b nrf52840dk_nrf52840 -S ci -S logging
+   cd ncs/nrf/samples/openthread/cli/
+   west build -b nrf52840dk/nrf52840 -- -Dcli_SNIPPET="ci;logging"
 
 The DUT board is flashed with the :ref:`Thread CLI sample low power mode <ot_cli_sample_low_power>` firmware.
-In the build command below, replace ``build-target`` with the build target name of the DUT.
+In the build command below, replace *board_target* with the board target name of the DUT.
 
-   .. code-block::
+.. parsed-literal::
+   :class: highlight
 
-      cd ncs/nrf/samples/openthread/cli/
-      west build -b build-target -S ci -S low_power
+   cd ncs/nrf/samples/openthread/cli/
+   west build -b *board_target* -- -Dcli_SNIPPET="ci;low_power"
 
 
 After the Thread network is enabled on the leader, the child is configured with the desired parameters.
@@ -59,63 +60,63 @@ The following tables show the power consumption measured with the configuration 
 
       .. table:: Configuration
 
-         +--------------------------+---------------------+
-         | Parameter                | nrf52840dk_nrf52840 |
-         +==========================+=====================+
-         | Board revision           |              v3.0.1 |
-         +--------------------------+---------------------+
-         | Supply voltage [V]       |                 3.0 |
-         +--------------------------+---------------------+
-         | Transmission power [dBm] |                   0 |
-         +--------------------------+---------------------+
-         | Polling period [ms]      |                1000 |
-         +--------------------------+---------------------+
+         +--------------------------+---------------------+--------------------------+
+         | Parameter                | nrf52840dk/nrf52840 | nrf5340dk/nrf5340/cpuapp |
+         +==========================+=====================+==========================+
+         | Board revision           |              v3.0.2 |                   v2.0.2 |
+         +--------------------------+---------------------+--------------------------+
+         | Supply voltage [V]       |                 3.0 |                      3.0 |
+         +--------------------------+---------------------+--------------------------+
+         | Transmission power [dBm] |                   0 |                        0 |
+         +--------------------------+---------------------+--------------------------+
+         | Polling period [ms]      |                1000 |                     1000 |
+         +--------------------------+---------------------+--------------------------+
 
       .. table:: Power consumption
 
-         +-------------------------------+-----------------------+
-         | Parameter                     |   nrf52840dk_nrf52840 |
-         +===============================+=======================+
-         | Total charge per minute [μC]  |               1261.60 |
-         +-------------------------------+-----------------------+
-         | Average data poll charge [μC] |                 18.14 |
-         +-------------------------------+-----------------------+
-         | Average sleep current [μA]    |                  2.90 |
-         +-------------------------------+-----------------------+
+         +-------------------------------+-----------------------+----------------------------+
+         | Parameter                     |   nrf52840dk/nrf52840 |   nrf5340dk/nrf5340/cpuapp |
+         +===============================+=======================+============================+
+         | Total charge per minute [μC]  |               1135.87 |                    1196.07 |
+         +-------------------------------+-----------------------+----------------------------+
+         | Average data poll charge [μC] |                 16.48 |                      17.14 |
+         +-------------------------------+-----------------------+----------------------------+
+         | Average sleep current [μA]    |                  2.67 |                       3.00 |
+         +-------------------------------+-----------------------+----------------------------+
 
 
    .. group-tab:: Thread 1.3 SSED
 
       .. table:: Configuration
 
-         +--------------------------------+---------------------+
-         | Parameter                      | nrf52840dk_nrf52840 |
-         +================================+=====================+
-         | Board revision                 |              v3.0.1 |
-         +--------------------------------+---------------------+
-         | Supply voltage [V]             |                 3.0 |
-         +--------------------------------+---------------------+
-         | Transmission power [dBm]       |                   0 |
-         +--------------------------------+---------------------+
-         | CSL period [ms]                |                1000 |
-         +--------------------------------+---------------------+
-         | CSL timeout [s]                |                  20 |
-         +--------------------------------+---------------------+
-         | Parent's CSL accuracy [ppm]    |                 ±20 |
-         +--------------------------------+---------------------+
-         | Parent's CSL uncertainty [μs]  |                ±120 |
-         +--------------------------------+---------------------+
+         +--------------------------------+---------------------+--------------------------+
+         | Parameter                      | nrf52840dk/nrf52840 | nrf5340dk/nrf5340/cpuapp |
+         +================================+=====================+==========================+
+         | Board revision                 |              v3.0.2 |                   v2.0.2 |
+         +--------------------------------+---------------------+--------------------------+
+         | Supply voltage [V]             |                 3.0 |                      3.0 |
+         +--------------------------------+---------------------+--------------------------+
+         | Transmission power [dBm]       |                   0 |                        0 |
+         +--------------------------------+---------------------+--------------------------+
+         | CSL period [ms]                |                1000 |                     1000 |
+         +--------------------------------+---------------------+--------------------------+
+         | CSL timeout [s]                |                  20 |                       20 |
+         +--------------------------------+---------------------+--------------------------+
+         | Parent's CSL accuracy [ppm]    |                 ±20 |                      ±20 |
+         +--------------------------------+---------------------+--------------------------+
+         | Parent's CSL uncertainty [μs]  |                ±120 |                     ±120 |
+         +--------------------------------+---------------------+--------------------------+
 
       .. table:: Power consumption
 
-         +---------------------------------+-----------------------+
-         | Parameter                       |   nrf52840dk_nrf52840 |
-         +=================================+=======================+
-         | Total charge per minute [μC]    |               1115.00 |
-         +---------------------------------+-----------------------+
-         | Average CSL receive charge [μC] |                 14.24 |
-         +---------------------------------+-----------------------+
-         | Average data poll charge [μC]   |                 24.80 |
-         +---------------------------------+-----------------------+
-         | Average sleep current [μA]      |                  2.90 |
-         +---------------------------------+-----------------------+
+         +---------------------------------+-----------------------+----------------------------+
+         | Parameter                       |   nrf52840dk/nrf52840 |   nrf5340dk/nrf5340/cpuapp |
+         +=================================+=======================+============================+
+         | Total charge per minute [μC]    |               1049.87 |                    1099.53 |
+         +---------------------------------+-----------------------+----------------------------+
+         | Average CSL receive charge [μC] |                 13.91 |                      14.38 |
+         +---------------------------------+-----------------------+----------------------------+
+         | Average data poll charge [μC]   |                 21.93 |                      22.36 |
+         +---------------------------------+-----------------------+----------------------------+
+         | Average sleep current [μA]      |                  2.67 |                       2.97 |
+         +---------------------------------+-----------------------+----------------------------+

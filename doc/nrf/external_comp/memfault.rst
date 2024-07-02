@@ -15,7 +15,7 @@ Memfault integration provides the following features to |NCS|:
 * `Continuous monitoring <Memfault monitoring_>`_ - Monitors device and fleet-level metrics like connectivity and low power state in real-time dashboards and displays prepopulated metrics for your devices.
   You can access device level data to resolve bugs faster.
 
-See the `Memfault documentation <Memfault introduction_>`_ for more details.
+See the `Memfault sandbox <Memfault Sandbox_>`_ for a self-guided tour of the platform as well as the `Memfault documentation <Memfault introduction_>`_ for more details.
 
 .. note::
    Memfault has been integrated in |NCS| since the v1.6.0 release.
@@ -93,7 +93,7 @@ See the following example on how to set an overlay configuration for Memfault in
 
 .. code-block:: console
 
-   west build -b nrf9160dk_nrf9160_ns -- -DOVERLAY_CONFIG=overlay-memfault.conf
+   west build -b nrf9160dk/nrf9160/ns -- -DEXTRA_CONF_FILE=overlay-memfault.conf
 
 .. rst-class:: numbered-step
 

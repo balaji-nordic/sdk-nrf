@@ -15,6 +15,8 @@ The Asset Tracker v2 application is built on the following principles:
 * Batching of data - Data is batched to reduce the number of messages transmitted, and to be able to retain collected data while the device is offline.
 * Configurable at run time - The application behavior (for example, accelerometer sensitivity or GNSS timeout) can be configured at run time. This improves the development experience with individual devices or when debugging the device behavior in specific areas and situations. It also reduces the cost for transmitting data to the devices by reducing the frequency of sending firmware updates to the devices.
 
+.. _asset_tracker_v2_requirements:
+
 Requirements
 ************
 
@@ -33,7 +35,7 @@ Following are the cloud services that are supported by the application:
 * `AWS IoT Core`_
 * `Azure IoT Hub`_
 * `nRF Cloud`_
-* `LwM2M`_ v1.1 compliant service (for example, AVSystem's `Coiote Device Management`_, `Leshan LwM2M server <Leshan homepage_>`_).
+* `LwM2M`_ v1.1 compliant service (for example, AVSystem's `Coiote Device Management`_, `Leshan LwM2M Server <Leshan homepage_>`_).
   To know more about the AVSystem integration with |NCS|, see :ref:`ug_avsystem`.
 
 To run the application on a development kit and connect to a cloud service, you must complete the following steps:
@@ -57,7 +59,7 @@ To set up a cloud service to work with the application firmware, complete the st
    This value is printed on the development kit.
 
 * nRF Cloud - :ref:`Connecting your device to nRF Cloud <nrf9160_gs_connecting_dk_to_cloud>`.
-  The default configuration of the firmware is to communicate with `nRF Cloud`_ using the factory-provisioned certificates on nRF91 Series DKs and Thingy:91.
+  The default configuration of the firmware is to communicate with `nRF Cloud`_ using the factory-provisioned certificates on nRF91 Series DKs, Thingy:91, and Thingy:91 X.
   This means that no additional configuration of the firmware is needed to connect to nRF Cloud.
   It is recommended to build and run the firmware on the device before completing the steps listed in :ref:`Connecting your device to nRF Cloud <nrf9160_gs_connecting_dk_to_cloud>`.
   See :ref:`Building and running <building_and_running>`.
@@ -67,7 +69,7 @@ To set up a cloud service to work with the application firmware, complete the st
 
 * Azure IoT Hub - :ref:`lib_azure_iot_hub`.
   This step retrieves a *security tag* and *ID scope* that will be needed during the configuration of the firmware.
-  Make sure to follow the steps documented in the :ref:`dps_config` section to enable Device Provisioning Service (DPS).
+  Make sure to follow the steps documented in the :ref:`configuration using DPS <dps_config>` section to enable Device Provisioning Service (DPS).
 
 * AVSystem's LwM2M Coiote Device Management - :ref:`server_setup_lwm2m_client`.
   No additional configuration is needed if the server is set up according to the linked documentation.
@@ -104,8 +106,8 @@ The application provides predefined configuration files for typical use cases.
 
 Following are the available configuration files:
 
-* :file:`prj.conf` - Configuration file for all build targets.
-* :file:`boards/<BOARD>.conf` - Configuration file specific for a build target specified with **<BOARD>**, where **<BOARD>** is the build target, for example ``nrf9161dk_nrf9161_ns``.
+* :file:`prj.conf` - Configuration file for all board targets.
+* :file:`boards/<BOARD>.conf` - Configuration file specific for a board target specified with **<BOARD>**, where **<BOARD>** is the board target, for example ``nrf9161dk/nrf9161/ns``.
   This file is automatically merged with the :file:`prj.conf` file when you build for that target.
 
 The :file:`include/<BOARD>/led_state_def.h` header file describes the LED behavior of the CAF LEDs module.
@@ -133,10 +135,10 @@ Multiple overlay files can be included to enable multiple features at the same t
 
    Generally, Kconfig overlays have an ``overlay-`` prefix and a :file:`.conf` extension.
    Board-specific configuration files are placed in the :file:`boards` folder and are named as :file:`<BOARD>.conf`.
-   DTS overlay files are named the same as the build target and use the file extension :file:`.overlay`.
-   When they are placed in the :file:`boards` folder and the DTS overlay filename matches the build target,
-   the build system automatically selects and applies the overlay.
-   You can give the custom DTS overlay files as a compiler option ``-DEXTRA_DTC_OVERLAY_FILE=<dtc_filename>.overlay``.
+
+   The devicetree overlay files use the :ref:`normalized board target name <app_boards_names>` and the file extension :file:`.overlay` (for example, ``nrf9160dk/nrf9160`` becomes :file:`nrf9160dk_nrf9160.overlay`).
+   When they are placed in the :file:`boards` folder and the DTS overlay filename matches the board target (after normalization), the build system automatically selects and applies the overlay.
+   To select them manually, see :ref:`cmake_options`.
 
 Optional library configurations
 ===============================

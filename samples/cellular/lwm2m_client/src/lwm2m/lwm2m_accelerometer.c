@@ -10,6 +10,7 @@
 #include <zephyr/devicetree.h>
 #include "accelerometer.h"
 #include "lwm2m_app_utils.h"
+#include "lwm2m_engine.h"
 
 #if DT_NODE_HAS_STATUS(DT_NODELABEL(sensor_sim), okay)
 #define ACCEL_APP_TYPE "Simulated Accelerometer"
@@ -33,13 +34,14 @@
 static time_t timestamp;
 
 static int update_timestamp_cb(uint16_t obj_inst_id, uint16_t res_id, uint16_t res_inst_id,
-			       uint8_t *data, uint16_t data_len, bool last_block, size_t total_size)
+			       uint8_t *data, uint16_t data_len, bool last_block,
+			       size_t total_size, size_t offset)
 {
 	set_ipso_obj_timestamp(IPSO_OBJECT_ACCELEROMETER_ID, obj_inst_id);
 	return 0;
 }
 
-int lwm2m_init_accel(void)
+static int lwm2m_init_accel(void)
 {
 	double min_range_val = MIN_RANGE_VALUE;
 	double max_range_val = MAX_RANGE_VALUE;
@@ -77,3 +79,5 @@ int lwm2m_init_accel(void)
 
 	return 0;
 }
+
+LWM2M_APP_INIT(lwm2m_init_accel);

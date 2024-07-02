@@ -230,8 +230,10 @@ struct location_data_details {
 	 */
 	uint32_t elapsed_time_method;
 
+#if defined(CONFIG_LOCATION_METHOD_GNSS)
 	/** Location details for GNSS. */
 	struct location_data_details_gnss gnss;
+#endif
 #if defined(CONFIG_LOCATION_METHOD_CELLULAR)
 	/** Location details for cellular. */
 	struct location_data_details_cellular cellular;
@@ -264,6 +266,12 @@ struct location_data {
 /** Location error information. */
 struct location_data_error {
 	/** Data details at the time of error. */
+	struct location_data_details details;
+};
+
+/** Information for an unknown location result. */
+struct location_data_unknown {
+	/** Data details at the time of an unknown location result. */
 	struct location_data_details details;
 };
 
@@ -312,9 +320,13 @@ struct location_event_data {
 		 * Used with events @ref LOCATION_EVT_TIMEOUT and @ref LOCATION_EVT_ERROR.
 		 */
 		struct location_data_error error;
-#endif
 
-#if defined(CONFIG_LOCATION_DATA_DETAILS)
+		/**
+		 * Relevant location data when an unknown result occurs.
+		 * Used with event @ref LOCATION_EVT_RESULT_UNKNOWN.
+		 */
+		struct location_data_unknown unknown;
+
 		/**
 		 * Relevant location data when a fallback to another method occurs
 		 * due to a timeout or an error.
@@ -692,6 +704,21 @@ void location_config_defaults_set(
  * @return Location method in string format. Returns "Unknown" if given method is not known.
  */
 const char *location_method_str(enum location_method method);
+
+/**
+ * @brief Get location data details from the location event data.
+ *
+ * @details The @ref location_data_details structure is located in a different place in the
+ * @ref location_event_data structure depending on the event ID. This is a helper function
+ * to provide the @ref location_data_details structure.
+ *
+ * @param[in] event_data Event data.
+ *
+ * @return Location data details. NULL if there is no @ref location_data_details structure
+ *         for the provided event.
+ */
+const struct location_data_details *location_details_get(
+	const struct location_event_data *event_data);
 
 /**
  * @brief Feed in A-GNSS data to be processed by library.

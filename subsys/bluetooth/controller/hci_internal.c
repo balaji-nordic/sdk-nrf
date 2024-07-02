@@ -545,6 +545,11 @@ void hci_internal_supported_commands(sdc_hci_ip_supported_commands_t *cmds)
 	cmds->hci_le_transmitter_test_v4 = 1;
 #endif
 
+#if defined(CONFIG_BT_CTLR_SDC_LE_PATH_LOSS_MONITORING)
+	cmds->hci_le_set_path_loss_reporting_parameters = 1;
+	cmds->hci_le_set_path_loss_reporting_enable = 1;
+#endif
+
 #if defined(CONFIG_BT_CTLR_LE_POWER_CONTROL) || defined(CONFIG_BT_CTLR_ADV_EXT)
 	cmds->hci_le_read_rf_path_compensation = 1;
 	cmds->hci_le_write_rf_path_compensation = 1;
@@ -616,7 +621,6 @@ static void vs_zephyr_supported_commands(sdc_hci_vs_zephyr_supported_commands_t 
 	cmds->read_version_info = 1;
 	cmds->read_supported_commands = 1;
 
-#if defined(CONFIG_BT_HCI_VS_EXT)
 	cmds->write_bd_addr = 1;
 	cmds->read_static_addresses = 1;
 	cmds->read_key_hierarchy_roots = 1;
@@ -628,7 +632,6 @@ static void vs_zephyr_supported_commands(sdc_hci_vs_zephyr_supported_commands_t 
 	cmds->write_tx_power_level = 1;
 	cmds->read_tx_power_level = 1;
 #endif /* CONFIG_BT_CTLR_TX_PWR_DYNAMIC_CONTROL */
-#endif /* CONFIG_BT_HCI_VS_EXT */
 }
 
 static void vs_supported_commands(sdc_hci_vs_supported_vs_commands_t *cmds)
@@ -674,6 +677,11 @@ static void vs_supported_commands(sdc_hci_vs_supported_vs_commands_t *cmds)
 #if defined(CONFIG_BT_CTLR_CONN_ISO)
 	cmds->cig_reserved_time_set = 1;
 	cmds->cis_subevent_length_set = 1;
+#endif
+
+#if defined(CONFIG_BT_OBSERVER)
+	cmds->scan_channel_map_set = 1;
+	cmds->scan_accept_ext_adv_packets_set = 1;
 #endif
 }
 #endif	/* CONFIG_BT_HCI_VS */
@@ -741,6 +749,10 @@ void hci_internal_le_supported_features(
 	features->params.le_power_change_indication = 1;
 #endif
 
+#if defined(CONFIG_BT_CTLR_SDC_LE_PATH_LOSS_MONITORING)
+	features->params.le_path_loss_monitoring = 1;
+#endif
+
 #if defined(CONFIG_BT_CTLR_ADV_PERIODIC_ADI_SUPPORT)
 	features->params.periodic_advertising_adi_support = 1;
 #endif
@@ -787,8 +799,10 @@ static void le_read_supported_states(uint8_t *buf)
 
 #define ST_SCA (BIT(4)  | BIT(5)  | BIT(8)  | BIT(9)  | BIT(10) | \
 		BIT(11) | BIT(12) | BIT(13) | BIT(14) | BIT(15) | \
-		BIT(22) | BIT(23) | BIT(24) | BIT(25) | BIT(26) | \
+		BIT(24) | BIT(25) | BIT(26) | \
 		BIT(27) | BIT(30) | BIT(31))
+
+#define ST_SCA_INI (BIT(22) | BIT(23))
 
 #define ST_SLA (BIT(2)  | BIT(3)  | BIT(7)  | BIT(10) | BIT(11) | \
 		BIT(14) | BIT(15) | BIT(20) | BIT(21) | BIT(26) | \
@@ -829,11 +843,13 @@ static void le_read_supported_states(uint8_t *buf)
 	states1 &= ~ST_MAS;
 	states2 &= ~ST_MAS2;
 #endif
-	/* All states and combinations supported except:
-	 * Initiating State + Passive Scanning
-	 * Initiating State + Active Scanning
-	 */
-	states1 &= ~(BIT(22) | BIT(23));
+
+#if defined(CONFIG_BT_CTLR_SDC_ALLOW_PARALLEL_SCANNING_AND_INITIATING)
+	states1 |= ST_SCA_INI;
+#else
+	states1 &= ~ST_SCA_INI;
+#endif
+
 	*buf = states1;
 	*(buf + 4) = states2;
 }
@@ -1296,6 +1312,18 @@ static uint8_t le_controller_cmd_put(uint8_t const * const cmd,
 									  (void *)event_out_params);
 #endif
 
+#if defined(CONFIG_BT_CTLR_SDC_LE_PATH_LOSS_MONITORING)
+	case SDC_HCI_OPCODE_CMD_LE_SET_PATH_LOSS_REPORTING_PARAMS:
+		*param_length_out += sizeof(sdc_hci_cmd_le_set_path_loss_reporting_params_return_t);
+		return sdc_hci_cmd_le_set_path_loss_reporting_params((void *)cmd_params,
+								     (void *)event_out_params);
+
+	case SDC_HCI_OPCODE_CMD_LE_SET_PATH_LOSS_REPORTING_ENABLE:
+		*param_length_out += sizeof(sdc_hci_cmd_le_set_path_loss_reporting_enable_return_t);
+		return sdc_hci_cmd_le_set_path_loss_reporting_enable((void *)cmd_params,
+								     (void *)event_out_params);
+#endif
+
 #if defined(CONFIG_BT_CTLR_LE_POWER_CONTROL) || defined(CONFIG_BT_CTLR_ADV_EXT)
 	case SDC_HCI_OPCODE_CMD_LE_READ_RF_PATH_COMPENSATION:
 		*param_length_out += sizeof(sdc_hci_cmd_le_read_rf_path_compensation_return_t);
@@ -1528,7 +1556,6 @@ static uint8_t vs_cmd_put(uint8_t const *const cmd, uint8_t *const raw_event_out
 		vs_zephyr_supported_commands((void *)event_out_params);
 		return 0;
 
-#if defined(CONFIG_BT_HCI_VS_EXT)
 	case SDC_HCI_OPCODE_CMD_VS_ZEPHYR_READ_STATIC_ADDRESSES:
 		/* We always return one entry */
 		*param_length_out += sizeof(sdc_hci_cmd_vs_zephyr_read_static_addresses_return_t);
@@ -1557,7 +1584,6 @@ static uint8_t vs_cmd_put(uint8_t const *const cmd, uint8_t *const raw_event_out
 		return sdc_hci_cmd_vs_zephyr_read_tx_power((void *)cmd_params,
 							   (void *)event_out_params);
 #endif /* CONFIG_BT_CTLR_TX_PWR_DYNAMIC_CONTROL */
-#endif /* CONFIG_BT_HCI_VS_EXT */
 	case SDC_HCI_OPCODE_CMD_VS_READ_SUPPORTED_VS_COMMANDS:
 		*param_length_out += sizeof(sdc_hci_cmd_vs_read_supported_vs_commands_return_t);
 		vs_supported_commands((void *)event_out_params);
@@ -1636,6 +1662,18 @@ static uint8_t vs_cmd_put(uint8_t const *const cmd, uint8_t *const raw_event_out
 		return sdc_hci_cmd_vs_cis_subevent_length_set(
 			(sdc_hci_cmd_vs_cis_subevent_length_set_t const *)cmd_params);
 #endif
+
+#if defined(CONFIG_BT_OBSERVER)
+	case SDC_HCI_OPCODE_CMD_VS_SCAN_CHANNEL_MAP_SET:
+		return sdc_hci_cmd_vs_scan_channel_map_set(
+			(sdc_hci_cmd_vs_scan_channel_map_set_t const *)cmd_params);
+	case SDC_HCI_OPCODE_CMD_VS_SCAN_ACCEPT_EXT_ADV_PACKETS_SET:
+		return sdc_hci_cmd_vs_scan_accept_ext_adv_packets_set(
+			(sdc_hci_cmd_vs_scan_accept_ext_adv_packets_set_t const *)cmd_params);
+#endif
+		case SDC_HCI_OPCODE_CMD_VS_SET_ROLE_PRIORITY:
+			return sdc_hci_cmd_vs_set_role_priority(
+				(sdc_hci_cmd_vs_set_role_priority_t const *) cmd_params);
 	default:
 		return BT_HCI_ERR_UNKNOWN_CMD;
 	}

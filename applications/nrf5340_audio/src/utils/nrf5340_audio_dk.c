@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
  */
 
+#include <nrfx_clock.h>
+
 #include "led.h"
 #include "button_handler.h"
 #include "button_assignments.h"
-#include "nrfx_clock.h"
 #include "sd_card.h"
 #include "board_version.h"
 #include "channel_assignment.h"
-#include "audio_system.h"
 
 #include "sd_card_playback.h"
 
@@ -19,25 +19,6 @@
 LOG_MODULE_REGISTER(nrf5340_audio_dk, CONFIG_MODULE_NRF5340_AUDIO_DK_LOG_LEVEL);
 
 static struct board_version board_rev;
-
-static int hfclock_config_and_start(void)
-{
-	int ret;
-
-	/* Use this to turn on 128 MHz clock for cpu_app */
-	ret = nrfx_clock_divider_set(NRF_CLOCK_DOMAIN_HFCLK, NRF_CLOCK_HFCLK_DIV_1);
-
-	ret -= NRFX_ERROR_BASE_NUM;
-	if (ret) {
-		return ret;
-	}
-
-	nrfx_clock_hfclk_start();
-	while (!nrfx_clock_hfclk_is_running()) {
-	}
-
-	return 0;
-}
 
 static int leds_set(void)
 {
@@ -59,16 +40,13 @@ static int leds_set(void)
 	} else {
 		ret = led_on(LED_APP_RGB, LED_COLOR_MAGENTA);
 	}
+#elif (CONFIG_AUDIO_DEV == GATEWAY)
+	ret = led_on(LED_APP_RGB, LED_COLOR_GREEN);
+#endif /* (CONFIG_AUDIO_DEV == HEADSET) */
 
 	if (ret) {
 		return ret;
 	}
-#elif (CONFIG_AUDIO_DEV == GATEWAY)
-	ret = led_on(LED_APP_RGB, LED_COLOR_GREEN);
-	if (ret) {
-		return ret;
-	}
-#endif /* (CONFIG_AUDIO_DEV == HEADSET) */
 
 	return 0;
 }
@@ -107,11 +85,6 @@ int nrf5340_audio_dk_init(void)
 {
 	int ret;
 
-	ret = hfclock_config_and_start();
-	if (ret) {
-		return ret;
-	}
-
 	ret = led_init();
 	if (ret) {
 		LOG_ERR("Failed to initialize LED module");
@@ -123,8 +96,6 @@ int nrf5340_audio_dk_init(void)
 		LOG_ERR("Failed to initialize button handler");
 		return ret;
 	}
-
-	channel_assignment_init();
 
 	ret = channel_assign_check();
 	if (ret) {
@@ -164,9 +135,10 @@ int nrf5340_audio_dk_init(void)
 		}
 	}
 
-	ret = audio_system_init();
+	/* Use this to turn on 128 MHz clock for cpu_app */
+	ret = nrfx_clock_divider_set(NRF_CLOCK_DOMAIN_HFCLK, NRF_CLOCK_HFCLK_DIV_1);
+	ret -= NRFX_ERROR_BASE_NUM;
 	if (ret) {
-		LOG_ERR("Failed to initialize the audio system");
 		return ret;
 	}
 

@@ -182,15 +182,17 @@ int parse_rrc_mode(const char *at_response,
 
 /* @brief Parses an AT command response and returns the current eDRX configuration.
  *
- * @note It's assumed that the network only reports valid eDRX values when
- *	 in each mode (LTE-M and NB1). There's no sanity-check of these values.
+ * @note It is assumed that the network only reports valid eDRX values when
+ *	 in each mode (LTE-M and NB1). There is no sanity check of these values.
  *
- * @param at_response Pointer to buffer with AT response.
- * @param cfg Pointer to where the eDRX configuration is stored.
+ * @param[in] at_response Pointer to buffer with AT response.
+ * @param[in] cfg Pointer to where the eDRX configuration is stored.
+ * @param[out] edrx_str eDRX value as a string. Must be 5 characters long buffer.
+ * @param[out] ptw_str PTW as a string. Must be 5 characters long buffer.
  *
  * @return Zero on success or (negative) error code otherwise.
  */
-int parse_edrx(const char *at_response, struct lte_lc_edrx_cfg *cfg);
+int parse_edrx(const char *at_response, struct lte_lc_edrx_cfg *cfg, char *edrx_str, char *ptw_str);
 
 /* @brief Parses PSM configuration from periodic TAU timer and active time strings.
  *
@@ -227,6 +229,7 @@ int encode_psm(char *tau_ext_str, char *active_time_str, int rptau, int rat);
  *		     Can be NULL.
  * @param cell Pointer to cell information struct. Can be NULL.
  * @param lte_mode Pointer to LTE mode struct. Can be NULL.
+ * @param psm_cfg Pointer to PSM configuration struct. Can be NULL.
  *
  * @return Zero on success or (negative) error code otherwise.
  */
@@ -234,7 +237,8 @@ int parse_cereg(const char *at_response,
 		bool is_notif,
 		enum lte_lc_nw_reg_status *reg_status,
 		struct lte_lc_cell *cell,
-		enum lte_lc_lte_mode *lte_mode);
+		enum lte_lc_lte_mode *lte_mode,
+		struct lte_lc_psm_cfg *psm_cfg);
 
 /* @brief Parses an XT3412 response and extracts the time until next TAU.
  *

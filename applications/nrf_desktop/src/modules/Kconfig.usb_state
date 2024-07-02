@@ -6,8 +6,6 @@
 
 menuconfig DESKTOP_USB_ENABLE
 	bool "Enable USB module"
-	select USB_DEVICE_STACK
-	select USB_DEVICE_HID
 	help
 	  Enables USB module. The module allows to transfer HID reports over
 	  USB.
@@ -17,8 +15,7 @@ if DESKTOP_USB_ENABLE
 config DESKTOP_USB_REMOTE_WAKEUP
 	bool "Enable USB remote wakeup"
 	default y
-	select USB_DEVICE_REMOTE_WAKEUP
-	depends on CAF_PM_EVENTS
+	depends on DESKTOP_USB_PM_ENABLE
 	help
 	  Enable USB remote wakeup functionality. The USB wakeup request is
 	  triggered on wake_up_event.
@@ -29,7 +26,7 @@ config DESKTOP_USB_SUBSCRIBER_REPORT_PRIORITY
 	range 1 255
 	help
 	  USB reports subscriber priority. The lower value means the lower
-	  priority in subscribtion to HID reports. By default, the USB uses the highest
+	  priority in subscription to HID reports. By default, the USB uses the highest
 	  possible priority.
 
 config DESKTOP_USB_SELECTIVE_REPORT_SUBSCRIPTION
@@ -49,6 +46,58 @@ config DESKTOP_USB_PM_ENABLE
 	default y
 	help
 	  This enables small module that blocks power down if the USB is active.
+
+config DESKTOP_USB_INIT_THREAD
+	bool
+	default y if SOC_SERIES_NRF54HX
+	help
+	  Initialize USB stack in a separate thread instead of doing it in
+	  the context of the system workqueue.
+	  For the nRF54HX SoC use-case, the usbd_init() function blocks while
+	  waiting for a synchronization object that is received after the system
+	  controller sends the USB service event through the NRFS and IPC with
+	  the ICMSG backend to the application core.
+	  The ICMSG backend uses the system workqueue context for both
+	  initialization and on the incoming message handling, so calling the
+	  usbd_init() function from the same context causes deadlock during
+	  application boot.
+
+config DESKTOP_USB_INIT_THREAD_STACK_SIZE
+	int
+	default 2048
+
+config DESKTOP_USB_INIT_THREAD_PRIORITY
+	int
+	default -1
+
+config DESKTOP_USB_INIT_THREAD_DELAY_MS
+	int
+	default 30
+	help
+	  Due to an issue in the USB stack initialization on the nRF54HX SoC,
+	  the usbd_init() cannot be called too early. The delay is introduced
+	  to delay this call.
+
+choice DESKTOP_USB_STACK
+	prompt "USB stack"
+	default DESKTOP_USB_STACK_LEGACY
+
+config DESKTOP_USB_STACK_NEXT
+	bool "USB next stack [EXPERIMENTAL]"
+	select EXPERIMENTAL
+	select USB_DEVICE_STACK_NEXT
+	help
+	  Use experimental integration of USB next stack.
+
+config DESKTOP_USB_STACK_LEGACY
+	bool "USB legacy stack"
+	select USB_DEVICE_STACK
+	select USB_DEVICE_HID
+	select USB_DEVICE_REMOTE_WAKEUP if DESKTOP_USB_REMOTE_WAKEUP
+
+endchoice
+
+if DESKTOP_USB_STACK_LEGACY
 
 config USB_HID_POLL_INTERVAL_MS
 	default 1
@@ -118,6 +167,48 @@ choice USB_HID_LOG_LEVEL_CHOICE
 	help
 	  Reduce USB HID log level to avoid flooding logs on USB state changes.
 endchoice
+
+endif # DESKTOP_USB_STACK_LEGACY
+
+if DESKTOP_USB_STACK_NEXT
+
+config USBD_HID_IN_BUF_COUNT
+	default 1
+	help
+	  nRF Desktop queues HID reports at the source. There is no need to use
+	  multiple buffers in the IN pool per HID instance.
+
+config DESKTOP_USB_STACK_NEXT_DISABLE_ON_VBUS_REMOVAL
+	bool
+	default y if SOC_SERIES_NRF54HX
+	depends on DESKTOP_USB_INIT_THREAD
+	select REBOOT
+	help
+	  Disable USB stack on VBUS removal. This is a workaround for the USB
+	  driver not working correctly on the nRF54HX SoC. After the USB cable
+	  is removed, the USB driver is powered down and doesn't call appropriate
+	  callbacks to the USB stack. It may lead to the USB stack ending in a
+	  broken state. Calling usbd_disable() on VBUS removal workarounds this
+	  issue. When this option is enabled, the usb_init_thread will be used to
+	  call the usbd_enable() and usbd_disable() functions on VBUS events. This
+	  is done because the usbd_enable() function blocks if the USB cable is
+	  not connected. A separate thread allows the application to trigger a
+	  reboot from the workqueue context to prevent blocking the application
+	  forever.
+
+choice USBD_LOG_LEVEL_CHOICE
+	default USBD_LOG_LEVEL_WRN
+	help
+	  Reduce USBD log level to avoid flooding logs.
+endchoice
+
+choice UDC_DRIVER_LOG_LEVEL_CHOICE
+	default UDC_DRIVER_LOG_LEVEL_WRN
+	help
+	  Reduce USB driver log level to avoid flooding logs.
+endchoice
+
+endif # DESKTOP_USB_STACK_NEXT
 
 module = DESKTOP_USB_STATE
 module-str = USB state

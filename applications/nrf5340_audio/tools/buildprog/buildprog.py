@@ -15,8 +15,8 @@ import os
 import json
 import subprocess
 import re
-import glob
 import getpass
+from pathlib import Path
 from colorama import Fore, Style
 from prettytable import PrettyTable
 from nrf5340_audio_dk_devices import (
@@ -27,10 +27,8 @@ from nrf5340_audio_dk_devices import (
     AudioDevice,
     SelectFlags,
     Core,
-    Controller,
 )
 from program import program_threads_run
-from pathlib import Path
 
 
 BUILDPROG_FOLDER = Path(__file__).resolve().parent
@@ -41,7 +39,7 @@ if os.getenv("AUDIO_KIT_SERIAL_NUMBERS_JSON") is None:
 else:
     AUDIO_KIT_SERIAL_NUMBERS_JSON = Path(
         os.getenv("AUDIO_KIT_SERIAL_NUMBERS_JSON"))
-TARGET_BOARD_NRF5340_AUDIO_DK_APP_NAME = "nrf5340_audio_dk_nrf5340_cpuapp"
+TARGET_BOARD_NRF5340_AUDIO_DK_APP_NAME = "nrf5340_audio_dk/nrf5340/cpuapp"
 
 TARGET_CORE_APP_FOLDER = NRF5340_AUDIO_FOLDER
 TARGET_DEV_HEADSET_FOLDER = NRF5340_AUDIO_FOLDER / "build/dev_headset"
@@ -86,9 +84,11 @@ def __print_dev_conf(device_list):
     print(table)
 
 
-def __build_cmd_get(core: Core, device: AudioDevice, build: BuildType, pristine, controller: Controller, child_image, options):
+def __build_cmd_get(core: Core, device: AudioDevice, build: BuildType,
+                    pristine, child_image, options):
     if core == Core.app:
-        build_cmd = f"west build {TARGET_CORE_APP_FOLDER} -b {TARGET_BOARD_NRF5340_AUDIO_DK_APP_NAME}"
+        build_cmd = (f"west build {TARGET_CORE_APP_FOLDER} "
+                     f"-b {TARGET_BOARD_NRF5340_AUDIO_DK_APP_NAME}")
         if device == AudioDevice.headset:
             device_flag = "-DCONFIG_AUDIO_DEV=1"
             dest_folder = TARGET_DEV_HEADSET_FOLDER
@@ -102,30 +102,17 @@ def __build_cmd_get(core: Core, device: AudioDevice, build: BuildType, pristine,
             release_flag = ""
             dest_folder /= TARGET_DEBUG_FOLDER
         elif build == BuildType.release:
-            release_flag = " -DCONF_FILE=prj_release.conf"
+            release_flag = " -DFILE_SUFFIX=release"
             dest_folder /= TARGET_RELEASE_FOLDER
         else:
             raise Exception("Invalid build type!")
 
-        if options.mcuboot == 'internal':
-            device_flag += " -DCONFIG_AUDIO_DFU=1"
-        elif options.mcuboot == 'external':
-            device_flag += " -DCONFIG_AUDIO_DFU=2"
-        if options.min_b0n:
-            device_flag += " -DCONFIG_B0N_MINIMAL=y"
-
-        if options.controller == Controller.acs_nrf53:
-            device_flag += " -DCONFIG_BT_LL_ACS_NRF53=y"
+        if not child_image:
             device_flag += " -DCONFIG_NCS_INCLUDE_RPMSG_CHILD_IMAGE=n"
 
-        if options.controller == Controller.sdc:
-            if not child_image:
-                device_flag += " -DCONFIG_NCS_INCLUDE_RPMSG_CHILD_IMAGE=n"
-
         if options.nrf21540:
-            device_flag += " -DSHIELD=nrf21540ek_fwd"
-            if options.controller == Controller.sdc:
-                device_flag += " -Dhci_ipc_SHIELD=nrf21540ek"
+            device_flag += " -Dnrf5340_audio_SHIELD=nrf21540ek_fwd"
+            device_flag += " -Dipc_radio_SHIELD=nrf21540ek"
 
         if options.custom_bt_name is not None and options.user_bt_name:
             raise Exception(
@@ -168,7 +155,6 @@ def __build_module(build_config, options):
         build_config.device,
         build_config.build,
         build_config.pristine,
-        build_config.controller,
         build_config.child_image,
         options,
     )
@@ -207,38 +193,11 @@ def __populate_hex_paths(dev, options, child_image):
     """Poplulate hex paths where relevant"""
 
     _, temp_dest_folder, _, _ = __build_cmd_get(
-        Core.app, dev.nrf5340_audio_dk_dev, options.build, options.pristine, options.controller, child_image, options
+        Core.app, dev.nrf5340_audio_dk_dev, options.build, options.pristine, child_image, options
     )
 
-    dest_folder = temp_dest_folder
-
-    if options.controller == Controller.sdc:
-        dev.hex_path_app = dest_folder / "zephyr/zephyr.hex"
-        dev.hex_path_net = dest_folder / "hci_ipc/zephyr/zephyr.hex"
-        return
-
-    if dev.core_app_programmed == SelectFlags.TBD:
-        if options.mcuboot != '':
-            dev.hex_path_app = dest_folder / "zephyr/merged.hex"
-        else:
-            dev.hex_path_app = dest_folder / "zephyr/zephyr.hex"
-
-    if dev.core_net_programmed == SelectFlags.TBD:
-        hex_files_found = 0
-        for hex_path in glob.glob(str(NRF_FOLDER) + "/lib/bin/bt_ll_acs_nrf53/bin/" + "ble5-ctr-rpmsg_" + "[0-9]" + "*" + ".hex"):
-            dev.hex_path_net = hex_path
-            hex_files_found += 1
-
-        if options.mcuboot != '':
-            dev.hex_path_net = dest_folder / "zephyr/net_core_app_signed.hex"
-        else:
-            dest_folder = NRF_FOLDER / "lib/bin/bt_ll_acs_nrf53/bin"
-
-            if hex_files_found != 1:
-                raise Exception(
-                    f"Found zero or multiple NET hex files in folder: {dest_folder}")
-            else:
-                print(f"Using NET hex: {dev.hex_path_net} for {dev}")
+    dev.hex_path_app = temp_dest_folder / "merged.hex"
+    dev.hex_path_net = temp_dest_folder / "merged_CPUNET.hex"
 
 
 def __finish(device_list):
@@ -255,8 +214,9 @@ def __main():
             "This script builds and programs the nRF5340 "
             "Audio project on Windows and Linux"
         ),
-        epilog=("If there exists an environmental variable called \"AUDIO_KIT_SERIAL_NUMBERS_JSON\" which contains"
-                "the location of a json file, the program will use this file as a substitute for nrf5340_audio_dk_devices.json"),
+        epilog=("If there exists an environmental variable called \"AUDIO_KIT_SERIAL_NUMBERS_JSON\""
+                "which contains the location of a json file,"
+                "the program will use this file as a substitute for nrf5340_audio_dk_devices.json"),
         allow_abbrev=False
     )
     parser.add_argument(
@@ -311,8 +271,7 @@ def __main():
         action="store_true",
         dest="sequential_prog",
         default=False,
-        help="Run nrfjprog sequentially instead of in \
-                        parallel",
+        help="Run nrfjprog sequentially instead of in parallel",
     )
     parser.add_argument(
         "-f",
@@ -321,34 +280,6 @@ def __main():
         dest="recover_on_fail",
         default=False,
         help="Recover device if programming fails",
-    )
-    parser.add_argument(
-        # Deprecated argument
-        "--ctlr",
-        type=str,
-        choices=[i.value for i in Controller],
-        dest="controller",
-        default=Controller.sdc.value,
-        help=Controller.acs_nrf53.value + \
-        " is deprecated. Use the SoftDevice Controller instead (enabled by default).",
-    )
-    # DFU relative option
-    parser.add_argument(
-        "-M",
-        "--min_b0n",
-        dest="min_b0n",
-        action='store_true',
-        default=False,
-        help="net core bootloader use minimal size build. Only for controller: " +
-        Controller.acs_nrf53,
-    )
-    parser.add_argument(
-        "-m",
-        "--mcuboot",
-        required=("-M" in sys.argv or "--min_b0n" in sys.argv),
-        choices=["external", "internal"],
-        default='',
-        help="MCUBOOT with external, internal flash. Only for controller: " + Controller.acs_nrf53,
     )
     parser.add_argument(
         "--nrf21540",
@@ -371,18 +302,11 @@ def __main():
         action="store_true",
         dest="user_bt_name",
         default=False,
-        help="Set to generate a user specific Bluetooth device name. Note that this will put the computer user name on air in clear text",
+        help="Set to generate a user specific Bluetooth device name.\
+              Note that this will put the computer user name on air in clear text",
     )
 
     options = parser.parse_args(args=sys.argv[1:])
-
-    if options.controller == Controller.acs_nrf53:
-        print(Fore.YELLOW +
-              "Deprecated app - controller combination" + Style.RESET_ALL)
-    if options.controller == Controller.sdc:
-        if options.mcuboot != '' or options.min_b0n:
-            raise Exception("DFU arguments only accepted when using controller: " +
-                            Controller.acs_nrf53 + ". Please use standard tools.")
 
     # Post processing for Enums
     if options.core is None:
@@ -424,7 +348,6 @@ def __main():
             cores=cores,
             devices=devices,
             _only_reboot=options.only_reboot,
-            controller=options.controller,
         )
         for dev in dev_arr
     ]
@@ -435,8 +358,7 @@ def __main():
     # Reboot step start
 
     if options.only_reboot == SelectFlags.TBD:
-        program_threads_run(device_list, options.mcuboot,
-                            sequential=options.sequential_prog)
+        program_threads_run(device_list, sequential=options.sequential_prog)
         __finish(device_list)
 
     # Reboot step finished
@@ -457,7 +379,6 @@ def __main():
                         device=AudioDevice.headset,
                         pristine=options.pristine,
                         build=options.build,
-                        controller=options.controller,
                         child_image=child_image,
                     )
                 )
@@ -468,7 +389,6 @@ def __main():
                         device=AudioDevice.gateway,
                         pristine=options.pristine,
                         build=options.build,
-                        controller=options.controller,
                         child_image=child_image,
                     )
                 )
@@ -486,8 +406,7 @@ def __main():
         for dev in device_list:
             if dev.snr_connected:
                 __populate_hex_paths(dev, options, child_image)
-        program_threads_run(device_list, options.mcuboot,
-                            sequential=options.sequential_prog)
+        program_threads_run(device_list, sequential=options.sequential_prog)
 
     # Program step finished
 

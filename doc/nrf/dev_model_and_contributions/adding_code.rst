@@ -128,7 +128,7 @@ This repository showcases the following features of both the |NCS| and Zephyr:
 * Custom :ref:`devicetree bindings <zephyr:dt-bindings>`
 * Out-of-tree :ref:`drivers <zephyr:device_model_api>`
 * Out-of-tree libraries
-* Example CI configuration (using Github Actions)
+* Example CI configuration (using GitHub Actions)
 * Custom :ref:`west extension <zephyr:west-extensions>`
 
 .. example_app_end
@@ -162,7 +162,7 @@ This is demonstrated by the following code, that would be placed somewhere in yo
        - name: nrf
          repo-path: sdk-nrf
          remote: ncs
-         revision: v2.5.2
+         revision: 2.6.1
          import: true
      self:
        path: application
@@ -189,7 +189,7 @@ For example:
      projects:
        - name: nrf
          remote: ncs
-         revision: v2.5.2
+         revision: 2.6.1
          import: true
        # Example for how to override a repository in the nRF Connect SDK with your own:
        - name: mcuboot

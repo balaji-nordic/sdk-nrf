@@ -35,6 +35,7 @@ LOG_MODULE_REGISTER(dtls, CONFIG_NRF_CLOUD_COAP_LOG_LEVEL);
 static int sectag = CONFIG_NRF_CLOUD_COAP_SEC_TAG;
 static bool dtls_cid_active;
 static bool cid_supported = true;
+static bool keepopen_supported;
 
 #if defined(CONFIG_MODEM_INFO)
 static struct modem_param_info mdm_param;
@@ -167,21 +168,33 @@ int nrfc_dtls_setup(int sock)
 
 	int session_cache = TLS_SESSION_CACHE_ENABLED;
 
+	LOG_DBG("  TLS session cache: %d", session_cache);
 	err = setsockopt(sock, SOL_TLS, TLS_SESSION_CACHE, &session_cache, sizeof(session_cache));
 	if (err) {
 		LOG_ERR("Failed to enable session cache, errno: %d", -errno);
 		err = -errno;
 	}
+
+	keepopen_supported = false;
+	if (IS_ENABLED(CONFIG_NRF_CLOUD_COAP_KEEPOPEN)) {
+		err = setsockopt(sock, SOL_SOCKET, SO_KEEPOPEN, &(int){1}, sizeof(int));
+		if (err) {
+			/* Either not supported or unusable due to unknown error. */
+			err = 0;
+		} else {
+			keepopen_supported = true;
+		}
+	}
+	LOG_DBG("  Keep open supported: %d", keepopen_supported);
 	return err;
 }
 
 int nrfc_dtls_session_save(int sock)
 {
-	int dummy = 0;
 	int err;
 
 	LOG_DBG("Save DTLS CID session");
-	err = setsockopt(sock, SOL_TLS, TLS_DTLS_CONN_SAVE, &dummy, sizeof(dummy));
+	err = setsockopt(sock, SOL_TLS, TLS_DTLS_CONN_SAVE, &(int){0}, sizeof(int));
 	if (err) {
 		LOG_DBG("Failed to save DTLS CID session, errno %d", -errno);
 		err = -errno;
@@ -191,11 +204,10 @@ int nrfc_dtls_session_save(int sock)
 
 int nrfc_dtls_session_load(int sock)
 {
-	int dummy = 1;
 	int err;
 
 	LOG_DBG("Load DTLS CID session");
-	err = setsockopt(sock, SOL_TLS, TLS_DTLS_CONN_LOAD, &dummy, sizeof(dummy));
+	err = setsockopt(sock, SOL_TLS, TLS_DTLS_CONN_LOAD, &(int){1}, sizeof(int));
 	if (err) {
 		LOG_DBG("Failed to load DTLS CID session, errno %d", -errno);
 		err = -errno;
@@ -268,4 +280,9 @@ bool nrfc_dtls_cid_is_active(int sock)
 	}
 
 	return dtls_cid_active;
+}
+
+bool nrfc_keepopen_is_supported(void)
+{
+	return keepopen_supported;
 }

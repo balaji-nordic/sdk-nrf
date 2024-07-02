@@ -72,22 +72,42 @@ target_sources(tfm_sprt
 )
 
 if (${TFM_PARTITION_CRYPTO})
-  target_sources(platform_crypto_keys
-    PRIVATE
-      ${CMAKE_CURRENT_LIST_DIR}/common/crypto_keys.c
-  )
-
-  if (${CONFIG_HW_UNIQUE_KEY})
-    target_compile_definitions(platform_s PUBLIC
-      CONFIG_HW_UNIQUE_KEY
-      $<$<BOOL:${CONFIG_HW_UNIQUE_KEY_RANDOM}>:CONFIG_HW_UNIQUE_KEY_RANDOM>)
-
-    target_sources(platform_s
+  if(CRYPTO_TFM_BUILTIN_KEYS_DRIVER)
+    target_sources(platform_crypto_keys
       PRIVATE
-        ${ZEPHYR_NRF_MODULE_DIR}/lib/hw_unique_key/hw_unique_key.c
-        ${ZEPHYR_NRF_MODULE_DIR}/lib/hw_unique_key/hw_unique_key_kmu.c
+        ${CMAKE_CURRENT_LIST_DIR}/common/crypto_keys.c
     )
   endif()
+
+  target_link_libraries(platform_crypto_keys
+	PUBLIC
+	platform_s
+	# Link with mbedcrypto_common to get Oberon PSA headers instead of
+	# TF-M PSA headers
+	mbedcrypto_common
+	# Link with tfm_sprt to get the include path for tfm_sp_log.h
+	tfm_sprt
+  )
+
+   if (${CONFIG_HW_UNIQUE_KEY})
+     target_compile_definitions(platform_s PUBLIC
+       CONFIG_HW_UNIQUE_KEY
+       $<$<BOOL:${CONFIG_HW_UNIQUE_KEY_RANDOM}>:CONFIG_HW_UNIQUE_KEY_RANDOM>)
+
+
+       if((NRF_SOC_VARIANT STREQUAL nrf54l15) OR (target STREQUAL nrf54l15))
+          target_sources(platform_crypto_keys
+            PRIVATE
+             ${ZEPHYR_NRF_MODULE_DIR}/lib/hw_unique_key/hw_unique_key_cracen.c
+          )
+       else()
+          target_sources(platform_s
+            PRIVATE
+              ${ZEPHYR_NRF_MODULE_DIR}/lib/hw_unique_key/hw_unique_key.c
+              ${ZEPHYR_NRF_MODULE_DIR}/lib/hw_unique_key/hw_unique_key_kmu.c
+          )
+       endif()
+   endif()
 
   if (${TFM_PARTITION_INITIAL_ATTESTATION})
     target_sources(platform_s
@@ -95,8 +115,6 @@ if (${TFM_PARTITION_CRYPTO})
         ${ZEPHYR_NRF_MODULE_DIR}/lib/identity_key/identity_key.c
     )
   endif()
-
-  target_link_libraries(platform_crypto_keys PUBLIC platform_s)
 
   if(EXISTS platform_cc3xx)
 	target_link_libraries(platform_s PRIVATE platform_cc3xx)
@@ -136,7 +154,6 @@ if (CRYPTO_STORAGE_DISABLED AND TFM_PARTITION_CRYPTO AND NOT TFM_PARTITION_INTER
   target_compile_definitions(platform_s PUBLIC
     TFM_INTERNAL_TRUSTED_STORAGE_SERVICE_SID=0x00000070)
 endif()
-
 
 if(BL2)
   message(FATAL_ERROR "BL2 is not supported")
@@ -180,3 +197,9 @@ endif()
 
 file(COPY ${CMAKE_CURRENT_LIST_DIR}/common
      DESTINATION ${INSTALL_PLATFORM_NS_DIR})
+
+
+if((NRF_SOC_VARIANT STREQUAL nrf54l15) OR (target STREQUAL nrf54l15))
+  file(COPY ${ZEPHYR_NRF_MODULE_DIR}/subsys/nrf_security/src/drivers/cracen/cracenpsa/include/cracen_psa_key_ids.h
+       DESTINATION ${INSTALL_INTERFACE_INC_DIR})
+endif()

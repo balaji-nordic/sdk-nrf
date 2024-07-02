@@ -6,11 +6,20 @@
 
 if (CONFIG_NRF_802154_RADIO_DRIVER OR CONFIG_NRF_802154_SERIALIZATION)
   if (CONFIG_NRF_802154_SL)
-    target_sources(nrf-802154-platform
-      PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/sl/platform/nrf_802154_hp_timer.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/sl/platform/nrf_802154_platform_sl_lptimer_zephyr.c
-    )
+    if (CONFIG_SOC_COMPATIBLE_NRF52X OR CONFIG_SOC_COMPATIBLE_NRF53X)
+      target_sources(nrf-802154-platform
+        PRIVATE
+          ${CMAKE_CURRENT_SOURCE_DIR}/sl/platform/nrf_802154_hp_timer.c
+          ${CMAKE_CURRENT_SOURCE_DIR}/sl/platform/nrf_802154_platform_sl_lptimer_zephyr.c
+      )
+    elseif(CONFIG_SOC_SERIES_NRF54HX OR CONFIG_SOC_SERIES_NRF54LX)
+      target_sources(nrf-802154-platform
+        PRIVATE
+          ${CMAKE_CURRENT_SOURCE_DIR}/sl/platform/nrf_802154_platform_timestamper.c
+          ${CMAKE_CURRENT_SOURCE_DIR}/sl/platform/nrf_802154_platform_sl_lptimer_grtc.c
+          ${CMAKE_CURRENT_SOURCE_DIR}/sl/platform/nrf_802154_platform_sl_lptimer_grtc_hw_task.c
+      )
+    endif()
   endif ()
 
   if (CONFIG_MPSL)

@@ -10,7 +10,7 @@
 #include <zephyr/bluetooth/uuid.h>
 
 #include "bt_content_ctrl_media_internal.h"
-#include "nrf5340_audio_common.h"
+#include "zbus_common.h"
 #include "macros_common.h"
 
 #include <zephyr/logging/log.h>
@@ -86,7 +86,10 @@ int bt_content_ctrl_conn_disconnected(struct bt_conn *conn)
 
 	if (IS_ENABLED(CONFIG_BT_MCC)) {
 		ret = bt_content_ctrl_media_conn_disconnected(conn);
-		if (ret) {
+		/* Try to reset MCS state. -ESRCH is returned if MCS hasn't been discovered
+		 * yet, and shouldn't cause an error print
+		 */
+		if (ret && ret != -ESRCH) {
 			LOG_ERR("bt_content_ctrl_media_conn_disconnected failed with %d", ret);
 		}
 	}

@@ -34,7 +34,7 @@ Testing
 
 After programming the sample to both development kits, test it by performing the following steps:
 
-1. Connect to both kits with a terminal emulator (for example, nRF Connect Serial Terminal).
+1. Connect to both kits with a terminal emulator (for example, `nRF Connect Serial Terminal`_).
    See :ref:`test_and_optimize` for the required settings and steps.
 #. Reset both kits.
 
@@ -86,7 +86,7 @@ The sample displays the data in the following format::
    Connection established.
    Press any key to switch to a 10ms connection interval and set up connection event trigger:
    Successfully configured connection event trigger
-   Connection parameters updated. New interval: 1.25 * 8 ms
+   Connection parameters updated. New interval: 10 ms
    Successfully configured connection event trigger
    Printing connection event trigger log.
    +-------------+----------------+----------------------------------+

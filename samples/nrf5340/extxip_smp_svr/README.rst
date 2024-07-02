@@ -43,6 +43,12 @@ Building and running
 
 .. |sample path| replace:: :file:`samples/nrf5340/extxip_smp_svr`
 .. include:: /includes/build_and_run.txt
+Because sysbuild is currently not supported, you must add the ``--no-sysbuild`` argument when building the sample:
+
+.. parsed-literal::
+   :class: highlight
+
+   west build -b *board_target* --no-sysbuild
 
 The |NCS| build system generates all essential binaries, including the application for internal and external QSPI flash, the networking stack, and the MCUboot.
 The build process involves signing all the application binaries except for MCUboot which does not require signing in this configuration.
@@ -113,7 +119,7 @@ See the Partition manager (PM) label for slot-to-``<image>`` translation:
 .. note::
 
    The ``-e`` option means "no erase", and is provided to the MCUmgr to prevent it from sending the erase command to the target before updating the image.
-   This options is always needed when ``-n`` is used for image selection, as the erase command is hardcoded to erase slot-1 (``image-1``), regardless of which slot is uploaded at the time.
+   This option is always needed when ``-n`` is used for image selection, as the erase command is hardcoded to erase slot-1 (``image-1``), regardless of which slot is uploaded at the time.
 
 Upload the signed image
 -----------------------

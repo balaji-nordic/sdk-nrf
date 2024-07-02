@@ -81,6 +81,7 @@ Following are some of the general Kconfig options that you can configure:
   * The timeout closes the DTLS session.
     A new DTLS session will be created on the next activity (for example, lifetime trigger).
   * Leaving this configuration empty (``0``) sets it to a default of 60 seconds.
+  * Setting this configuration to ``-1`` disables the session idle timeout.
   * This configuration does not apply when the DTLS session is using Connection ID.
 
 * :kconfig:option:`CONFIG_LWM2M_CARRIER_COAP_CON_INTERVAL`:
@@ -104,16 +105,19 @@ Following are some of the general Kconfig options that you can configure:
   * The default value is ``IPV4V6``.
   * If :kconfig:option:`CONFIG_LWM2M_CARRIER_CUSTOM_APN` is not set, this configuration is ignored.
 
+.. _general_options_enabled_carriers:
+
 * :kconfig:option:`CONFIG_LWM2M_CARRIER_GENERIC`, :kconfig:option:`CONFIG_LWM2M_CARRIER_VERIZON`, :kconfig:option:`CONFIG_LWM2M_CARRIER_BELL_CA`, :kconfig:option:`CONFIG_LWM2M_CARRIER_LG_UPLUS`, :kconfig:option:`CONFIG_LWM2M_CARRIER_T_MOBILE`, :kconfig:option:`CONFIG_LWM2M_CARRIER_SOFTBANK`:
 
   * These configurations allow you to choose the networks in which the carrier library will apply.
   * For example, if you are deploying a product in several networks but only need to enable the carrier library within Verizon, you must set :kconfig:option:`CONFIG_LWM2M_CARRIER_VERIZON` to ``y`` and all the others to ``n``.
-  * If only one carrier is selected, then the :kconfig:option:`CONFIG_LWM2M_CARRIER_CUSTOM_URI` and :kconfig:option:`CONFIG_LWM2M_CARRIER_SERVER_SEC_TAG` will be used for this carrier.
+  * If only one carrier is selected, then the configurations listed in :ref:`server_options_lwm2m` are applied to the selected carrier.
 
-    * This will typically have to be done while you are certifying your product, to be able to connect to the carriers certification servers, since they will require a URI different from the default live servers.
+    * This will typically have to be done while you are certifying your product, to be able to connect to the carriers certification servers, since they can require different settings than the default live servers.
     * See :ref:`lwm2m_carrier_provisioning` for more information on the test configuration.
 
-  * If multiple operator networks are selected then the :kconfig:option:`CONFIG_LWM2M_CARRIER_GENERIC` and :kconfig:option:`CONFIG_LWM2M_CARRIER_SERVER_SEC_TAG` will be used for Generic mode, which is used when not in any of the other selected networks.
+  * If you select the :kconfig:option:`CONFIG_LWM2M_CARRIER_GENERIC` Kconfig option, all the server settings mentioned in :ref:`server_options_lwm2m` apply when outside of the other enabled carrier network.
+  * If multiple carriers are enabled, but the carrier defined by  :kconfig:option:`CONFIG_LWM2M_CARRIER_GENERIC` is not one of them, then all server settings are ignored.
 
 * :kconfig:option:`CONFIG_LWM2M_CARRIER_LG_UPLUS`, :kconfig:option:`CONFIG_LWM2M_CARRIER_LG_UPLUS_SERVICE_CODE`, :kconfig:option:`CONFIG_LWM2M_CARRIER_LG_UPLUS_DEVICE_SERIAL_NUMBER`:
 
@@ -130,43 +134,68 @@ Following are some of the general Kconfig options that you can configure:
   * This configuration is only supported for Push delivery method of firmware images.
   * Leaving this configuration empty (``0``) disables the timer for unknown subscriber IDs, and set it to 30 minutes for the SoftBank subscriber ID.
 
+* :kconfig:option:`CONFIG_LWM2M_CARRIER_QUEUE_MODE`:
+
+  * This configuration specifies whether the LwM2M device is to inform the LwM2M Server that it may be disconnected for an extended period of time.
+
+* :kconfig:option:`CONFIG_LWM2M_CARRIER_AUTO_REGISTER`:
+
+  * This configuration specifies if the LwM2M carrier library will register with the LwM2M server automatically once connected.
+  * Auto register is disabled for the SoftBank Subscriber ID, and enabled for other Subscriber IDs.
+  * Auto register can be disabled if the library is operating in Generic mode (connecting to a custom URI instead of the predetermined carrier servers).
+
 .. _server_options_lwm2m:
 
 Server options
 ==============
 
-Following are some of the server Kconfig options that you can configure:
+Following are some of the server Kconfig options that you can configure.
+See the :ref:`enabled carriers <general_options_enabled_carriers>` under :ref:`general_options_lwm2m` for when the option is relevant.
 
-The server settings can put the LwM2M carrier library either in the normal mode where it connects to the applicable carriers, or in the generic mode where it can connect to any server.
+For :kconfig:option:`CONFIG_LWM2M_CARRIER_GENERIC`, no valid factory configuration has been set.
+At a minimum, a URI must be set, unless the :kconfig:option:`CONFIG_LWM2M_SERVER_BINDING_CHOICE` Kconfig option value is non-IP.
 
-* :kconfig:option:`CONFIG_LWM2M_CARRIER_IS_BOOTSTRAP_SERVER`:
-
-  * This configuration specifies if the :kconfig:option:`CONFIG_LWM2M_CARRIER_CUSTOM_URI` is an LwM2M Bootstrap Server.
+.. note::
+   Changing one or more server options will trigger a factory reset (resulting in a new bootstrap sequence).
 
 * :kconfig:option:`CONFIG_LWM2M_CARRIER_CUSTOM_URI`:
 
   * This configuration lets the LwM2M carrier library connect to a custom server other than the normal carrier server and enables the generic mode if used in an operator network that is not supported.
-  * You must set this option during self-testing, or if the end product is not to be certified with the applicable carriers.
+  * You must set this option during self-testing.
     For more information, see :ref:`lwm2m_certification`.
+
+* :kconfig:option:`CONFIG_LWM2M_CARRIER_IS_BOOTSTRAP_SERVER`:
+
+  * This configuration is ignored if :kconfig:option:`CONFIG_LWM2M_CARRIER_CUSTOM_URI` is not set.
+  * This configuration specifies if the server defined by :kconfig:option:`CONFIG_LWM2M_CARRIER_CUSTOM_URI` is an LwM2M bootstrap server.
 
 * :kconfig:option:`CONFIG_LWM2M_CARRIER_SERVER_SEC_TAG`:
 
-  * This configuration provides the library with a security tag containing a PSK.
+  * This configuration provides the library with a security tag.
+    The security tag must contain a PSK, and can additionally contain a PSK identity.
   * This configuration should normally be left empty (``0``) unless stated by the operator, or when connecting to a custom URI.
-    In this case, the library will automatically apply the correct PSK for the different carrier device management.
+    If left empty, the library will automatically apply the correct PSK for the different carrier device management.
   * The :ref:`sample <lwm2m_carrier>` allows you to set a PSK that is written to a modem security tag using the :ref:`CONFIG_CARRIER_APP_PSK <CONFIG_CARRIER_APP_PSK>` and :kconfig:option:`CONFIG_LWM2M_CARRIER_SERVER_SEC_TAG` Kconfig options.
     This is convenient for developing and debugging but must be avoided in the final product.
     Instead, see :ref:`modem_key_mgmt` or :ref:`at_client_sample` sample for `provisioning a PSK <Managing credentials_>`_.
 
 * :kconfig:option:`CONFIG_LWM2M_CARRIER_SERVER_LIFETIME`:
 
-  * This configuration specifies the lifetime of the custom LwM2M server.
-  * This configuration is ignored if :kconfig:option:`CONFIG_LWM2M_CARRIER_IS_BOOTSTRAP_SERVER` is set.
+  * This configuration specifies the lifetime of the LwM2M Server.
+  * This configuration is ignored if a bootstrap server is configured (either by our factory configuration, or by :kconfig:option:`CONFIG_LWM2M_CARRIER_IS_BOOTSTRAP_SERVER`).
+  * If this configuration is left empty (``0``) the factory configuration is used.
+    This can be different for each supported carrier.
+    For generic operation (:kconfig:option:`CONFIG_LWM2M_CARRIER_GENERIC`), the default is 1 hour.
 
 * :kconfig:option:`CONFIG_LWM2M_SERVER_BINDING_CHOICE`:
 
-  * The binding can be either ``U`` (UDP) or ``N`` (Non-IP).
-  * Leaving this configuration empty selects the default binding (UDP).
+  * This configuration can be used to overwrite the factory default by selecting :c:macro:`LWM2M_CARRIER_SERVER_BINDING_UDP` or :c:macro:`LWM2M_CARRIER_SERVER_BINDING_NONIP`).
+  * This configuration is ignored if a bootstrap server is configured (either by our factory configuration, or by :kconfig:option:`CONFIG_LWM2M_CARRIER_IS_BOOTSTRAP_SERVER`).
+  * If UDP binding is configured, a URI must also be set (:kconfig:option:`CONFIG_LWM2M_CARRIER_CUSTOM_URI`).
+  * The APN (either network default, or the one set with :kconfig:option:`CONFIG_LWM2M_CARRIER_CUSTOM_APN`) must be UDP (IP) or non-IP respectively.
+  * If this configuration is left empty (``0``) the factory configuration is used.
+    This can be different for each supported carrier.
+    For generic operation (:kconfig:option:`CONFIG_LWM2M_CARRIER_GENERIC`), the default is :c:macro:`LWM2M_CARRIER_SERVER_BINDING_UDP`.
 
 .. _device_options_lwm2m:
 
@@ -217,6 +246,10 @@ Following are the various LwM2M carrier library events that are also listed in :
 
   * This event indicates that the device has registered successfully to the carrier's device management servers.
 
+* :c:macro:`LWM2M_CARRIER_EVENT_DEREGISTERED`:
+
+  * This event indicates that the device has deregistered successfully from the carrier's device management servers.
+
 * :c:macro:`LWM2M_CARRIER_EVENT_DEFERRED`:
 
   * This event indicates that the connection to the device management server has failed.
@@ -238,14 +271,15 @@ Following are the various LwM2M carrier library events that are also listed in :
       This typically happens if the bootstrap sequence has failed on the carrier side.
     * :c:macro:`LWM2M_CARRIER_DEFERRED_SERVER_REGISTRATION` - The server registration has not completed, and the server does not recognize the connecting device.
       If this event persists, contact the carrier.
-    * :c:macro:`LWM2M_CARRIER_DEFERRED_SERVICE_UNAVAILABLE` - The server is unavailable due to maintenance.
+    * :c:macro:`LWM2M_CARRIER_DEFERRED_SERVICE_UNAVAILABLE` - The server is unavailable, for example due to maintenance.
+      In the Verizon network, this event can be triggered by the server to block excessive numbers of bootstrap and connections.
     * :c:macro:`LWM2M_CARRIER_DEFERRED_SIM_MSISDN` - The device is waiting for the SIM MSISDN to be available to read.
 * :c:macro:`LWM2M_CARRIER_EVENT_FOTA_START`:
 
   * This event indicates that the modem update has started.
   * The application must immediately terminate any open TLS and DTLS sessions.
   * See :ref:`req_appln_limitations`.
-* :c:macro:`LWM2M_CARRIER_EVENT_FOTA_SUCCESS`
+* :c:macro:`LWM2M_CARRIER_EVENT_FOTA_SUCCESS`:
 
   * This event indicates that the FOTA procedure is successful.
 * :c:macro:`LWM2M_CARRIER_EVENT_REBOOT`:
@@ -260,6 +294,11 @@ Following are the various LwM2M carrier library events that are also listed in :
 
   * This event indicates that the application must shut down the modem for the LwM2M carrier library to proceed.
   * This event is indicated during FOTA procedures to reinitialize the :ref:`nrf_modem_lib_readme`.
+* :c:macro:`LWM2M_CARRIER_EVENT_ERROR_CODE_RESET`
+
+  * This event indicates that the server has reset the error codes resource of the LwM2M carrier library.
+  * The errors should be re-evaluated and set again if they still apply.
+  * The relevant APIs for setting the error codes are :c:func:`lwm2m_carrier_error_code_add` and :c:func:`lwm2m_carrier_error_code_remove`.
 * :c:macro:`LWM2M_CARRIER_EVENT_ERROR`:
 
   * This event indicates an error.
@@ -304,6 +343,9 @@ Following are the various LwM2M carrier library events that are also listed in :
     * :c:macro:`LWM2M_CARRIER_ERROR_INIT` - This error indicates that the LwM2M carrier library has failed to initialize.
     * :c:macro:`LWM2M_CARRIER_ERROR_RUN` - This error indicates that the library configuration is invalid.
       Ensure that the :c:struct:`lwm2m_carrier_config_t` structure is configured correctly.
+    * :c:macro:`LWM2M_CARRIER_ERROR_CONNECT` - This error indicates that LwM2M carrier connect failed.
+      The LwM2M carrier library has exhausted its attempts to connect to the device management server.
+      New attempts at connecting will only be made after restarting the application (for example by rebooting the device).
 
 .. _lwm2m_carrier_shell:
 
@@ -337,25 +379,27 @@ Use the ``print`` command to display the configurations that are written with ``
 
 .. code-block:: console
 
-    > carrier_config print
+    uart:~$ carrier_config print
     Automatic startup                No
 
     Custom carrier settings          Yes
-      Carriers enabled               All
+      Carriers enabled               Verizon (1), T-Mobile (3), SoftBank (4), Bell Canada (5)
+      Server settings
+        Server URI
+          Is bootstrap server        No  (Not used without server URI)
+        PSK security tag             0
+        Server lifetime              0
+        Server binding               Not set
+      Auto register                  Yes
       Bootstrap from smartcard       Yes
-      Session idle timeout           0
-      CoAP confirmable interval      0
+      Queue mode                     Yes
+      Session idle timeout           60
+      CoAP confirmable interval      86400
       APN
-      PDN type                       IPv4v6
+        PDN type                     IPv4v6
       Service code
-      Device Serial Number type      0
-
-    Custom carrier server settings   No
-      Is bootstrap server            No  (Not used without server URI)
-      Server URI
-      PSK security tag               0
-      Server lifetime                0
-      Server binding                 U
+      Device Serial Number type      1
+      Firmware download timeout      0 (disabled)
 
     Custom carrier device settings   No
       Manufacturer
@@ -409,7 +453,7 @@ Objects
 *******
 
 The objects enabled depend on the carrier network.
-When connecting to a generic LwM2M server, the following objects are enabled:
+When connecting to a generic LwM2M Server, the following objects are enabled:
 
 * Security
 * Server
@@ -436,11 +480,11 @@ The following values that reflect the state of the device must be kept up to dat
 * Battery Status - Defaults to ``5`` if not set (Not Installed).
 * Memory Total - Defaults to ``0`` if not set.
 * Error Code - Defaults to ``0`` if not set (No Error).
-* Device Type - Defaults to ``Smart Device`` if not set.
-* Software Version - Defaults to ``LwM2M <libversion>``.
-  For example, ``LwM2M carrier 3.2.0`` for release 3.2.0.
+* Device Type - Defaults to ``Module`` if not set.
+* Software Version - Defaults to ``LwM2M_carrier_<libversion>``.
+  For example, ``LwM2M_carrier_3.5.1`` for release 3.5.1.
 * Hardware Version - Default value is read from the modem.
-  An example value is ``nRF9160 SICA B0A``.
+  An example value is ``nRF9161 LACA ADA``.
 * Location - Defaults to ``0`` if not set.
 
 The following values are read from the modem by default but can be overwritten:
@@ -453,3 +497,17 @@ The following values are read from the modem by default but can be overwritten:
 
 For example, the carrier device management platform can observe the battery level of your device.
 The application uses the :c:func:`lwm2m_carrier_battery_level_set` function to indicate the current battery level of the device to the carrier.
+
+DFU interface
+*************
+
+The LwM2M carrier library makes use of the :ref:`lib_dfu_target` library to manage the DFU process, providing a single interface to support different types of firmware upgrades.
+Currently, the following types of firmware upgrades are supported:
+
+* MCUboot-style upgrades (:c:macro:`LWM2M_OS_DFU_IMG_TYPE_APPLICATION`)
+* Modem delta upgrades (:c:macro:`LWM2M_OS_DFU_IMG_TYPE_MODEM_DELTA`)
+
+The type of upgrade is determined when the library calls the :c:func:`lwm2m_os_dfu_img_type` function in the abstraction layer upon receiving a new firmware image.
+
+If MCUboot-style upgrades are enabled, the LwM2M carrier library uses the function :c:func:`lwm2m_os_dfu_application_update_validate` to validate the application image update.
+A ``__weak`` implementation of the function is included, which checks if the currently running image is not yet confirmed as valid (which is the case after an upgrade) and marks it appropriately.

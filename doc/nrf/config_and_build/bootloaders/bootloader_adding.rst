@@ -1,7 +1,11 @@
 .. _ug_bootloader_adding:
 
-Adding a bootloader chain
-#########################
+Adding a bootloader chain using child and parent images
+#######################################################
+
+.. note::
+   This feature is now deprecated.
+   See :ref:`ug_bootloader_adding_sysbuild`.
 
 .. contents::
    :local:
@@ -44,7 +48,7 @@ To build |NSIB| with a Zephyr or |NCS| sample, enable the :kconfig:option:`CONFI
 
 .. code-block:: console
 
-   west build -b nrf52840dk_nrf52840 zephyr/samples/hello_world -- -DCONFIG_SECURE_BOOT=y
+   west build -b nrf52840dk/nrf52840 zephyr/samples/hello_world -- -DCONFIG_SECURE_BOOT=y
 
 |how_to_configure|
 
@@ -54,7 +58,7 @@ To ensure that the immutable bootloader occupies as little flash memory as possi
 
 .. code-block:: console
 
-   west build -b nrf52840dk_nrf52840 zephyr/samples/hello_world -- \
+   west build -b nrf52840dk/nrf52840 zephyr/samples/hello_world -- \
    -DCONFIG_SECURE_BOOT=y \
    -Db0_CONF_FILE=prj_minimal.conf
 
@@ -186,7 +190,7 @@ To use a custom signing command with this bootloader, set the following options 
 
       .. code-block:: console
 
-         west build -b nrf52840dk_nrf52840 zephyr/samples/hello_world -- \
+         west build -b nrf52840dk/nrf52840 zephyr/samples/hello_world -- \
          -DCONFIG_SECURE_BOOT=y \
          -DCONFIG_SB_SIGNING_CUSTOM=y \
          -DCONFIG_SB_SIGNING_PUBLIC_KEY=\"/path/to/pub.pem\" \
@@ -223,7 +227,7 @@ To build :doc:`MCUboot <mcuboot:index-ncs>` with a Zephyr or |NCS| sample, enabl
 
 .. code-block:: console
 
-   west build -b nrf52840dk_nrf52840 zephyr/samples/hello_world -- -DCONFIG_BOOTLOADER_MCUBOOT=y
+   west build -b nrf52840dk/nrf52840 zephyr/samples/hello_world -- -DCONFIG_BOOTLOADER_MCUBOOT=y
 
 |how_to_configure|
 Like other child images, you can assign :ref:`image-specific configurations <ug_multi_image_variables>` at build time to further customize the bootloader's functionality.
@@ -265,7 +269,7 @@ We recommend you also set the associated configuration for a key type to ensure 
 
 .. code-block:: console
 
-   west build -b nrf52840dk_nrf52840 zephyr/samples/hello_world -- \
+   west build -b nrf52840dk/nrf52840 zephyr/samples/hello_world -- \
    -DCONFIG_BOOTLOADER_MCUBOOT=y \
    -Dmcuboot_CONFIG_BOOT_SIGNATURE_KEY_FILE=\"../../priv-ecdsa256.pem\" \
    -Dmcuboot_CONFIG_BOOT_SIGNATURE_TYPE_ECDSA_P256=y
@@ -303,7 +307,7 @@ To use MCUboot as an upgradable bootloader to your application, complete the fol
 
    .. code-block::
 
-      west build -b nrf52840dk_nrf52840 zephyr/samples/hello_world -- \
+      west build -b nrf52840dk/nrf52840 zephyr/samples/hello_world -- \
       -DCONFIG_SECURE_BOOT=y \
       -DCONFIG_BOOTLOADER_MCUBOOT=y
 
@@ -314,11 +318,11 @@ To use MCUboot as an upgradable bootloader to your application, complete the fol
 
    .. code-block::
 
-      west build -b nrf52840dk_nrf52840 zephyr/samples/hello_world -- \
+      west build -b nrf52840dk/nrf52840 zephyr/samples/hello_world -- \
       -DCONFIG_BOOTLOADER_MCUBOOT=y \
       -DCONFIG_SECURE_BOOT=y \
       -Dmcuboot_CONF_FILE=prj_minimal.conf \
-      -Dmcuboot_OVERLAY_CONFIG=external_crypto.conf
+      -Dmcuboot_EXTRA_CONF_FILE=external_crypto.conf
 
    See :ref:`ug_bootloader_config` for more information about using Kconfig fragments with bootloaders.
 
@@ -348,7 +352,7 @@ Enable the :kconfig:option:`CONFIG_BUILD_S1_VARIANT` Kconfig option when buildin
 
 .. code-block::
 
-   west build -b nrf52840dk_nrf52840 zephyr/samples/hello_world -- \
+   west build -b nrf52840dk/nrf52840 zephyr/samples/hello_world -- \
    -DCONFIG_SECURE_BOOT=y \
    -DCONFIG_BOOTLOADER_MCUBOOT=y \
    -DCONFIG_BUILD_S1_VARIANT=y

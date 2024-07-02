@@ -11,7 +11,7 @@ choice BT_LL_CHOICE
 config BT_LL_SOFTDEVICE
 	bool "SoftDevice Link Layer"
 	select MPSL
-	select ZERO_LATENCY_IRQS
+	select ZERO_LATENCY_IRQS if !SOC_SERIES_BSIM_NRFXX
 	select BT_CTLR_LE_ENC_SUPPORT
 	select BT_CTLR_ECDH_SUPPORT
 	select BT_CTLR_EXT_REJ_IND_SUPPORT
@@ -39,7 +39,7 @@ config BT_LL_SOFTDEVICE
 	select BT_CTLR_DF_SUPPORT if HAS_HW_NRF_RADIO_DFE
 	select BT_CTLR_LE_POWER_CONTROL_SUPPORT
 	depends on (SOC_SERIES_BSIM_NRFXX || SOC_SERIES_NRF52X || SOC_COMPATIBLE_NRF5340_CPUNET ||\
-			    SOC_NRF54H20_ENGA_CPURAD || SOC_SERIES_NRF54LX)
+			    SOC_NRF54H20_CPURAD || SOC_SERIES_NRF54LX)
 	help
 	  Use SoftDevice Link Layer implementation.
 
@@ -82,7 +82,7 @@ config BT_HCI_TX_STACK_SIZE
 
 config BT_RX_STACK_SIZE
 	int
-	depends on BT_HCI_HOST || BT_RECV_BLOCKING
+	depends on BT_HCI_HOST
 	default 512 if BT_HCI_RAW
 	default 2600 if BT_MESH
 	default 2200 if BT_SETTINGS
@@ -119,6 +119,13 @@ config BT_CTLR_SDC_QOS_CHANNEL_SURVEY
 	select EXPERIMENTAL
 	help
 	  Channel survey feature support
+
+config BT_CTLR_SDC_ALLOW_PARALLEL_SCANNING_AND_INITIATING
+	bool "Allow scanning and initiating at the same time"
+	select EXPERIMENTAL
+	depends on BT_CENTRAL
+	help
+	  Enables support for scanning and initiating at the same time
 
 config BT_CTLR_SDC_PERIPHERAL_COUNT
 	int "Number of concurrent peripheral roles"
@@ -303,7 +310,7 @@ choice BT_LL_SOFTDEVICE_VARIANT
 						     BT_CTLR_SDC_PAWR_SYNC || \
 						     BT_ISO || \
 						     SOC_COMPATIBLE_NRF5340_CPUNET || \
-						     SOC_NRF54H20_ENGA_CPURAD || \
+						     SOC_NRF54H20_CPURAD || \
 						     SOC_NRF54L15_ENGA_CPUAPP)
 	default BT_LL_SOFTDEVICE_CENTRAL if BT_OBSERVER
 	default BT_LL_SOFTDEVICE_PERIPHERAL if BT_BROADCASTER
@@ -347,9 +354,6 @@ choice BT_CTLR_ECDH_LIB
 
 config BT_CTLR_ECDH_LIB_OBERON
 	select NRF_OBERON
-	# TODO: Fix ocrypto header not available in these configurations
-	depends on !BUILD_WITH_TFM
-	depends on !OBERON_BACKEND
 	depends on !SOC_SERIES_BSIM_NRFXX
 	bool "nRF Oberon (SW)"
 
@@ -370,6 +374,7 @@ config BT_CTLR_ECDH_STACK_SIZE
 config BT_CTLR_ECDH_IN_MPSL_WORK
 	bool "ECDH processing in MPSL workqueue"
 	depends on BT_CTLR_ECDH_LIB_OBERON
+	default y if !BT_SMP
 	help
 	  Run the ECDH processing in the MPSL workqueue instead of in a
 	  dedicated pre-emptible thread.
@@ -456,7 +461,7 @@ config BT_CTLR_SDC_PAWR_ADV_COUNT
 config BT_CTLR_SDC_PERIODIC_ADV_RSP_TX_BUFFER_COUNT
 	int "Number of PAwR advertiser TX buffers"
 	range 1 128
-	default 1
+	default 3
 	help
 	  Maximum number of subevent indications that can be buffered at a time.
 	  When using a larger value the controller will send data requests for more
@@ -510,6 +515,14 @@ config BT_CTLR_SDC_PERIODIC_SYNC_RSP_TX_BUFFER_COUNT
 
 endif
 
+config BT_CTLR_SDC_LE_PATH_LOSS_MONITORING
+	bool "LE Path Loss Monitoring Feature"
+	depends on BT_CTLR_LE_POWER_CONTROL
+	select EXPERIMENTAL
+	help
+	  Enable support for LE Path Loss Monitoring feature that is defined in the
+	  Bluetooth Core specification, Version 5.4 | Vol 6, Part B, Section 4.6.32.
+
 config BT_CTLR_SDC_SILENCE_UNEXPECTED_MSG_TYPE
 	bool
 	help
@@ -529,14 +542,14 @@ config BT_CTLR_SDC_IGNORE_HCI_ISO_DATA_TS_FROM_HOST
 config BT_CTLR_SDC_BIG_RESERVED_TIME_US
 	int "BIG reserved time [us]"
 	range 0 4000000
-	default 2500
+	default 1600
 	help
 	  The time reserved for other roles in each ISO interval, used when selecting BIG parameters.
 
 config BT_CTLR_SDC_CIG_RESERVED_TIME_US
 	int "CIG reserved time [us]"
 	range 0 4000000
-	default 2000
+	default 1300
 	help
 	  The time reserved for other roles in each ISO interval, used when selecting CIG parameters.
 

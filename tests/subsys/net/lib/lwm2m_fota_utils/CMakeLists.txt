@@ -41,6 +41,7 @@ set(options
   -DCONFIG_FOTA_DOWNLOAD_MCUBOOT_FLASH_BUF_SZ=512
   -DCONFIG_LWM2M_VERSION_1_0=y
   -DCONFIG_LWM2M_ENGINE_DEFAULT_LIFETIME=43200
+  -D_POSIX_C_SOURCE=200809L
 )
 
 target_compile_options(app
@@ -73,3 +74,5 @@ target_include_directories(app
   PRIVATE
   ${includes}
 )
+
+zephyr_linker_sources(SECTIONS src/iterables.ld)

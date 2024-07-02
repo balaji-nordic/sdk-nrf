@@ -164,6 +164,11 @@ int _spim_wait_while_rpu_awake(void)
 		k_msleep(1);
 	}
 
+	if (ret || !(val & RPU_AWAKE_BIT)) {
+		LOG_ERR("RPU is not awake even after 10ms");
+		return -1;
+	}
+
 	return val;
 }
 
@@ -184,6 +189,11 @@ int spim_wait_while_rpu_wake_write(void)
 		}
 
 		k_msleep(1);
+	}
+
+	if (ret || !(val & RPU_WAKEUP_NOW)) {
+		LOG_ERR("RPU wakeup write ACK failed even after 10ms");
+		return -1;
 	}
 
 	return ret;
@@ -229,6 +239,13 @@ int spim_init(struct qspi_config *config)
 	LOG_INF("SPIM %s: freq = %d MHz", spi_spec.bus->name,
 		spi_spec.config.frequency / MHZ(1));
 	LOG_INF("SPIM %s: latency = %d", spi_spec.bus->name, spim_config->qspi_slave_latency);
+
+	return 0;
+}
+
+int spim_deinit(void)
+{
+	LOG_DBG("TODO : %s", __func__);
 
 	return 0;
 }

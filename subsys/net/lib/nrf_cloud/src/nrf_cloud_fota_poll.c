@@ -6,6 +6,7 @@
 
 #include <zephyr/kernel.h>
 #include <net/nrf_cloud.h>
+#include <net/nrf_cloud_fota_poll.h>
 #if defined(CONFIG_NRF_CLOUD_COAP)
 #include <net/nrf_cloud_coap.h>
 #endif
@@ -40,7 +41,7 @@ static K_SEM_DEFINE(fota_download_sem, 0, 1);
 static struct nrf_cloud_fota_job_info job;
 
 /* Pending job information saved to flash */
-static struct nrf_cloud_settings_fota_job pending_job;
+static struct nrf_cloud_settings_fota_job pending_job = { .type = NRF_CLOUD_FOTA_TYPE__INVALID };
 
 /* FOTA job status */
 static enum nrf_cloud_fota_status fota_status = NRF_CLOUD_FOTA_QUEUED;
@@ -155,6 +156,15 @@ static void http_fota_dl_handler(const struct fota_download_evt *evt)
 	case FOTA_DOWNLOAD_EVT_PROGRESS:
 		LOG_DBG("FOTA download percent: %d%%", evt->progress);
 		break;
+	case FOTA_DOWNLOAD_EVT_RESUME_OFFSET:
+		/* TODO: for now, just fail the download.
+		 * Unable to resume with CoAP until NRFCDP-423 is complete.
+		 */
+		nrf_cloud_download_end();
+		fota_status = NRF_CLOUD_FOTA_FAILED;
+		fota_status_details = FOTA_STATUS_DETAILS_DL_ERR;
+		k_sem_give(&fota_download_sem);
+		break;
 	default:
 		break;
 	}
@@ -215,14 +225,18 @@ int nrf_cloud_fota_poll_init(struct nrf_cloud_fota_poll_ctx *ctx)
 	ctx->full_modem_fota_supported = true;
 #endif
 
+	err = fota_download_init(http_fota_dl_handler);
+	if (err) {
+		LOG_ERR("Failed to initialize FOTA download, error: %d", err);
+		return err;
+	}
+
 	initialized = true;
 	return 0;
 }
 
-int nrf_cloud_fota_poll_start(struct nrf_cloud_fota_poll_ctx *ctx)
+int nrf_cloud_fota_poll_process_pending(struct nrf_cloud_fota_poll_ctx *ctx)
 {
-	int err;
-
 	if (!check_ctx(ctx) || !initialized) {
 		return -EINVAL;
 	}
@@ -230,13 +244,7 @@ int nrf_cloud_fota_poll_start(struct nrf_cloud_fota_poll_ctx *ctx)
 	/* This function may perform a reboot if a FOTA update is in progress */
 	process_pending_job(ctx);
 
-	err = fota_download_init(http_fota_dl_handler);
-	if (err) {
-		LOG_ERR("Failed to initialize FOTA download, error: %d", err);
-		return err;
-	}
-
-	return 0;
+	return pending_job.type;
 }
 
 static bool validate_in_progress_job(void)
@@ -361,7 +369,10 @@ static int start_download(void)
 			.pdn_id = 0,
 			.frag_size_override = FOTA_DL_FRAGMENT_SZ,
 		},
-		.fota = { .expected_type = img_type }
+		.fota = {
+			.expected_type = img_type,
+			.img_sz = job.file_size
+		}
 	};
 
 	ret = nrf_cloud_download_start(&dl);
@@ -487,6 +498,8 @@ int nrf_cloud_fota_poll_process(struct nrf_cloud_fota_poll_ctx *ctx)
 	 */
 	if (fota_status == NRF_CLOUD_FOTA_SUCCEEDED) {
 		handle_download_succeeded_and_reboot(ctx);
+		/* Application was expected to reboot... */
+		return -EBUSY;
 	}
 
 	/* Job was not successful, send status to nRF Cloud */
@@ -496,6 +509,5 @@ int nrf_cloud_fota_poll_process(struct nrf_cloud_fota_poll_ctx *ctx)
 	}
 
 	wait_after_job_update();
-
-	return err;
+	return -EFAULT;
 }

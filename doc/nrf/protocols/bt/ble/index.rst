@@ -30,8 +30,7 @@ If you want to go through an online training course to familiarize yourself with
 SoftDevice Controller
 *********************
 
-The :ref:`SoftDevice Controller <nrfxlib:softdevice_controller>` is designed for nRF52 and nRF53 Series devices.
-It provides the same implementation of the Link Layer that is available as part of Nordic Semiconductor's SoftDevices.
+The :ref:`SoftDevice Controller <nrfxlib:softdevice_controller>` provides the same implementation of the Link Layer that is available as part of Nordic Semiconductor's SoftDevices.
 The SoftDevice Controller is developed, tested, and supported by Nordic Semiconductor.
 
 The SoftDevice Controller is distributed as a set of precompiled, linkable libraries that can be found in the `sdk-nrfxlib`_ repository.
@@ -52,7 +51,7 @@ It is developed by the Zephyr community and provided as open source.
 To use Zephyr's Bluetooth LE Controller in your application, include a :ref:`Controller-only build <zephyr:bluetooth-build-types>` of the Bluetooth LE stack.
 
 Zephyr's Bluetooth LE Controller supports most of the standard Bluetooth LE features.
-See the :ref:`Zephyr documentation <zephyr:bluetooth-overview>` for a detailed list of supported features.
+See the :ref:`Zephyr documentation <zephyr:bluetooth-features>` for a detailed list of supported features.
 
 
 Usage in samples

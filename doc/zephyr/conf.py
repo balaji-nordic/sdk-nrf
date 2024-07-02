@@ -34,10 +34,12 @@ locals().update(conf)
 
 sys.path.insert(0, str(NRF_BASE / "doc" / "_extensions"))
 
+extensions.remove("sphinx_sitemap")
 extensions = ["sphinx.ext.intersphinx"] + extensions
 
 # Options for HTML output ------------------------------------------------------
 
+html_additional_pages = {}
 html_theme = "sphinx_ncs_theme"
 html_theme_path = []
 html_favicon = None

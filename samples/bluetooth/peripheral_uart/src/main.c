@@ -7,7 +7,7 @@
 /** @file
  *  @brief Nordic UART Bridge Service (NUS) sample
  */
-#include "uart_async_adapter.h"
+#include <uart_async_adapter.h>
 
 #include <zephyr/types.h>
 #include <zephyr/kernel.h>
@@ -30,6 +30,7 @@
 #include <zephyr/settings/settings.h>
 
 #include <stdio.h>
+#include <string.h>
 
 #include <zephyr/logging/log.h>
 
@@ -80,10 +81,10 @@ static const struct bt_data sd[] = {
 	BT_DATA_BYTES(BT_DATA_UUID128_ALL, BT_UUID_NUS_VAL),
 };
 
-#if CONFIG_BT_NUS_UART_ASYNC_ADAPTER
+#ifdef CONFIG_UART_ASYNC_ADAPTER
 UART_ASYNC_ADAPTER_INST_DEFINE(async_adapter);
 #else
-static const struct device *const async_adapter;
+#define async_adapter NULL
 #endif
 
 static void uart_cb(const struct device *dev, struct uart_event *evt, void *user_data)
@@ -259,7 +260,7 @@ static int uart_init(void)
 	k_work_init_delayable(&uart_work, uart_work_handler);
 
 
-	if (IS_ENABLED(CONFIG_BT_NUS_UART_ASYNC_ADAPTER) && !uart_test_async_api(uart)) {
+	if (IS_ENABLED(CONFIG_UART_ASYNC_ADAPTER) && !uart_test_async_api(uart)) {
 		/* Implement API adapter */
 		uart_async_adapter_init(async_adapter, uart);
 		uart = async_adapter;
@@ -632,14 +633,33 @@ void ble_write_thread(void)
 {
 	/* Don't go any further until BLE is initialized */
 	k_sem_take(&ble_init_ok, K_FOREVER);
+	struct uart_data_t nus_data = {
+		.len = 0,
+	};
 
 	for (;;) {
 		/* Wait indefinitely for data to be sent over bluetooth */
 		struct uart_data_t *buf = k_fifo_get(&fifo_uart_rx_data,
 						     K_FOREVER);
 
-		if (bt_nus_send(NULL, buf->data, buf->len)) {
-			LOG_WRN("Failed to send data over BLE connection");
+		int plen = MIN(sizeof(nus_data.data) - nus_data.len, buf->len);
+		int loc = 0;
+
+		while (plen > 0) {
+			memcpy(&nus_data.data[nus_data.len], &buf->data[loc], plen);
+			nus_data.len += plen;
+			loc += plen;
+
+			if (nus_data.len >= sizeof(nus_data.data) ||
+			   (nus_data.data[nus_data.len - 1] == '\n') ||
+			   (nus_data.data[nus_data.len - 1] == '\r')) {
+				if (bt_nus_send(NULL, nus_data.data, nus_data.len)) {
+					LOG_WRN("Failed to send data over BLE connection");
+				}
+				nus_data.len = 0;
+			}
+
+			plen = MIN(sizeof(nus_data.data), buf->len - loc);
 		}
 
 		k_free(buf);

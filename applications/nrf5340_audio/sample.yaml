@@ -3,47 +3,26 @@ sample:
   description: LE Audio implementation example
 common:
   integration_platforms:
-    - nrf5340_audio_dk_nrf5340_cpuapp
+    - nrf5340_audio_dk/nrf5340/cpuapp
 tests:
   applications.nrf5340_audio.headset:
+    sysbuild: true
     build_only: true
-    platform_allow: nrf5340_audio_dk_nrf5340_cpuapp
-    platform_exclude: nrf5340_audio_dk_nrf5340_cpuapp_ns
-    tags: ci_build
-    extra_args: CONF_FILE="prj_release.conf" CONFIG_AUDIO_DEV=1
+    platform_allow: nrf5340_audio_dk/nrf5340/cpuapp
+    platform_exclude: nrf5340_audio_dk/nrf5340/cpuapp_ns
+    tags: ci_build sysbuild
+    extra_args: FILE_SUFFIX=release CONFIG_AUDIO_DEV=1
   applications.nrf5340_audio.gateway:
+    sysbuild: true
     build_only: true
-    platform_allow: nrf5340_audio_dk_nrf5340_cpuapp
-    platform_exclude: nrf5340_audio_dk_nrf5340_cpuapp_ns
-    tags: ci_build
-    extra_args: CONF_FILE="prj_release.conf" CONFIG_AUDIO_DEV=2
-  applications.nrf5340_audio.hs_d_i:
-    build_only: true
-    platform_allow: nrf5340_audio_dk_nrf5340_cpuapp
-    platform_exclude: nrf5340_audio_dk_nrf5340_cpuapp_ns
-    tags: ci_build
-    extra_args: CONF_FILE="prj_release.conf" CONFIG_AUDIO_DEV=1 CONFIG_AUDIO_DFU=1
-  applications.nrf5340_audio.gw_d_i:
-    build_only: true
-    platform_allow: nrf5340_audio_dk_nrf5340_cpuapp
-    platform_exclude: nrf5340_audio_dk_nrf5340_cpuapp_ns
-    tags: ci_build
-    extra_args: CONF_FILE="prj_release.conf" CONFIG_AUDIO_DEV=2 CONFIG_AUDIO_DFU=1
-  applications.nrf5340_audio.hs_d_e:
-    build_only: true
-    platform_allow: nrf5340_audio_dk_nrf5340_cpuapp
-    platform_exclude: nrf5340_audio_dk_nrf5340_cpuapp_ns
-    tags: ci_build
-    extra_args: CONF_FILE="prj_release.conf" CONFIG_AUDIO_DEV=1 CONFIG_AUDIO_DFU=2
-  applications.nrf5340_audio.gw_d_e:
-    build_only: true
-    platform_allow: nrf5340_audio_dk_nrf5340_cpuapp
-    platform_exclude: nrf5340_audio_dk_nrf5340_cpuapp_ns
-    tags: ci_build
-    extra_args: CONF_FILE="prj_release.conf" CONFIG_AUDIO_DEV=2 CONFIG_AUDIO_DFU=2
+    platform_allow: nrf5340_audio_dk/nrf5340/cpuapp
+    platform_exclude: nrf5340_audio_dk/nrf5340/cpuapp_ns
+    tags: ci_build sysbuild
+    extra_args: FILE_SUFFIX=release CONFIG_AUDIO_DEV=2
   applications.nrf5340_audio.headset_sd_card_playback:
+    sysbuild: true
     build_only: true
-    platform_allow: nrf5340_audio_dk_nrf5340_cpuapp
-    platform_exclude: nrf5340_audio_dk_nrf5340_cpuapp_ns
-    tags: ci_build
-    extra_args: CONF_FILE="prj_release.conf" CONFIG_AUDIO_DEV=1 CONFIG_SD_CARD_PLAYBACK=y
+    platform_allow: nrf5340_audio_dk/nrf5340/cpuapp
+    platform_exclude: nrf5340_audio_dk/nrf5340/cpuapp_ns
+    tags: ci_build sysbuild
+    extra_args: FILE_SUFFIX=release CONFIG_AUDIO_DEV=1 CONFIG_SD_CARD_PLAYBACK=y

@@ -20,19 +20,15 @@ void BoltLockManager::Init(StateChangeCallback callback)
 	k_timer_init(&mActuatorTimer, &BoltLockManager::ActuatorTimerEventHandler, nullptr);
 	k_timer_user_data_set(&mActuatorTimer, this);
 
+	AccessMgr::Instance().Init();
+
 	/* Set the default state */
 	Nrf::GetBoard().GetLED(Nrf::DeviceLeds::LED2).Set(IsLocked());
 }
 
-bool BoltLockManager::GetUser(uint16_t userIndex, EmberAfPluginDoorLockUserInfo &user) const
+bool BoltLockManager::GetUser(uint16_t userIndex, EmberAfPluginDoorLockUserInfo &user)
 {
-	/* userIndex is guaranteed by the caller to be between 1 and CONFIG_LOCK_NUM_USERS */
-	user = mUsers[userIndex - 1];
-
-	ChipLogProgress(Zcl, "Getting lock user %u: %s", static_cast<unsigned>(userIndex),
-			user.userStatus == UserStatusEnum::kAvailable ? "available" : "occupied");
-
-	return true;
+	return AccessMgr::Instance().GetUserInfo(userIndex, user);
 }
 
 bool BoltLockManager::SetUser(uint16_t userIndex, FabricIndex creator, FabricIndex modifier, const CharSpan &userName,
@@ -40,98 +36,79 @@ bool BoltLockManager::SetUser(uint16_t userIndex, FabricIndex creator, FabricInd
 			      CredentialRuleEnum credentialRule, const CredentialStruct *credentials,
 			      size_t totalCredentials)
 {
-	/* userIndex is guaranteed by the caller to be between 1 and CONFIG_LOCK_NUM_USERS */
-	UserData &userData = mUserData[userIndex - 1];
-	auto &user = mUsers[userIndex - 1];
-
-	VerifyOrReturnError(userName.size() <= DOOR_LOCK_MAX_USER_NAME_SIZE, false);
-	VerifyOrReturnError(totalCredentials <= CONFIG_LOCK_NUM_CREDENTIALS_PER_USER, false);
-
-	Platform::CopyString(userData.mName, userName);
-	memcpy(userData.mCredentials, credentials, totalCredentials * sizeof(CredentialStruct));
-
-	user.userName = CharSpan(userData.mName, userName.size());
-	user.credentials = Span<const CredentialStruct>(userData.mCredentials, totalCredentials);
-	user.userUniqueId = uniqueId;
-	user.userStatus = userStatus;
-	user.userType = userType;
-	user.credentialRule = credentialRule;
-	user.creationSource = DlAssetSource::kMatterIM;
-	user.createdBy = creator;
-	user.modificationSource = DlAssetSource::kMatterIM;
-	user.lastModifiedBy = modifier;
-
-	ChipLogProgress(Zcl, "Setting lock user %u: %s", static_cast<unsigned>(userIndex),
-			userStatus == UserStatusEnum::kAvailable ? "available" : "occupied");
-
-	return true;
+	return AccessMgr::Instance().SetUser(userIndex, creator, modifier, userName, uniqueId, userStatus, userType,
+					      credentialRule, credentials, totalCredentials);
 }
 
 bool BoltLockManager::GetCredential(uint16_t credentialIndex, CredentialTypeEnum credentialType,
-				    EmberAfPluginDoorLockCredentialInfo &credential) const
+				    EmberAfPluginDoorLockCredentialInfo &credential)
 {
-	VerifyOrReturnError(credentialIndex > 0 && credentialIndex <= CONFIG_LOCK_NUM_CREDENTIALS, false);
-
-	credential = mCredentials[credentialIndex - 1];
-
-	ChipLogProgress(Zcl, "Getting lock credential %u: %s", static_cast<unsigned>(credentialIndex),
-			credential.status == DlCredentialStatus::kAvailable ? "available" : "occupied");
-
-	return true;
+	return AccessMgr::Instance().GetCredential(credentialIndex, credentialType, credential);
 }
 
 bool BoltLockManager::SetCredential(uint16_t credentialIndex, FabricIndex creator, FabricIndex modifier,
 				    DlCredentialStatus credentialStatus, CredentialTypeEnum credentialType,
 				    const ByteSpan &secret)
 {
-	VerifyOrReturnError(credentialIndex > 0 && credentialIndex <= CONFIG_LOCK_NUM_CREDENTIALS, false);
-	VerifyOrReturnError(secret.size() <= kMaxCredentialLength, false);
-
-	CredentialData &credentialData = mCredentialData[credentialIndex - 1];
-	auto &credential = mCredentials[credentialIndex - 1];
-
-	if (!secret.empty()) {
-		memcpy(credentialData.mSecret.Alloc(secret.size()).Get(), secret.data(), secret.size());
-	}
-
-	credential.status = credentialStatus;
-	credential.credentialType = credentialType;
-	credential.credentialData = ByteSpan(credentialData.mSecret.Get(), secret.size());
-	credential.creationSource = DlAssetSource::kMatterIM;
-	credential.createdBy = creator;
-	credential.modificationSource = DlAssetSource::kMatterIM;
-	credential.lastModifiedBy = modifier;
-
-	ChipLogProgress(Zcl, "Setting lock credential %u: %s", static_cast<unsigned>(credentialIndex),
-			credential.status == DlCredentialStatus::kAvailable ? "available" : "occupied");
-
-	return true;
+	return AccessMgr::Instance().SetCredential(credentialIndex, creator, modifier, credentialStatus,
+						    credentialType, secret);
 }
 
-bool BoltLockManager::ValidatePIN(const Optional<ByteSpan> &pinCode, OperationErrorEnum &err) const
+#ifdef CONFIG_LOCK_SCHEDULES
+
+DlStatus BoltLockManager::GetWeekDaySchedule(uint8_t weekdayIndex, uint16_t userIndex,
+					     EmberAfPluginDoorLockWeekDaySchedule &schedule)
 {
-	/* Optionality of the PIN code is validated by the caller, so assume it is OK not to provide the PIN code. */
-	if (!pinCode.HasValue()) {
-		return true;
-	}
+	return AccessMgr::Instance().GetWeekDaySchedule(weekdayIndex, userIndex, schedule);
+}
 
-	/* Check the PIN code */
-	for (const auto &credential : mCredentials) {
-		if (credential.status == DlCredentialStatus::kAvailable ||
-		    credential.credentialType != CredentialTypeEnum::kPin) {
-			continue;
-		}
+DlStatus BoltLockManager::SetWeekDaySchedule(uint8_t weekdayIndex, uint16_t userIndex, DlScheduleStatus status,
+					     DaysMaskMap daysMask, uint8_t startHour, uint8_t startMinute,
+					     uint8_t endHour, uint8_t endMinute)
+{
+	return AccessMgr::Instance().SetWeekDaySchedule(weekdayIndex, userIndex, status, daysMask, startHour,
+							 startMinute, endHour, endMinute);
+}
 
-		if (credential.credentialData.data_equal(pinCode.Value())) {
-			ChipLogDetail(Zcl, "Valid lock PIN code provided");
-			return true;
-		}
-	}
+DlStatus BoltLockManager::GetYearDaySchedule(uint8_t yearDayIndex, uint16_t userIndex,
+					     EmberAfPluginDoorLockYearDaySchedule &schedule)
+{
+	return AccessMgr::Instance().GetYearDaySchedule(yearDayIndex, userIndex, schedule);
+}
 
-	ChipLogDetail(Zcl, "Invalid lock PIN code provided");
-	err = OperationErrorEnum::kInvalidCredential;
+DlStatus BoltLockManager::SetYearDaySchedule(uint8_t yeardayIndex, uint16_t userIndex, DlScheduleStatus status,
+					     uint32_t localStartTime, uint32_t localEndTime)
+{
+	return AccessMgr::Instance().SetYearDaySchedule(yeardayIndex, userIndex, status, localStartTime, localEndTime);
+}
 
-	return false;
+DlStatus BoltLockManager::GetHolidaySchedule(uint8_t holidayIndex, EmberAfPluginDoorLockHolidaySchedule &schedule)
+{
+	return AccessMgr::Instance().GetHolidaySchedule(holidayIndex, schedule);
+}
+
+DlStatus BoltLockManager::SetHolidaySchedule(uint8_t holidayIndex, DlScheduleStatus status, uint32_t localStartTime,
+					     uint32_t localEndTime, OperatingModeEnum operatingMode)
+{
+	return AccessMgr::Instance().SetHolidaySchedule(holidayIndex, status, localStartTime, localEndTime,
+							 operatingMode);
+}
+
+#endif /* CONFIG_LOCK_SCHEDULES */
+
+
+bool BoltLockManager::ValidatePIN(const Optional<ByteSpan> &pinCode, OperationErrorEnum &err)
+{
+	return AccessMgr::Instance().ValidatePIN(pinCode, err);
+}
+
+void BoltLockManager::SetRequirePIN(bool require)
+{
+	return AccessMgr::Instance().SetRequirePIN(require);
+}
+bool BoltLockManager::GetRequirePIN()
+{
+	return AccessMgr::Instance().GetRequirePIN();
 }
 
 void BoltLockManager::Lock(OperationSource source)

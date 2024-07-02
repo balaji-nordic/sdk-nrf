@@ -41,45 +41,45 @@ See :ref:`thread_device_types` for more information on device types, and :ref:`t
 nRF5340 DK RAM and flash memory requirements
 *********************************************
 
-The following tables present memory requirements for samples running on the :ref:`nRF5340 DK <programming_board_names>` (:ref:`nrf5340dk_nrf5340 <zephyr:nrf5340dk_nrf5340>`) with the software cryptography support provided by the :ref:`nrfxlib:nrf_oberon_readme` module.
+The following tables present memory requirements for samples running on the :ref:`nRF5340 DK <programming_board_names>` (:ref:`nrf5340dk <zephyr:nrf5340dk_nrf5340>`) with the software cryptography support provided by the :ref:`nrfxlib:nrf_oberon_readme` module.
 
 .. table:: nRF5340 single protocol Thread 1.3 memory requirements
 
    +-----------------------------+-------+-------+
    |                             |   FTD |   MTD |
    +=============================+=======+=======+
-   | ROM OT stack + App [kB]     |   387 |   334 |
+   | ROM OT stack + App [kB]     |   330 |   275 |
    +-----------------------------+-------+-------+
    | ROM Bluetooth LE stack [kB] |     0 |     0 |
    +-----------------------------+-------+-------+
-   | Persistent storage [kB]     |    24 |    24 |
+   | Persistent storage [kB]     |    32 |    32 |
    +-----------------------------+-------+-------+
-   | Free ROM [kB]               |   613 |   666 |
+   | Free ROM [kB]               |   662 |   717 |
    +-----------------------------+-------+-------+
-   | RAM OT stack + App [kB]     |   106 |    96 |
+   | RAM OT stack + App [kB]     |   100 |    90 |
    +-----------------------------+-------+-------+
    | RAM Bluetooth LE stack [kB] |     0 |     0 |
    +-----------------------------+-------+-------+
-   | Free RAM [kB]               |   406 |   416 |
+   | Free RAM [kB]               |   412 |   422 |
    +-----------------------------+-------+-------+
 .. table:: nRF5340 multiprotocol Thread 1.3 memory requirements
 
    +-----------------------------+-------+-------+
    |                             |   FTD |   MTD |
    +=============================+=======+=======+
-   | ROM OT stack + App [kB]     |   387 |   334 |
+   | ROM OT stack + App [kB]     |   330 |   275 |
    +-----------------------------+-------+-------+
-   | ROM Bluetooth LE stack [kB] |    30 |    29 |
+   | ROM Bluetooth LE stack [kB] |    30 |    30 |
    +-----------------------------+-------+-------+
-   | Persistent storage [kB]     |    24 |    24 |
+   | Persistent storage [kB]     |    32 |    32 |
    +-----------------------------+-------+-------+
-   | Free ROM [kB]               |   583 |   637 |
+   | Free ROM [kB]               |   632 |   687 |
    +-----------------------------+-------+-------+
-   | RAM OT stack + App [kB]     |   106 |    96 |
+   | RAM OT stack + App [kB]     |   100 |    90 |
    +-----------------------------+-------+-------+
-   | RAM Bluetooth LE stack [kB] |    11 |    11 |
+   | RAM Bluetooth LE stack [kB] |    15 |    15 |
    +-----------------------------+-------+-------+
-   | Free RAM [kB]               |   395 |   405 |
+   | Free RAM [kB]               |   397 |   407 |
    +-----------------------------+-------+-------+
 
 .. _thread_ot_memory_52840:
@@ -94,36 +94,36 @@ The following tables present memory requirements for samples running on the :ref
    +-----------------------------+----------+-------+-------+
    |                             |   master |   FTD |   MTD |
    +=============================+==========+=======+=======+
-   | ROM OT stack + App [kB]     |      468 |   435 |   382 |
+   | ROM OT stack + App [kB]     |      454 |   360 |   305 |
    +-----------------------------+----------+-------+-------+
    | ROM Bluetooth LE stack [kB] |        0 |     0 |     0 |
    +-----------------------------+----------+-------+-------+
    | Persistent storage [kB]     |       32 |    32 |    32 |
    +-----------------------------+----------+-------+-------+
-   | Free ROM [kB]               |      524 |   557 |   610 |
+   | Free ROM [kB]               |      538 |   632 |   687 |
    +-----------------------------+----------+-------+-------+
-   | RAM OT stack + App [kB]     |      111 |   107 |    97 |
+   | RAM OT stack + App [kB]     |      101 |    93 |    83 |
    +-----------------------------+----------+-------+-------+
    | RAM Bluetooth LE stack [kB] |        0 |     0 |     0 |
    +-----------------------------+----------+-------+-------+
-   | Free RAM [kB]               |      145 |   149 |   159 |
+   | Free RAM [kB]               |      155 |   163 |   173 |
    +-----------------------------+----------+-------+-------+
 .. table:: nRF52840 multiprotocol Thread 1.3 memory requirements
 
    +-----------------------------+----------+-------+-------+
    |                             |   master |   FTD |   MTD |
    +=============================+==========+=======+=======+
-   | ROM OT stack + App [kB]     |      468 |   435 |   382 |
+   | ROM OT stack + App [kB]     |      454 |   360 |   305 |
    +-----------------------------+----------+-------+-------+
-   | ROM Bluetooth LE stack [kB] |       84 |    84 |    84 |
+   | ROM Bluetooth LE stack [kB] |       77 |    77 |    77 |
    +-----------------------------+----------+-------+-------+
    | Persistent storage [kB]     |       32 |    32 |    32 |
    +-----------------------------+----------+-------+-------+
-   | Free ROM [kB]               |      440 |   473 |   526 |
+   | Free ROM [kB]               |      461 |   555 |   610 |
    +-----------------------------+----------+-------+-------+
-   | RAM OT stack + App [kB]     |      111 |   107 |    97 |
+   | RAM OT stack + App [kB]     |      101 |    93 |    83 |
    +-----------------------------+----------+-------+-------+
-   | RAM Bluetooth LE stack [kB] |       15 |    16 |    16 |
+   | RAM Bluetooth LE stack [kB] |       14 |    14 |    14 |
    +-----------------------------+----------+-------+-------+
-   | Free RAM [kB]               |      130 |   133 |   143 |
+   | Free RAM [kB]               |      141 |   149 |   159 |
    +-----------------------------+----------+-------+-------+

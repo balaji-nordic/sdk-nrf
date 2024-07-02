@@ -15,14 +15,15 @@ LOG_MODULE_REGISTER(wifi_connect, CONFIG_LOG_DEFAULT_LEVEL);
 #include <zephyr/net/wifi_mgmt.h>
 #include "net_private.h"
 
+#include<net/wifi_mgmt_ext.h>
+
 #define WIFI_SHELL_MGMT_EVENTS (NET_EVENT_WIFI_CONNECT_RESULT |		\
 				NET_EVENT_WIFI_DISCONNECT_RESULT)
 
 #define MAX_SSID_LEN        32
-#define DHCP_TIMEOUT        70
-#define CONNECTION_TIMEOUT  100
 #define STATUS_POLLING_MS   300
 
+K_SEM_DEFINE(wait_for_dhcp, 0, 1);
 static struct net_mgmt_event_callback wifi_shell_mgmt_cb;
 static struct net_mgmt_event_callback net_shell_mgmt_cb;
 
@@ -149,6 +150,7 @@ static void print_dhcp_ip(struct net_mgmt_event_callback *cb)
 	net_addr_ntop(AF_INET, addr, dhcp_info, sizeof(dhcp_info));
 
 	LOG_INF("DHCP IP address: %s", dhcp_info);
+	k_sem_give(&wait_for_dhcp);
 }
 
 static void net_mgmt_event_handler(struct net_mgmt_event_callback *cb,
@@ -163,42 +165,9 @@ static void net_mgmt_event_handler(struct net_mgmt_event_callback *cb,
 	}
 }
 
-static int __wifi_args_to_params(struct wifi_connect_req_params *params)
-{
-	params->timeout = SYS_FOREVER_MS;
-
-	/* Defaults */
-	params->band = WIFI_FREQ_BAND_UNKNOWN;
-	params->channel = WIFI_CHANNEL_ANY;
-	params->security = WIFI_SECURITY_TYPE_NONE;
-	params->mfp = WIFI_MFP_OPTIONAL;
-
-	/* SSID */
-	params->ssid = CONFIG_RAW_TX_PKT_SAMPLE_SSID;
-	params->ssid_length = strlen(params->ssid);
-
-#if defined(CONFIG_RAW_TX_PKT_SAMPLE_KEY_MGMT_WPA2)
-	params->security = 1;
-#elif defined(CONFIG_RAW_TX_PKT_SAMPLE_KEY_MGMT_WPA2_256)
-	params->security = 2;
-#elif defined(CONFIG_RAW_TX_PKT_SAMPLE_KEY_MGMT_WPA3)
-	params->security = 3;
-#else
-	params->security = 0;
-#endif
-
-#if !defined(CONFIG_RAW_TX_PKT_SAMPLE_KEY_MGMT_NONE)
-	params->psk = CONFIG_RAW_TX_PKT_SAMPLE_PASSWORD;
-	params->psk_length = strlen(params->psk);
-#endif
-
-	return 0;
-}
-
 static int wifi_connect(void)
 {
 	struct net_if *iface = NULL;
-	static struct wifi_connect_req_params cnx_params;
 
 	iface = net_if_get_first_wifi();
 	if (!iface) {
@@ -208,10 +177,8 @@ static int wifi_connect(void)
 
 	context.connected = false;
 	context.connect_result = WIFI_STATUS_CONN_FAIL;
-	__wifi_args_to_params(&cnx_params);
 
-	if (net_mgmt(NET_REQUEST_WIFI_CONNECT, iface,
-		     &cnx_params, sizeof(struct wifi_connect_req_params))) {
+	if (net_mgmt(NET_REQUEST_WIFI_CONNECT_STORED, iface, NULL, 0)) {
 		LOG_ERR("Connection request failed");
 
 		return -ENOEXEC;
@@ -254,6 +221,8 @@ int try_wifi_connect(void)
 		}
 
 		if (context.connected) {
+			k_sem_take(&wait_for_dhcp,
+				   K_SECONDS(CONFIG_RAW_TX_PKT_SAMPLE_DHCP_TIMEOUT_S));
 			break;
 		} else if (context.connect_result) {
 			LOG_ERR("Connection unsuccessful with reason (%d)", context.connect_result);

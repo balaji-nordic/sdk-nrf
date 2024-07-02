@@ -20,13 +20,13 @@ However, there are other ways to customize your application using Kconfig option
 Using custom project configurations
 ***********************************
 
-You can use custom project configuration options for the associated image, specifying them at build time using :ref:`ug_multi_image_variables`, either temporarily until you clean the build pristinely or permamently.
+You can use custom project configuration options for the associated image, specifying them at build time using :ref:`ug_multi_image_variables`, either temporarily until you clean the build pristinely or permanently.
 
 For example, you can temporarily assign custom project configurations for both the bootloaders and a sample application as follows:
 
 .. code-block:: console
 
-   west build -b nrf52840dk_nrf52840 zephyr/samples/hello_world -- \
+   west build -b nrf52840dk/nrf52840 zephyr/samples/hello_world -- \
    -Db0_CONF_FILE=prj_immutable.conf \
    -Dmcuboot_CONF_FILE=prj_upgradable.conf \
    -DCONF_FILE=prj_app.conf
@@ -48,20 +48,26 @@ For example, you can assign the :file:`my-custom-fragment.conf` fragment to the 
 
 .. code-block:: console
 
-   west build -b nrf52840dk_nrf52840 zephyr/samples/hello_world -- \
+   west build -b nrf52840dk/nrf52840 zephyr/samples/hello_world -- \
    -DCONFIG_SECURE_BOOT=y \
    -DCONFIG_BOOTLOADER_MCUBOOT=y \
-   -Db0_OVERLAY_CONFIG=my-custom-fragment.conf
+   -Db0_EXTRA_CONF_FILE=my-custom-fragment.conf
 
 In the same way, you can replace ``b0`` with ``mcuboot`` to apply the :file:`my-custom-fragment.conf` fragment to the MCUboot image:
 
 .. code-block:: console
 
-   west build -b nrf52840dk_nrf52840 zephyr/samples/hello_world -- \
+   west build -b nrf52840dk/nrf52840 zephyr/samples/hello_world -- \
    -DCONFIG_SECURE_BOOT=y \
    -DCONFIG_BOOTLOADER_MCUBOOT=y \
-   -Dmcuboot_OVERLAY_CONFIG=my-custom-fragment.conf
+   -Dmcuboot_EXTRA_CONF_FILE=my-custom-fragment.conf
 
 You can use this method to apply Kconfig fragments to any child image in the build, as well as to set any Kconfig option that can be set from the command line.
 
 See :ref:`ug_multi_image_variables` for more information about customizing images using this method.
+
+Customizing partitions
+**********************
+
+With the Partition Manager, you can further customize it if a dynamic partition map has been set.
+For more information, see the :ref:`Configuration <pm_configuration>` section of the :ref:`partition_manager` page.

@@ -439,7 +439,7 @@ struct nrf_cloud_svc_info_fota {
 	uint8_t _rsvd:4;
 };
 
-/** @brief Controls which values are added to the UI array in the "serviceInfo" shadow section */
+/** @brief DEPRECATED - No longer used by nRF Cloud */
 struct nrf_cloud_svc_info_ui {
 	/* Items with UI support on nRF Cloud */
 	/** Temperature */
@@ -504,7 +504,8 @@ struct nrf_cloud_modem_info {
 struct nrf_cloud_svc_info {
 	/** Specify FOTA components to enable, set to NULL to remove the FOTA entry */
 	struct nrf_cloud_svc_info_fota *fota;
-	/** Specify UI components to enable, set to NULL to remove the UI entry */
+
+	/** DEPRECATED - nRF Cloud no longer requires the device to set UI values in the shadow */
 	struct nrf_cloud_svc_info_ui *ui;
 };
 
@@ -534,10 +535,10 @@ enum nrf_cloud_gnss_type {
 
 /** @brief PVT data */
 struct nrf_cloud_gnss_pvt {
-	/** Longitude in degrees; required. */
-	double lon;
 	/** Latitude in degrees; required. */
 	double lat;
+	/** Longitude in degrees; required. */
+	double lon;
 	/** Position accuracy (2D 1-sigma) in meters; required. */
 	float accuracy;
 
@@ -659,28 +660,6 @@ struct nrf_cloud_init_param {
 	 * @kconfig{CONFIG_NRF_CLOUD_SEND_DEVICE_STATUS} is enabled.
 	 */
 	const char *application_version;
-};
-
-enum nrf_cloud_fota_reboot_status {
-	FOTA_REBOOT_REQUIRED,	/** Reboot to install update. */
-	FOTA_REBOOT_SUCCESS,	/** Reboot to complete FOTA job. */
-	FOTA_REBOOT_FAIL,	/** Reboot because FOTA job failed. */
-	FOTA_REBOOT_SYS_ERROR	/** Reboot because fatal system error occurred. */
-};
-
-/**
- * @brief  Event handler registered with the module to handle asynchronous
- * events from the module.
- *
- * @param[in]  status The reason for the reboot request.
- */
-typedef void (*fota_reboot_handler_t)(enum nrf_cloud_fota_reboot_status status);
-
-struct nrf_cloud_fota_poll_ctx {
-	struct nrf_cloud_rest_context *rest_ctx;
-	const char *device_id;
-	fota_reboot_handler_t reboot_fn;
-	bool full_modem_fota_supported;
 };
 
 /**
@@ -1016,10 +995,6 @@ bool nrf_cloud_fota_is_type_enabled(const enum nrf_cloud_fota_type type);
  * @return A negative value indicates an error starting the job.
  */
 int nrf_cloud_fota_job_start(void);
-
-int nrf_cloud_fota_poll_init(struct nrf_cloud_fota_poll_ctx *ctx);
-int nrf_cloud_fota_poll_start(struct nrf_cloud_fota_poll_ctx *ctx);
-int nrf_cloud_fota_poll_process(struct nrf_cloud_fota_poll_ctx *ctx);
 
 /**
  * @brief Check if credentials exist in the configured location.

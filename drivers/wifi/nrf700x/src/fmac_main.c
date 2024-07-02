@@ -27,6 +27,7 @@
 
 #ifndef CONFIG_NRF700X_RADIO_TEST
 #ifdef CONFIG_NRF700X_STA_MODE
+#include <zephyr/net/wifi_nm.h>
 #include <wifi_mgmt_scan.h>
 #include <wifi_mgmt.h>
 #include <wpa_supp_if.h>
@@ -306,6 +307,7 @@ int nrf_wifi_reg_domain(const struct device *dev, struct wifi_reg_domain *reg_do
 {
 	enum nrf_wifi_status status = NRF_WIFI_STATUS_FAIL;
 	struct nrf_wifi_ctx_zep *rpu_ctx_zep = NULL;
+	struct nrf_wifi_fmac_dev_ctx *fmac_dev_ctx = NULL;
 	struct nrf_wifi_vif_ctx_zep *vif_ctx_zep = NULL;
 	struct nrf_wifi_fmac_reg_info reg_domain_info = {0};
 	struct wifi_reg_chan_info *chan_info = NULL;
@@ -333,12 +335,38 @@ int nrf_wifi_reg_domain(const struct device *dev, struct wifi_reg_domain *reg_do
 		goto err;
 	}
 
+	fmac_dev_ctx = rpu_ctx_zep->rpu_ctx;
+	if (!fmac_dev_ctx) {
+		LOG_ERR("%s: fmac_dev_ctx is NULL", __func__);
+		goto err;
+	}
+
 	if (reg_domain->oper == WIFI_MGMT_SET) {
+#ifndef CONFIG_NRF700X_RADIO_TEST
+#ifdef CONFIG_NRF700X_STA_MODE
+		/* Need to check if WPA supplicant is initialized or not.
+		 * Must be checked when CONFIG_WPA_SUPP is enabled.
+		 * Not applicable for RADIO_TEST or when CONFIG_WPA_SUPP is not enabled.
+		 */
+		/* It is possbile that during supplicant initialization driver may
+		 * get the command. lock will try to ensure that supplicant
+		 * initialization is complete.
+		 */
+		k_mutex_lock(&vif_ctx_zep->vif_lock, K_FOREVER);
+		if ((!vif_ctx_zep->supp_drv_if_ctx) ||
+		    (!wifi_nm_get_instance_iface(vif_ctx_zep->zep_net_if_ctx))) {
+			LOG_ERR("%s: WPA supplicant initialization not complete yet", __func__);
+			k_mutex_unlock(&vif_ctx_zep->vif_lock);
+			goto err;
+		}
+		k_mutex_unlock(&vif_ctx_zep->vif_lock);
+#endif /* CONFIG_NRF700X_STA_MODE */
+#endif /* !CONFIG_NRF700X_RADIO_TEST */
 		memcpy(reg_domain_info.alpha2, reg_domain->country_code, WIFI_COUNTRY_CODE_LEN);
 
 		reg_domain_info.force = reg_domain->force;
 
-		status = nrf_wifi_fmac_set_reg(rpu_ctx_zep->rpu_ctx, &reg_domain_info);
+		status = nrf_wifi_fmac_set_reg(fmac_dev_ctx, &reg_domain_info);
 		if (status != NRF_WIFI_STATUS_SUCCESS) {
 			LOG_ERR("%s: Failed to set regulatory domain", __func__);
 			goto err;
@@ -350,7 +378,7 @@ int nrf_wifi_reg_domain(const struct device *dev, struct wifi_reg_domain *reg_do
 			goto err;
 		}
 
-		status = nrf_wifi_fmac_get_reg(rpu_ctx_zep->rpu_ctx, &reg_domain_info);
+		status = nrf_wifi_fmac_get_reg(fmac_dev_ctx, &reg_domain_info);
 		if (status != NRF_WIFI_STATUS_SUCCESS) {
 			LOG_ERR("%s: Failed to get regulatory domain", __func__);
 			goto err;
@@ -461,22 +489,53 @@ void configure_tx_pwr_settings(struct nrf_wifi_tx_pwr_ctrl_params *tx_pwr_ctrl_p
 	tx_pwr_ctrl_params->ant_gain_5g_band1 = CONFIG_NRF700X_ANT_GAIN_5G_BAND1;
 	tx_pwr_ctrl_params->ant_gain_5g_band2 = CONFIG_NRF700X_ANT_GAIN_5G_BAND2;
 	tx_pwr_ctrl_params->ant_gain_5g_band3 = CONFIG_NRF700X_ANT_GAIN_5G_BAND3;
-	tx_pwr_ctrl_params->band_edge_2g_lo = CONFIG_NRF700X_BAND_2G_LOWER_EDGE_BACKOFF;
-	tx_pwr_ctrl_params->band_edge_2g_hi = CONFIG_NRF700X_BAND_2G_UPPER_EDGE_BACKOFF;
-	tx_pwr_ctrl_params->band_edge_5g_unii_1_lo = CONFIG_NRF700X_BAND_UNII_1_LOWER_EDGE_BACKOFF;
-	tx_pwr_ctrl_params->band_edge_5g_unii_1_hi = CONFIG_NRF700X_BAND_UNII_1_UPPER_EDGE_BACKOFF;
-	tx_pwr_ctrl_params->band_edge_5g_unii_2a_lo =
-					CONFIG_NRF700X_BAND_UNII_2A_LOWER_EDGE_BACKOFF;
-	tx_pwr_ctrl_params->band_edge_5g_unii_2a_hi =
-					CONFIG_NRF700X_BAND_UNII_2A_UPPER_EDGE_BACKOFF;
-	tx_pwr_ctrl_params->band_edge_5g_unii_2c_lo =
-					CONFIG_NRF700X_BAND_UNII_2C_LOWER_EDGE_BACKOFF;
-	tx_pwr_ctrl_params->band_edge_5g_unii_2c_hi =
-					CONFIG_NRF700X_BAND_UNII_2C_UPPER_EDGE_BACKOFF;
-	tx_pwr_ctrl_params->band_edge_5g_unii_3_lo = CONFIG_NRF700X_BAND_UNII_3_LOWER_EDGE_BACKOFF;
-	tx_pwr_ctrl_params->band_edge_5g_unii_3_hi = CONFIG_NRF700X_BAND_UNII_3_UPPER_EDGE_BACKOFF;
-	tx_pwr_ctrl_params->band_edge_5g_unii_4_lo = CONFIG_NRF700X_BAND_UNII_4_LOWER_EDGE_BACKOFF;
-	tx_pwr_ctrl_params->band_edge_5g_unii_4_hi = CONFIG_NRF700X_BAND_UNII_4_UPPER_EDGE_BACKOFF;
+	tx_pwr_ctrl_params->band_edge_2g_lo_dss = CONFIG_NRF700X_BAND_2G_LOWER_EDGE_BACKOFF_DSSS;
+	tx_pwr_ctrl_params->band_edge_2g_lo_ht = CONFIG_NRF700X_BAND_2G_LOWER_EDGE_BACKOFF_HT;
+	tx_pwr_ctrl_params->band_edge_2g_lo_he = CONFIG_NRF700X_BAND_2G_LOWER_EDGE_BACKOFF_HE;
+	tx_pwr_ctrl_params->band_edge_2g_hi_dsss = CONFIG_NRF700X_BAND_2G_UPPER_EDGE_BACKOFF_DSSS;
+	tx_pwr_ctrl_params->band_edge_2g_hi_ht = CONFIG_NRF700X_BAND_2G_UPPER_EDGE_BACKOFF_HT;
+	tx_pwr_ctrl_params->band_edge_2g_hi_he = CONFIG_NRF700X_BAND_2G_UPPER_EDGE_BACKOFF_HE;
+	tx_pwr_ctrl_params->band_edge_5g_unii_1_lo_ht =
+		CONFIG_NRF700X_BAND_UNII_1_LOWER_EDGE_BACKOFF_HT;
+	tx_pwr_ctrl_params->band_edge_5g_unii_1_lo_he =
+		CONFIG_NRF700X_BAND_UNII_1_LOWER_EDGE_BACKOFF_HE;
+	tx_pwr_ctrl_params->band_edge_5g_unii_1_hi_ht =
+		CONFIG_NRF700X_BAND_UNII_1_UPPER_EDGE_BACKOFF_HT;
+	tx_pwr_ctrl_params->band_edge_5g_unii_1_hi_he =
+		CONFIG_NRF700X_BAND_UNII_1_UPPER_EDGE_BACKOFF_HE;
+	tx_pwr_ctrl_params->band_edge_5g_unii_2a_lo_ht =
+		CONFIG_NRF700X_BAND_UNII_2A_LOWER_EDGE_BACKOFF_HT;
+	tx_pwr_ctrl_params->band_edge_5g_unii_2a_lo_he =
+		CONFIG_NRF700X_BAND_UNII_2A_LOWER_EDGE_BACKOFF_HE;
+	tx_pwr_ctrl_params->band_edge_5g_unii_2a_hi_ht =
+		CONFIG_NRF700X_BAND_UNII_2A_UPPER_EDGE_BACKOFF_HT;
+	tx_pwr_ctrl_params->band_edge_5g_unii_2a_hi_he =
+		CONFIG_NRF700X_BAND_UNII_2A_UPPER_EDGE_BACKOFF_HE;
+	tx_pwr_ctrl_params->band_edge_5g_unii_2c_lo_ht =
+		CONFIG_NRF700X_BAND_UNII_2C_LOWER_EDGE_BACKOFF_HT;
+	tx_pwr_ctrl_params->band_edge_5g_unii_2c_lo_he =
+		CONFIG_NRF700X_BAND_UNII_2C_LOWER_EDGE_BACKOFF_HE;
+	tx_pwr_ctrl_params->band_edge_5g_unii_2c_hi_ht =
+		CONFIG_NRF700X_BAND_UNII_2C_UPPER_EDGE_BACKOFF_HT;
+	tx_pwr_ctrl_params->band_edge_5g_unii_2c_hi_he =
+		CONFIG_NRF700X_BAND_UNII_2C_UPPER_EDGE_BACKOFF_HE;
+	tx_pwr_ctrl_params->band_edge_5g_unii_3_lo_ht =
+		CONFIG_NRF700X_BAND_UNII_3_LOWER_EDGE_BACKOFF_HT;
+	tx_pwr_ctrl_params->band_edge_5g_unii_3_lo_he =
+		CONFIG_NRF700X_BAND_UNII_3_LOWER_EDGE_BACKOFF_HE;
+	tx_pwr_ctrl_params->band_edge_5g_unii_3_hi_ht =
+		CONFIG_NRF700X_BAND_UNII_3_UPPER_EDGE_BACKOFF_HT;
+	tx_pwr_ctrl_params->band_edge_5g_unii_3_hi_he =
+		CONFIG_NRF700X_BAND_UNII_3_UPPER_EDGE_BACKOFF_HE;
+	tx_pwr_ctrl_params->band_edge_5g_unii_4_lo_ht =
+		CONFIG_NRF700X_BAND_UNII_4_LOWER_EDGE_BACKOFF_HT;
+	tx_pwr_ctrl_params->band_edge_5g_unii_4_lo_he =
+		CONFIG_NRF700X_BAND_UNII_4_LOWER_EDGE_BACKOFF_HE;
+	tx_pwr_ctrl_params->band_edge_5g_unii_4_hi_ht =
+		CONFIG_NRF700X_BAND_UNII_4_UPPER_EDGE_BACKOFF_HT;
+	tx_pwr_ctrl_params->band_edge_5g_unii_4_hi_he =
+		CONFIG_NRF700X_BAND_UNII_4_UPPER_EDGE_BACKOFF_HE;
+
 
 	tx_pwr_ceil_params->max_pwr_2g_dsss =
 			DT_PROP(DT_NODELABEL(nrf70_tx_power_ceiling), max_pwr_2g_dsss);
@@ -508,6 +567,16 @@ void configure_tx_pwr_settings(struct nrf_wifi_tx_pwr_ctrl_params *tx_pwr_ctrl_p
 #endif /* CONFIG_NRF70_2_4G_ONLY */
 }
 
+void configure_board_dep_params(struct nrf_wifi_board_params *board_params)
+{
+	board_params->pcb_loss_2g = CONFIG_NRF700X_PCB_LOSS_2G;
+#ifndef CONFIG_NRF70_2_4G_ONLY
+	board_params->pcb_loss_5g_band1 = CONFIG_NRF700X_PCB_LOSS_5G_BAND1;
+	board_params->pcb_loss_5g_band2 = CONFIG_NRF700X_PCB_LOSS_5G_BAND2;
+	board_params->pcb_loss_5g_band3 = CONFIG_NRF700X_PCB_LOSS_5G_BAND3;
+#endif /* CONFIG_NRF70_2_4G_ONLY */
+}
+
 enum nrf_wifi_status nrf_wifi_fmac_dev_add_zep(struct nrf_wifi_drv_priv_zep *drv_priv_zep)
 {
 	enum nrf_wifi_status status = NRF_WIFI_STATUS_FAIL;
@@ -525,6 +594,7 @@ enum nrf_wifi_status nrf_wifi_fmac_dev_add_zep(struct nrf_wifi_drv_priv_zep *drv
 #endif /* CONFIG_NRF_WIFI_LOW_POWER */
 	struct nrf_wifi_tx_pwr_ctrl_params tx_pwr_ctrl_params;
 	struct nrf_wifi_tx_pwr_ceil_params tx_pwr_ceil_params;
+	struct nrf_wifi_board_params board_params;
 
 	unsigned int fw_ver = 0;
 
@@ -565,6 +635,7 @@ enum nrf_wifi_status nrf_wifi_fmac_dev_add_zep(struct nrf_wifi_drv_priv_zep *drv
 	configure_tx_pwr_settings(&tx_pwr_ctrl_params,
 				  &tx_pwr_ceil_params);
 
+	configure_board_dep_params(&board_params);
 
 #ifdef CONFIG_NRF700X_RADIO_TEST
 	status = nrf_wifi_fmac_dev_init_rt(rpu_ctx_zep->rpu_ctx,
@@ -575,7 +646,8 @@ enum nrf_wifi_status nrf_wifi_fmac_dev_add_zep(struct nrf_wifi_drv_priv_zep *drv
 					op_band,
 					IS_ENABLED(CONFIG_NRF_WIFI_BEAMFORMING),
 					&tx_pwr_ctrl_params,
-					&tx_pwr_ceil_params);
+					&tx_pwr_ceil_params,
+					&board_params);
 #else
 	status = nrf_wifi_fmac_dev_init(rpu_ctx_zep->rpu_ctx,
 #ifdef CONFIG_NRF_WIFI_LOW_POWER
@@ -585,7 +657,8 @@ enum nrf_wifi_status nrf_wifi_fmac_dev_add_zep(struct nrf_wifi_drv_priv_zep *drv
 					op_band,
 					IS_ENABLED(CONFIG_NRF_WIFI_BEAMFORMING),
 					&tx_pwr_ctrl_params,
-					&tx_pwr_ceil_params);
+					&tx_pwr_ceil_params,
+					&board_params);
 #endif /* CONFIG_NRF700X_RADIO_TEST */
 
 
@@ -593,6 +666,8 @@ enum nrf_wifi_status nrf_wifi_fmac_dev_add_zep(struct nrf_wifi_drv_priv_zep *drv
 		LOG_ERR("%s: nrf_wifi_fmac_dev_init failed", __func__);
 		goto err;
 	}
+
+	k_mutex_init(&rpu_ctx_zep->rpu_lock);
 
 	return status;
 err:
@@ -619,6 +694,11 @@ enum nrf_wifi_status nrf_wifi_fmac_dev_rem_zep(struct nrf_wifi_drv_priv_zep *drv
 	nrf_wifi_fmac_dev_deinit(rpu_ctx_zep->rpu_ctx);
 	nrf_wifi_fmac_dev_rem(rpu_ctx_zep->rpu_ctx);
 #endif /* CONFIG_NRF700X_RADIO_TEST */
+
+	k_free(rpu_ctx_zep->extended_capa);
+	rpu_ctx_zep->extended_capa = NULL;
+	k_free(rpu_ctx_zep->extended_capa_mask);
+	rpu_ctx_zep->extended_capa_mask = NULL;
 
 	rpu_ctx_zep->rpu_ctx = NULL;
 	LOG_DBG("%s: FMAC device removed", __func__);
@@ -647,9 +727,9 @@ static int nrf_wifi_drv_main_zep(const struct device *dev)
 	data_config.rate_protection_type = rate_protection_type;
 	callbk_fns.if_carr_state_chg_callbk_fn = nrf_wifi_if_carr_state_chg;
 	callbk_fns.rx_frm_callbk_fn = nrf_wifi_if_rx_frm;
-#ifdef CONFIG_NRF700X_RAW_DATA_RX
+#if defined(CONFIG_NRF700X_RAW_DATA_RX) || defined(CONFIG_NRF700X_PROMISC_DATA_RX)
 	callbk_fns.rx_sniffer_frm_callbk_fn = nrf_wifi_if_sniffer_rx_frm;
-#endif
+#endif /* CONFIG_NRF700X_RAW_DATA_RX || CONFIG_NRF700X_PROMISC_DATA_RX */
 #endif
 	rx_buf_pools[0].num_bufs = rx1_num_bufs;
 	rx_buf_pools[1].num_bufs = rx2_num_bufs;
@@ -658,6 +738,9 @@ static int nrf_wifi_drv_main_zep(const struct device *dev)
 	rx_buf_pools[1].buf_sz = rx2_buf_sz;
 	rx_buf_pools[2].buf_sz = rx3_buf_sz;
 
+#ifdef CONFIG_NRF_WIFI_RPU_RECOVERY
+	callbk_fns.rpu_recovery_callbk_fn = nrf_wifi_rpu_recovery_cb;
+#endif /* CONFIG_NRF_WIFI_RPU_RECOVERY */
 	callbk_fns.scan_start_callbk_fn = nrf_wifi_event_proc_scan_start_zep;
 	callbk_fns.scan_done_callbk_fn = nrf_wifi_event_proc_scan_done_zep;
 	callbk_fns.reg_change_callbk_fn = reg_change_callbk_fn;
@@ -667,7 +750,7 @@ static int nrf_wifi_drv_main_zep(const struct device *dev)
 #ifdef CONFIG_WIFI_MGMT_RAW_SCAN_RESULTS
 	callbk_fns.rx_bcn_prb_resp_callbk_fn = nrf_wifi_rx_bcn_prb_resp_frm;
 #endif /* CONFIG_WIFI_MGMT_RAW_SCAN_RESULTS */
-#ifdef CONFIG_NRF700X_SYSTEM_MODE
+#if defined(CONFIG_NRF700X_SYSTEM_MODE) || defined(CONFIG_NRF700X_SYSTEM_WITH_RAW_MODES)
 	callbk_fns.set_if_callbk_fn = nrf_wifi_set_iface_event_handler;
 #endif /* CONFIG_NRF700X_SYSTEM_MODE */
 #ifdef CONFIG_NRF700X_STA_MODE
@@ -755,8 +838,9 @@ static struct wifi_mgmt_ops nrf_wifi_mgmt_ops = {
 	.set_twt = nrf_wifi_set_twt,
 	.reg_domain = nrf_wifi_reg_domain,
 	.get_power_save_config = nrf_wifi_get_power_save_config,
+	.set_rts_threshold = nrf_wifi_set_rts_threshold,
 #endif /* CONFIG_NRF700X_STA_MODE */
-#ifdef CONFIG_NRF700X_SYSTEM_MODE
+#ifdef CONFIG_NRF700X_SYSTEM_WITH_RAW_MODES
 	.mode = nrf_wifi_mode,
 #endif
 #if defined(CONFIG_NRF700X_RAW_DATA_TX) || defined(CONFIG_NRF700X_RAW_DATA_RX)
@@ -816,6 +900,7 @@ static const struct zep_wpa_supp_dev_ops wpa_supp_ops = {
 	.sta_remove = nrf_wifi_wpa_supp_sta_remove,
 	.register_mgmt_frame = nrf_wifi_supp_register_mgmt_frame,
 	.sta_set_flags = nrf_wifi_wpa_supp_sta_set_flags,
+	.get_inact_sec = nrf_wifi_wpa_supp_sta_get_inact_sec,
 #endif /* CONFIG_NRF700X_AP_MODE */
 };
 #endif /* CONFIG_NRF700X_STA_MODE */

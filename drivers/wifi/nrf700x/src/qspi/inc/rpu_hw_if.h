@@ -53,8 +53,9 @@ int rpu_init(void);
 int rpu_enable(void);
 int rpu_disable(void);
 
-#if defined(CONFIG_BOARD_NRF7002DK_NRF7001_NRF5340_CPUAPP) || \
-	defined(CONFIG_BOARD_NRF7002DK_NRF5340_CPUAPP)
+#ifdef CONFIG_NRF700X_SR_COEX_RF_SWITCH
 int sr_ant_switch(unsigned int ant_switch);
-#endif /* CONFIG_BOARD_NRF700XDK_NRF5340 */
+int sr_gpio_remove(void);
+int sr_gpio_config(void);
+#endif /* CONFIG_NRF700X_SR_COEX_RF_SWITCH */
 #endif /* __RPU_HW_IF_H_ */

@@ -5,24 +5,35 @@
 #
 
 menuconfig BT_FAST_PAIR
-	bool "Google Fast Pair Service (GFPS) [EXPERIMENTAL]"
+	bool "Google Fast Pair Service (GFPS)"
 	select BT_NRF_SERVICES
-	select EXPERIMENTAL
 	help
 	  Enable Google Fast Pair Service (GFPS).
 
 if BT_FAST_PAIR
 
-config BT_FAST_PAIR_PN
-	bool "Fast Pair Personalized Name extension"
+config BT_FAST_PAIR_REQ_PAIRING
+	bool "Require Bluetooth Pairing during Fast Pair Procedure"
 	default y
+	help
+	  Require the Bluetooth Pairing during the Fast Pair Procedure.
+	  With this option enabled, the Fast Pair modules rejects the Fast Pair
+	  procedure that is performed without the Bluetooth pairing operation.
+
+config BT_FAST_PAIR_PN
+	bool "Fast Pair Personalized Name extension [EXPERIMENTAL]"
+	default y if !BT_FAST_PAIR_FMDN
 	select BT_FAST_PAIR_GATT_SERVICE_ADDITIONAL_DATA
 	select BT_FAST_PAIR_STORAGE_PN
+	select EXPERIMENTAL
 	help
 	  Enable Fast Pair Personalized Name extension.
 
 rsource "fp_crypto/Kconfig.fp_crypto"
 rsource "fp_storage/Kconfig.fp_storage"
+rsource "fmdn/Kconfig"
+
+if !BT_FAST_PAIR_FMDN
 
 config BT_DIS
 	default y
@@ -36,6 +47,8 @@ config BT_DIS_FW_REV
 config BT_DIS_FW_REV_STR
 	default MCUBOOT_IMGTOOL_SIGN_VERSION if BOOTLOADER_MCUBOOT
 	default "0.0.0+0"
+
+endif # !BT_FAST_PAIR_FMDN
 
 config BT_FAST_PAIR_ACTIVATION
 	bool
@@ -102,6 +115,12 @@ config BT_CTLR_DATA_LENGTH_MAX
 	default 87 if BT_CTLR
 	help
 	  If Fast Pair is enabled, use MTU value of 83 (recommended by the specification).
+
+config BT_FAST_PAIR_GATT_SERVICE_MODEL_ID
+	bool "Fast Pair Service's Model ID GATT characteristic"
+	default y if !BT_FAST_PAIR_FMDN
+	help
+	  Add Fast Pair Service's Model ID GATT characteristic.
 
 config BT_FAST_PAIR_GATT_SERVICE_ADDITIONAL_DATA
 	bool

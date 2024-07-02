@@ -43,6 +43,8 @@ LOG_MODULE_REGISTER(esb, CONFIG_ESB_LOG_LEVEL);
 #define RX_ACK_TIMEOUT_US_250KBPS 300
 /* 1 Mb RX wait for acknowledgment time-out (combined with BLE). */
 #define RX_ACK_TIMEOUT_US_1MBPS_BLE 300
+/* 4 Mb RX wait for acknowledgment time-out value. */
+#define RX_ACK_TIMEOUT_US_4MBPS 160
 
 /* Minimum retransmit time */
 #define RETRANSMIT_DELAY_MIN 435
@@ -85,9 +87,28 @@ LOG_MODULE_REGISTER(esb, CONFIG_ESB_LOG_LEVEL);
 /* NRF5340 Radio high voltage gain. */
 #define NRF5340_HIGH_VOLTAGE_GAIN 3
 
-#define RADIO_SHORTS_COMMON                                                              \
-	(NRF_RADIO_SHORT_READY_START_MASK | NRF_RADIO_SHORT_END_DISABLE_MASK |           \
-	NRF_RADIO_SHORT_ADDRESS_RSSISTART_MASK | NRF_RADIO_SHORT_DISABLED_RSSISTOP_MASK)
+/* Fast switching is available for the nRF54H20 SoC.
+ * The nRF54H20 is a non-RSSISTOP device.
+ */
+#if defined(RADIO_SHORTS_DISABLED_RSSISTOP_Msk)
+#define RADIO_SHORTS_COMMON                                                                        \
+		(NRF_RADIO_SHORT_READY_START_MASK | ESB_SHORT_DISABLE_MASK |                       \
+		NRF_RADIO_SHORT_ADDRESS_RSSISTART_MASK | NRF_RADIO_SHORT_DISABLED_RSSISTOP_MASK)
+#else
+/* Devices without RSSISTOP task will stop RSSI measurement after specific period. */
+#define RADIO_SHORTS_FAST_SWITCHING_NO_RSSISTOP                                                    \
+		(NRF_RADIO_SHORT_READY_START_MASK | NRF_RADIO_SHORT_ADDRESS_RSSISTART_MASK)
+#define RADIO_SHORTS_NO_FAST_SWITCHING_NO_RSSISTOP                                                 \
+		(NRF_RADIO_SHORT_READY_START_MASK | ESB_SHORT_DISABLE_MASK |                       \
+		NRF_RADIO_SHORT_ADDRESS_RSSISTART_MASK)
+
+#define RADIO_SHORTS_COMMON                                                                        \
+		(IS_ENABLED(CONFIG_ESB_FAST_SWITCHING) ? RADIO_SHORTS_FAST_SWITCHING_NO_RSSISTOP : \
+							 RADIO_SHORTS_NO_FAST_SWITCHING_NO_RSSISTOP)
+#endif  /* !defined(RADIO_SHORTS_DISABLED_RSSISTOP_Msk) */
+
+/* Flag for changing radio channel. */
+#define RF_CHANNEL_UPDATE_FLAG 0
 
 /* Internal Enhanced ShockBurst module state. */
 enum esb_state {
@@ -202,9 +223,10 @@ struct esb_address {
 	uint8_t addr_length;	/* Length of the address plus the prefix. */
 	uint8_t rx_pipes_enabled;	/* Bitfield for enabled pipes. */
 	uint8_t rf_channel;        /* Channel to use (between 0 and 100). */
+	atomic_t rf_channel_flags;	/* Flags for setting the channel. */
 };
 
-static nrfx_timer_t esb_timer = ESB_TIMER_INSTANCE;
+static nrfx_timer_t esb_timer = ESB_NRFX_TIMER_INSTANCE;
 
 static bool esb_initialized;
 static struct esb_config esb_cfg;
@@ -564,15 +586,163 @@ static void update_radio_addresses(uint8_t update_mask)
 #endif
 }
 
+#if defined(CONFIG_SOC_SERIES_NRF54HX) || defined(CONFIG_SOC_SERIES_NRF54LX)
+static nrf_radio_txpower_t dbm_to_nrf_radio_txpower(int8_t tx_power)
+{
+	switch (tx_power) {
+#if defined(RADIO_TXPOWER_TXPOWER_Neg70dBm)
+	case -70:
+		return RADIO_TXPOWER_TXPOWER_Neg70dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg70dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg46dBm)
+	case -46:
+		return RADIO_TXPOWER_TXPOWER_Neg46dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg46dBm) */
+
+	case -40:
+		return RADIO_TXPOWER_TXPOWER_Neg40dBm;
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg30dBm)
+	case -30:
+		return RADIO_TXPOWER_TXPOWER_Neg30dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg30dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg26dBm)
+	case -26:
+		return RADIO_TXPOWER_TXPOWER_Neg26dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg26dBm) */
+
+	case -20:
+		return RADIO_TXPOWER_TXPOWER_Neg20dBm;
+
+	case -16:
+		return RADIO_TXPOWER_TXPOWER_Neg16dBm;
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg14dBm)
+	case -14:
+		return RADIO_TXPOWER_TXPOWER_Neg14dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg14dBm) */
+
+	case -12:
+		return RADIO_TXPOWER_TXPOWER_Neg12dBm;
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg10dBm)
+	case -10:
+		return RADIO_TXPOWER_TXPOWER_Neg10dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg10dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg9dBm)
+	case -9:
+		return RADIO_TXPOWER_TXPOWER_Neg9dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg9dBm) */
+
+	case -8:
+		return RADIO_TXPOWER_TXPOWER_Neg8dBm;
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg7dBm)
+	case -7:
+		return RADIO_TXPOWER_TXPOWER_Neg7dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg7dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg6dBm)
+	case -6:
+		return RADIO_TXPOWER_TXPOWER_Neg6dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg6dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg5dBm)
+	case -5:
+		return RADIO_TXPOWER_TXPOWER_Neg5dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg5dBm) */
+
+	case -4:
+		return RADIO_TXPOWER_TXPOWER_Neg4dBm;
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg3dBm)
+	case -3:
+		return RADIO_TXPOWER_TXPOWER_Neg3dBm;
+#endif /* defined (RADIO_TXPOWER_TXPOWER_Neg3dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg2dBm)
+	case -2:
+		return RADIO_TXPOWER_TXPOWER_Neg2dBm;
+#endif /* defined (RADIO_TXPOWER_TXPOWER_Neg2dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg1dBm)
+	case -1:
+		return RADIO_TXPOWER_TXPOWER_Neg1dBm;
+#endif /* defined (RADIO_TXPOWER_TXPOWER_Neg1dBm) */
+
+	case 0:
+		return RADIO_TXPOWER_TXPOWER_0dBm;
+
+#if defined(RADIO_TXPOWER_TXPOWER_Pos1dBm)
+	case 1:
+		return RADIO_TXPOWER_TXPOWER_Pos1dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos1dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Pos2dBm)
+	case 2:
+		return RADIO_TXPOWER_TXPOWER_Pos2dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos2dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Pos3dBm)
+	case 3:
+		return RADIO_TXPOWER_TXPOWER_Pos3dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos3dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Pos4dBm)
+	case 4:
+		return RADIO_TXPOWER_TXPOWER_Pos4dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos4dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Pos5dBm)
+	case 5:
+		return RADIO_TXPOWER_TXPOWER_Pos5dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos5dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Pos6dBm)
+	case 6:
+		return RADIO_TXPOWER_TXPOWER_Pos6dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos6dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Pos7dBm)
+	case 7:
+		return RADIO_TXPOWER_TXPOWER_Pos7dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos7dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Pos8dBm)
+	case 8:
+		return RADIO_TXPOWER_TXPOWER_Pos8dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos8dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Pos9dBm)
+	case 9:
+		return RADIO_TXPOWER_TXPOWER_Pos9dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos9dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Pos10dBm)
+	case 10:
+		return RADIO_TXPOWER_TXPOWER_Pos10dBm;
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos10dBm) */
+
+	default:
+		printk("TX power to enumerator conversion failed, defaulting to 0 dBm\n");
+		return RADIO_TXPOWER_TXPOWER_0dBm;
+	}
+}
+#endif /* defined(CONFIG_SOC_SERIES_NRF54HX) || defined(CONFIG_SOC_SERIES_NRF54LX) */
+
 static void update_radio_tx_power(void)
 {
+#if !(defined(CONFIG_SOC_SERIES_NRF54HX) || defined(CONFIG_SOC_SERIES_NRF54LX))
 	int32_t err;
 	mpsl_tx_power_split_t tx_power;
 
 	(void)mpsl_fem_tx_power_split(esb_cfg.tx_output_power, &tx_power,
 				      (RADIO_BASE_FREQUENCY + esb_addr.rf_channel), false);
 
-	err = mpsl_fem_pa_gain_set(&tx_power.fem);
+	err = mpsl_fem_pa_power_control_set(tx_power.fem_pa_power_control);
 	if (err) {
 		/* Should not happen. */
 		__ASSERT_NO_MSG(false);
@@ -590,6 +760,9 @@ static void update_radio_tx_power(void)
 #endif /* NRF53_SERIES */
 
 	nrf_radio_txpower_set(NRF_RADIO, tx_power.radio_tx_power);
+#else
+	nrf_radio_txpower_set(NRF_RADIO, dbm_to_nrf_radio_txpower(esb_cfg.tx_output_power));
+#endif /* !(defined(CONFIG_SOC_SERIES_NRF54HX) || defined(CONFIG_SOC_SERIES_NRF54LX)) */
 }
 
 static bool update_radio_bitrate(void)
@@ -597,6 +770,13 @@ static bool update_radio_bitrate(void)
 	nrf_radio_mode_set(NRF_RADIO, esb_cfg.bitrate);
 
 	switch (esb_cfg.bitrate) {
+
+#if defined(RADIO_MODE_MODE_Nrf_4Mbit0_5)
+	case ESB_BITRATE_4MBPS:
+		wait_for_ack_timeout_us = RX_ACK_TIMEOUT_US_4MBPS;
+		break;
+#endif /* defined(RADIO_MODE_MODE_Nrf_4Mbit0_5) */
+
 	case ESB_BITRATE_2MBPS:
 
 #if defined(RADIO_MODE_MODE_Ble_2Mbit)
@@ -841,8 +1021,13 @@ static void start_tx_transaction(void)
 
 		memcpy(pdu->data, current_payload->data, current_payload->length);
 
-		nrf_radio_shorts_set(NRF_RADIO,
-				     (radio_shorts_common | NRF_RADIO_SHORT_DISABLED_RXEN_MASK));
+		if (IS_ENABLED(CONFIG_ESB_FAST_SWITCHING)) {
+			nrf_radio_shorts_set(NRF_RADIO, radio_shorts_common);
+			nrf_radio_int_enable(NRF_RADIO, ESB_RADIO_INT_END_MASK);
+		} else {
+			nrf_radio_shorts_set(NRF_RADIO,
+					(radio_shorts_common | NRF_RADIO_SHORT_DISABLED_RXEN_MASK));
+		}
 		nrf_radio_int_enable(NRF_RADIO, NRF_RADIO_INT_DISABLED_MASK);
 
 		/* Configure the retransmit counter */
@@ -865,8 +1050,13 @@ static void start_tx_transaction(void)
 		 * selective auto ack is turned off
 		 */
 		if (ack) {
-			nrf_radio_shorts_set(NRF_RADIO,
-				(radio_shorts_common | NRF_RADIO_SHORT_DISABLED_RXEN_MASK));
+			if (IS_ENABLED(CONFIG_ESB_FAST_SWITCHING)) {
+				nrf_radio_shorts_set(NRF_RADIO, radio_shorts_common);
+				nrf_radio_int_enable(NRF_RADIO, ESB_RADIO_INT_END_MASK);
+			} else {
+				nrf_radio_shorts_set(NRF_RADIO,
+					(radio_shorts_common | NRF_RADIO_SHORT_DISABLED_RXEN_MASK));
+			}
 
 			/* Configure the retransmit counter */
 			retransmits_remaining = esb_cfg.retransmit_count;
@@ -875,7 +1065,7 @@ static void start_tx_transaction(void)
 			nrf_radio_int_enable(NRF_RADIO, NRF_RADIO_INT_DISABLED_MASK);
 		} else if (IS_ENABLED(CONFIG_ESB_NEVER_DISABLE_TX)) {
 			nrf_radio_shorts_set(NRF_RADIO, radio_shorts_common &
-					~RADIO_SHORTS_END_DISABLE_Msk);
+					~ESB_SHORT_DISABLE_MASK);
 			nrf_timer_shorts_set(esb_timer.p_reg,
 					(NRF_TIMER_SHORT_COMPARE1_STOP_MASK |
 					NRF_TIMER_SHORT_COMPARE1_CLEAR_MASK));
@@ -911,18 +1101,19 @@ static void start_tx_transaction(void)
 	nrf_radio_txaddress_set(NRF_RADIO, current_payload->pipe);
 	nrf_radio_rxaddresses_set(NRF_RADIO, BIT(current_payload->pipe));
 	nrf_radio_frequency_set(NRF_RADIO, (RADIO_BASE_FREQUENCY + esb_addr.rf_channel));
+	atomic_clear_bit(&esb_addr.rf_channel_flags, RF_CHANNEL_UPDATE_FLAG);
 
 	update_radio_tx_power();
 
 	nrf_radio_packetptr_set(NRF_RADIO, pdu);
 
-	NVIC_ClearPendingIRQ(RADIO_IRQn);
-	irq_enable(RADIO_IRQn);
+	NVIC_ClearPendingIRQ(ESB_RADIO_IRQ_NUMBER);
+	irq_enable(ESB_RADIO_IRQ_NUMBER);
 
 	nrf_radio_event_clear(NRF_RADIO, NRF_RADIO_EVENT_ADDRESS);
 	nrf_radio_event_clear(NRF_RADIO, NRF_RADIO_EVENT_PAYLOAD);
 	nrf_radio_event_clear(NRF_RADIO, NRF_RADIO_EVENT_DISABLED);
-	nrf_radio_event_clear(NRF_RADIO, NRF_RADIO_EVENT_END);
+	nrf_radio_event_clear(NRF_RADIO, ESB_RADIO_EVENT_END);
 
 	/* Trigger different radio event if radio is disabled or idle */
 	if (is_tx_idle) {
@@ -932,6 +1123,15 @@ static void start_tx_transaction(void)
 		esb_fem_for_tx_set(ack);
 
 		radio_start();
+	}
+}
+
+static void set_evt_interrupt(void)
+{
+	if (IS_ENABLED(ESB_EVT_USING_EGU)) {
+		nrf_egu_task_trigger(ESB_EGU, ESB_EGU_EVT_TASK);
+	} else {
+		NVIC_SetPendingIRQ(ESB_EVT_IRQ_NUMBER);
 	}
 }
 
@@ -946,9 +1146,9 @@ static void on_radio_end_tx_noack(void)
 
 	if (tx_fifo.count == 0) {
 		esb_state = ESB_STATE_PTX_TXIDLE;
-		NVIC_SetPendingIRQ(ESB_EVT_IRQ);
+		set_evt_interrupt();
 	} else {
-		NVIC_SetPendingIRQ(ESB_EVT_IRQ);
+		set_evt_interrupt();
 		start_tx_transaction();
 	}
 }
@@ -963,9 +1163,9 @@ static void on_radio_disabled_tx_noack(void)
 
 	if (tx_fifo.count == 0) {
 		esb_state = ESB_STATE_IDLE;
-		NVIC_SetPendingIRQ(ESB_EVT_IRQ);
+		set_evt_interrupt();
 	} else {
-		NVIC_SetPendingIRQ(ESB_EVT_IRQ);
+		set_evt_interrupt();
 		start_tx_transaction();
 	}
 }
@@ -1003,7 +1203,7 @@ static void on_radio_disabled_tx(void)
 	esb_ppi_for_wait_for_ack_set();
 	esb_ppi_for_retransmission_clear();
 
-	nrf_radio_event_clear(NRF_RADIO, NRF_RADIO_EVENT_END);
+	nrf_radio_event_clear(NRF_RADIO, ESB_RADIO_EVENT_END);
 
 	if (esb_cfg.protocol == ESB_PROTOCOL_ESB) {
 		update_rf_payload_format(0);
@@ -1029,7 +1229,7 @@ static void on_radio_disabled_tx_wait_for_ack(void)
 	mpsl_fem_disable();
 
 	/* If the radio has received a packet and the CRC status is OK */
-	if (nrf_radio_event_check(NRF_RADIO, NRF_RADIO_EVENT_END) &&
+	if (nrf_radio_event_check(NRF_RADIO, ESB_RADIO_EVENT_END) &&
 	    nrf_radio_crc_status_check(NRF_RADIO)) {
 		interrupt_flags |= INT_TX_SUCCESS_MSK;
 		last_tx_attempts = esb_cfg.retransmit_count - retransmits_remaining + 1;
@@ -1045,9 +1245,9 @@ static void on_radio_disabled_tx_wait_for_ack(void)
 
 		if ((tx_fifo.count == 0) || (esb_cfg.tx_mode == ESB_TXMODE_MANUAL)) {
 			esb_state = ESB_STATE_IDLE;
-			NVIC_SetPendingIRQ(ESB_EVT_IRQ);
+			set_evt_interrupt();
 		} else {
-			NVIC_SetPendingIRQ(ESB_EVT_IRQ);
+			set_evt_interrupt();
 			start_tx_transaction();
 		}
 	} else {
@@ -1061,7 +1261,7 @@ static void on_radio_disabled_tx_wait_for_ack(void)
 			interrupt_flags |= INT_TX_FAILED_MSK;
 
 			esb_state = ESB_STATE_IDLE;
-			NVIC_SetPendingIRQ(ESB_EVT_IRQ);
+			set_evt_interrupt();
 		} else {
 			bool radio_started = true;
 
@@ -1071,8 +1271,12 @@ static void on_radio_disabled_tx_wait_for_ack(void)
 			 * be entered again as soon as the system timer reaches
 			 * CC[1].
 			 */
-			nrf_radio_shorts_set(NRF_RADIO,
-				(radio_shorts_common | NRF_RADIO_SHORT_DISABLED_RXEN_MASK));
+			if (IS_ENABLED(CONFIG_ESB_FAST_SWITCHING)) {
+				nrf_radio_shorts_set(NRF_RADIO, radio_shorts_common);
+			} else {
+				nrf_radio_shorts_set(NRF_RADIO,
+					(radio_shorts_common | NRF_RADIO_SHORT_DISABLED_RXEN_MASK));
+			}
 			update_rf_payload_format(current_payload->length);
 
 			nrf_radio_packetptr_set(NRF_RADIO, tx_payload_buffer);
@@ -1223,8 +1427,12 @@ static void on_radio_disabled_rx(void)
 	if ((esb_cfg.selective_auto_ack == false) || rx_pdu->type.dpl_pdu.no_ack) {
 		esb_fem_for_tx_ack();
 
-		nrf_radio_shorts_set(NRF_RADIO,
+		if (IS_ENABLED(CONFIG_ESB_FAST_SWITCHING)) {
+			nrf_radio_shorts_set(NRF_RADIO, radio_shorts_common);
+		} else {
+			nrf_radio_shorts_set(NRF_RADIO,
 				     (radio_shorts_common | NRF_RADIO_SHORT_DISABLED_RXEN_MASK));
+		}
 
 		switch (esb_cfg.protocol) {
 		case ESB_PROTOCOL_ESB_DPL:
@@ -1259,7 +1467,7 @@ static void on_radio_disabled_rx(void)
 		 */
 		if (rx_fifo_push_rfbuf(nrf_radio_rxmatch_get(NRF_RADIO), pipe_info->pid)) {
 			interrupt_flags |= INT_RX_DATA_RECEIVED_MSK;
-			NVIC_SetPendingIRQ(ESB_EVT_IRQ);
+			set_evt_interrupt();
 		}
 	}
 }
@@ -1268,13 +1476,27 @@ static void on_radio_disabled_rx_ack(void)
 {
 	esb_fem_for_ack_rx();
 
-	nrf_radio_shorts_set(NRF_RADIO, (radio_shorts_common | NRF_RADIO_SHORT_DISABLED_TXEN_MASK));
+	if (IS_ENABLED(CONFIG_ESB_FAST_SWITCHING)) {
+		nrf_radio_shorts_set(NRF_RADIO, radio_shorts_common);
+		nrf_radio_task_trigger(NRF_RADIO, NRF_RADIO_TASK_RXEN);
+	} else {
+		nrf_radio_shorts_set(NRF_RADIO, (radio_shorts_common |
+						 NRF_RADIO_SHORT_DISABLED_TXEN_MASK));
+	}
+
 	update_rf_payload_format(esb_cfg.payload_length);
 
 	nrf_radio_packetptr_set(NRF_RADIO, rx_payload_buffer);
 	on_radio_disabled = on_radio_disabled_rx;
 
 	esb_state = ESB_STATE_PRX;
+}
+
+static void fast_switchinng_set_channel(uint8_t channel)
+{
+	*(volatile uint32_t *)((uint8_t *)(NRF_RADIO) +  0x70C) &= ~(1 << 31);
+	nrf_radio_frequency_set(NRF_RADIO, (RADIO_BASE_FREQUENCY + channel));
+	*(volatile uint32_t *)((uint8_t *)(NRF_RADIO) +  0x07C) = 1;
 }
 
 /* Retrieve interrupt flags and reset them.
@@ -1305,6 +1527,28 @@ static void radio_irq_handler(void)
 			on_radio_disabled();
 		}
 	}
+
+	if (nrf_radio_int_enable_check(NRF_RADIO, ESB_RADIO_INT_END_MASK) &&
+	    nrf_radio_event_check(NRF_RADIO, ESB_RADIO_EVENT_END)) {
+		/* The PHYEND event is called when fast switching is enabled
+		 * instead of the DISABLE event.
+		 * This event is handled in the analogous way to the disable event.
+		 */
+		if (on_radio_disabled) {
+			on_radio_disabled();
+		}
+		nrf_radio_event_clear(NRF_RADIO, ESB_RADIO_EVENT_END);
+	}
+
+#if defined(CONFIG_ESB_FAST_CHANNEL_SWITCHING)
+	if (nrf_radio_int_enable_check(NRF_RADIO, NRF_RADIO_INT_RXREADY_MASK) &&
+	    nrf_radio_event_check(NRF_RADIO, NRF_RADIO_EVENT_RXREADY)) {
+		nrf_radio_event_clear(NRF_RADIO, NRF_RADIO_EVENT_RXREADY);
+		if (atomic_test_and_clear_bit(&esb_addr.rf_channel_flags, RF_CHANNEL_UPDATE_FLAG)) {
+			fast_switchinng_set_channel(esb_addr.rf_channel);
+		}
+	}
+#endif /* defined(CONFIG_ESB_FAST_CHANNEL_SWITCHING) */
 }
 
 static void esb_evt_irq_handler(void)
@@ -1333,21 +1577,24 @@ static void esb_evt_irq_handler(void)
 
 #if IS_ENABLED(CONFIG_ESB_DYNAMIC_INTERRUPTS)
 
-void RADIO_IRQHandler(const void *args)
+static void radio_dynamic_irq_handler(const void *args)
 {
 	ARG_UNUSED(args);
 	radio_irq_handler();
 	ISR_DIRECT_PM();
 }
 
-void ESB_EVT_IRQHandler(const void *args)
+static void evt_dynamic_irq_handler(const void *args)
 {
 	ARG_UNUSED(args);
+	if (IS_ENABLED(ESB_EVT_USING_EGU)) {
+		nrf_egu_event_clear(ESB_EGU, ESB_EGU_EVT_TASK);
+	}
 	esb_evt_irq_handler();
 	ISR_DIRECT_PM();
 }
 
-void ESB_TIMER_IRQHandler(const void *args)
+static void timer_dynamic_irq_handler(const void *args)
 {
 	ARG_UNUSED(args);
 	ESB_TIMER_IRQ_HANDLER();
@@ -1356,7 +1603,7 @@ void ESB_TIMER_IRQHandler(const void *args)
 
 #else /* !IS_ENABLED(CONFIG_ESB_DYNAMIC_INTERRUPTS) */
 
-ISR_DIRECT_DECLARE(RADIO_IRQHandler)
+ISR_DIRECT_DECLARE(esb_radio_direct_irq_handler)
 {
 	radio_irq_handler();
 
@@ -1365,9 +1612,12 @@ ISR_DIRECT_DECLARE(RADIO_IRQHandler)
 	return 1;
 }
 
-
-ISR_DIRECT_DECLARE(ESB_EVT_IRQHandler)
+ISR_DIRECT_DECLARE(esb_evt_direct_irq_handler)
 {
+	if (IS_ENABLED(ESB_EVT_USING_EGU)) {
+		nrf_egu_event_clear(ESB_EGU, ESB_EGU_EVT_EVENT);
+	}
+
 	esb_evt_irq_handler();
 
 	ISR_DIRECT_PM();
@@ -1386,8 +1636,8 @@ ISR_DIRECT_DECLARE(ESB_SYS_TIMER_IRQHandler)
 
 static void esb_irq_disable(void)
 {
-	irq_disable(RADIO_IRQn);
-	irq_disable(ESB_EVT_IRQ);
+	irq_disable(ESB_RADIO_IRQ_NUMBER);
+	irq_disable(ESB_EVT_IRQ_NUMBER);
 	irq_disable(ESB_TIMER_IRQ);
 }
 
@@ -1406,6 +1656,12 @@ int esb_init(const struct esb_config *config)
 	event_handler = config->event_handler;
 
 	memcpy(&esb_cfg, config, sizeof(esb_cfg));
+
+	if (IS_ENABLED(CONFIG_ESB_FAST_SWITCHING)) {
+		if (!esb_cfg.use_fast_ramp_up) {
+			return -EINVAL;
+		}
+	}
 
 	interrupt_flags = 0;
 
@@ -1436,41 +1692,47 @@ int esb_init(const struct esb_config *config)
 
 	disable_event.event.generic.event = esb_ppi_radio_disabled_get();
 
-	nrf_radio_modecnf0_set(NRF_RADIO, esb_cfg.use_fast_ramp_up,
-		nrf_radio_modecnf0_dtx_get(NRF_RADIO));
+	nrf_radio_fast_ramp_up_enable_set(NRF_RADIO, esb_cfg.use_fast_ramp_up);
+
+#if defined(CONFIG_ESB_FAST_CHANNEL_SWITCHING)
+		nrf_radio_int_enable(NRF_RADIO, NRF_RADIO_INT_RXREADY_MASK);
+#endif /* defined(CONFIG_ESB_FAST_CHANNEL_SWITCHING) */
 
 #if IS_ENABLED(CONFIG_ESB_DYNAMIC_INTERRUPTS)
 
 	/* Ensure IRQs are disabled before attaching. */
 	esb_irq_disable();
 
-	ARM_IRQ_DIRECT_DYNAMIC_CONNECT(RADIO_IRQn, CONFIG_ESB_RADIO_IRQ_PRIORITY,
+	ARM_IRQ_DIRECT_DYNAMIC_CONNECT(ESB_RADIO_IRQ_NUMBER, CONFIG_ESB_RADIO_IRQ_PRIORITY,
 				       0, reschedule);
-	ARM_IRQ_DIRECT_DYNAMIC_CONNECT(ESB_EVT_IRQ, CONFIG_ESB_EVENT_IRQ_PRIORITY,
+	ARM_IRQ_DIRECT_DYNAMIC_CONNECT(ESB_EVT_IRQ_NUMBER, CONFIG_ESB_EVENT_IRQ_PRIORITY,
 				       0, reschedule);
 	ARM_IRQ_DIRECT_DYNAMIC_CONNECT(ESB_TIMER_IRQ, CONFIG_ESB_EVENT_IRQ_PRIORITY,
 				       0, reschedule);
 
-	irq_connect_dynamic(RADIO_IRQn, CONFIG_ESB_RADIO_IRQ_PRIORITY,
-			    RADIO_IRQHandler, NULL, 0);
-	irq_connect_dynamic(ESB_EVT_IRQ, CONFIG_ESB_EVENT_IRQ_PRIORITY,
-			    ESB_EVT_IRQHandler,  NULL, 0);
+	irq_connect_dynamic(ESB_RADIO_IRQ_NUMBER, CONFIG_ESB_RADIO_IRQ_PRIORITY,
+			    radio_dynamic_irq_handler, NULL, 0);
+	irq_connect_dynamic(ESB_EVT_IRQ_NUMBER, CONFIG_ESB_EVENT_IRQ_PRIORITY,
+			    evt_dynamic_irq_handler, NULL, 0);
 	irq_connect_dynamic(ESB_TIMER_IRQ, CONFIG_ESB_EVENT_IRQ_PRIORITY,
-			    ESB_TIMER_IRQHandler, NULL, 0);
+			    timer_dynamic_irq_handler, NULL, 0);
 
 #else /* !IS_ENABLED(CONFIG_ESB_DYNAMIC_INTERRUPTS) */
 
-	IRQ_DIRECT_CONNECT(RADIO_IRQn, CONFIG_ESB_RADIO_IRQ_PRIORITY,
-			   RADIO_IRQHandler, 0);
-	IRQ_DIRECT_CONNECT(ESB_EVT_IRQ, CONFIG_ESB_EVENT_IRQ_PRIORITY,
-			   ESB_EVT_IRQHandler, 0);
+	IRQ_DIRECT_CONNECT(ESB_RADIO_IRQ_NUMBER, CONFIG_ESB_RADIO_IRQ_PRIORITY,
+			   esb_radio_direct_irq_handler, 0);
+	IRQ_DIRECT_CONNECT(ESB_EVT_IRQ_NUMBER, CONFIG_ESB_EVENT_IRQ_PRIORITY,
+			   esb_evt_direct_irq_handler, 0);
 	IRQ_DIRECT_CONNECT(ESB_TIMER_IRQ, CONFIG_ESB_EVENT_IRQ_PRIORITY,
 			   ESB_TIMER_IRQ_HANDLER, 0);
 
 #endif /* IS_ENABLED(CONFIG_ESB_DYNAMIC_INTERRUPTS) */
 
-	irq_enable(RADIO_IRQn);
-	irq_enable(ESB_EVT_IRQ);
+	irq_enable(ESB_RADIO_IRQ_NUMBER);
+	irq_enable(ESB_EVT_IRQ_NUMBER);
+	if (IS_ENABLED(ESB_EVT_USING_EGU)) {
+		nrf_egu_int_enable(ESB_EGU, ESB_EGU_EVT_INT);
+	}
 	irq_enable(ESB_TIMER_IRQ);
 
 	esb_state = ESB_STATE_IDLE;
@@ -1508,7 +1770,7 @@ void esb_disable(void)
 	esb_ppi_deinit();
 
 	/* Radio ramp-up time to default mode */
-	nrf_radio_modecnf0_set(NRF_RADIO, false, nrf_radio_modecnf0_dtx_get(NRF_RADIO));
+	nrf_radio_fast_ramp_up_enable_set(NRF_RADIO, false);
 
 	esb_state = ESB_STATE_IDLE;
 	esb_initialized = false;
@@ -1672,17 +1934,25 @@ int esb_start_rx(void)
 
 	on_radio_disabled = on_radio_disabled_rx;
 
-	nrf_radio_shorts_set(NRF_RADIO, (radio_shorts_common | NRF_RADIO_SHORT_DISABLED_TXEN_MASK));
+	if (IS_ENABLED(CONFIG_ESB_FAST_SWITCHING)) {
+		nrf_radio_shorts_set(NRF_RADIO, radio_shorts_common);
+		nrf_radio_int_enable(NRF_RADIO, ESB_RADIO_INT_END_MASK);
+	} else {
+		nrf_radio_shorts_set(NRF_RADIO, (radio_shorts_common |
+						 NRF_RADIO_SHORT_DISABLED_TXEN_MASK));
+	}
+
 	nrf_radio_int_enable(NRF_RADIO, NRF_RADIO_INT_DISABLED_MASK);
 
 	esb_state = ESB_STATE_PRX;
 
 	nrf_radio_rxaddresses_set(NRF_RADIO, esb_addr.rx_pipes_enabled);
 	nrf_radio_frequency_set(NRF_RADIO, (RADIO_BASE_FREQUENCY + esb_addr.rf_channel));
+	atomic_clear_bit(&esb_addr.rf_channel_flags, RF_CHANNEL_UPDATE_FLAG);
 	nrf_radio_packetptr_set(NRF_RADIO, rx_payload_buffer);
 
-	NVIC_ClearPendingIRQ(RADIO_IRQn);
-	irq_enable(RADIO_IRQn);
+	NVIC_ClearPendingIRQ(ESB_RADIO_IRQ_NUMBER);
+	irq_enable(ESB_RADIO_IRQ_NUMBER);
 
 	nrf_radio_event_clear(NRF_RADIO, NRF_RADIO_EVENT_ADDRESS);
 	nrf_radio_event_clear(NRF_RADIO, NRF_RADIO_EVENT_PAYLOAD);
@@ -1889,11 +2159,20 @@ int esb_enable_pipes(uint8_t enable_mask)
 
 int esb_set_rf_channel(uint32_t channel)
 {
-	if (esb_state != ESB_STATE_IDLE) {
-		return -EBUSY;
-	}
 	if (channel > 100) {
 		return -EINVAL;
+	}
+
+	if (esb_state != ESB_STATE_IDLE) {
+		if (IS_ENABLED(CONFIG_ESB_FAST_CHANNEL_SWITCHING)) {
+			if (esb_state == ESB_STATE_PRX) {
+				fast_switchinng_set_channel(channel);
+			} else {
+				atomic_set_bit(&esb_addr.rf_channel_flags, RF_CHANNEL_UPDATE_FLAG);
+			}
+		} else {
+			return -EBUSY;
+		}
 	}
 
 	esb_addr.rf_channel = channel;

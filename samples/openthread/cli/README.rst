@@ -69,7 +69,7 @@ See `Testing diagnostic module`_ section for an example.
 Rebooting to bootloader
 =======================
 
-For the ``nrf52840dongle_nrf52840`` build target, the device can reboot to bootloader by triggering a GPIO pin.
+For the ``nrf52840dongle/nrf52840`` board target, the device can reboot to bootloader by triggering a GPIO pin.
 To enable this behavior, enable the :kconfig:option:`CONFIG_OPENTHREAD_PLATFORM_BOOTLOADER_MODE_GPIO` Kconfig option and configure the Devicetree overlay in the :file:`boards/nrf52840dongle_nrf52840.overlay` file.
 For this sample, the ``bootloader-gpios`` property in the ``openthread_config`` node is pre-configured for the **P0.19** pin, which is connected to the **RESET** pin on the nRF52840 Dongle.
 This functionality is not enabled by other commands, such as ``factoryreset``, as they can only trigger a software reset, skipping the bootloader.
@@ -90,6 +90,8 @@ Configuration
 Snippets
 ========
 
+.. |snippet| replace:: :makevar:`cli_SNIPPET`
+
 .. include:: /includes/sample_snippets.txt
 
 The following snippets are available:
@@ -101,8 +103,19 @@ The following snippets are available:
 * ``ci`` - Disables boot banner and shell prompt.
 * ``multiprotocol`` - Enables Bluetooth LE support in this sample.
   Not compatible with the ``tcat`` snippet.
-* ``tcat`` - Enables support for Thread comissioning over authenticated TLS.
+
+  .. note::
+    When building with the ``multiprotocol`` snippet for the ``nrf5340dk/nrf5340/cpuapp`` board target, set the :makevar:`FILE_SUFFIX` CMake option to ``ble``.
+    See :ref:`app_build_file_suffixes` and :ref:`cmake_options` for more information.
+
+* ``tcat`` - Enables support for Thread commissioning over authenticated TLS.
+
+  .. note::
+    When building with the ``tcat`` snippet for the ``nrf5340dk/nrf5340/cpuapp`` board target, set the :makevar:`FILE_SUFFIX` CMake option to ``ble``.
+    See :ref:`app_build_file_suffixes` and :ref:`cmake_options` for more information.
+
   Not compatible with the ``multiprotocol`` snippet.
+  For using TCAT, refer to the :ref:`thread_tcat` page.
 * ``tcp`` - Enables experimental TCP support in this sample.
 * ``low_power`` - Enables low power consumption mode in this sample.
 
@@ -122,7 +135,7 @@ Serial transport
 ================
 
 The Thread CLI sample supports UART and USB CDC ACM as serial transports.
-By default, it uses USB CDC ACM transport for ``nrf52840dongle_nrf52840``, and UART transport for other build targets.
+By default, it uses USB CDC ACM transport for ``nrf52840dongle/nrf52840``, and UART transport for other board targets.
 To switch to USB transport on targets that use UART by default, :ref:`activate the USB snippet <ot_cli_sample_activating_variants>`.
 
 Building and running
@@ -134,7 +147,13 @@ Building and running
 
 .. include:: /includes/build_and_run_ns.txt
 
-To update the OpenThread libraries provided by ``nrfxlib``, invoke ``west build -b nrf52840dk_nrf52840 -t install_openthread_libraries``.
+To update the OpenThread libraries provided by ``nrfxlib``, use the following commands:
+
+.. parsed-literal::
+   :class: highlight
+
+   west build -b nrf52840dk/nrf52840
+   west build -d build/cli -t install_openthread_libraries
 
 .. _ot_cli_sample_testing:
 
@@ -465,7 +484,7 @@ To test the Thread 1.2 and Thread 1.3 features, complete the following steps:
 
       .. code-block:: console
 
-         uart:~$ ot csl period 3125
+         uart:~$ ot csl period 500000
          Done
 
    #. Send an ICMPv6 Echo Request from the leader kit to the link-local address of the router kit:
@@ -557,7 +576,7 @@ This sample uses the following Zephyr libraries:
 
 * :ref:`zephyr:kernel_api`:
 
-  * ``include/kernel.h``
+  * :file:`include/kernel.h`
 
 * :ref:`zephyr:thread_protocol_interface`
 
@@ -567,10 +586,10 @@ The following dependencies are added by the optional multiprotocol Bluetooth® L
 * :ref:`nus_service_readme`
 * Zephyr's :ref:`zephyr:bluetooth_api`:
 
-  * ``include/bluetooth/bluetooth.h``
-  * ``include/bluetooth/gatt.h``
-  * ``include/bluetooth/hci.h``
-  * ``include/bluetooth/uuid.h``
+  * :file:`include/bluetooth/bluetooth.h`
+  * :file:`include/bluetooth/gatt.h`
+  * :file:`include/bluetooth/hci.h`
+  * :file:`include/bluetooth/uuid.h`
 
 In addition, it uses the following secure firmware component:
 

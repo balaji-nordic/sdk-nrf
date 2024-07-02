@@ -7,7 +7,7 @@ Bluetooth Mesh: Coexistence with other LE services
    :local:
    :depth: 2
 
-This sample demonstrates how to combine Bluetooth® mesh and another Bluetooth Low Energy (LE) service in a single application.
+This sample demonstrates how to combine Bluetooth® Mesh and another Bluetooth Low Energy (LE) service in a single application.
 
 Requirements
 ************
@@ -167,6 +167,10 @@ After programming the sample to your development kit, test it by performing the 
 
    * Value ``OFF`` to switch the **LED 2** on the development kit off.
    * Value ``ON`` to switch the **LED 2** on the development kit on.
+
+.. note::
+   Once connected, the device will not advertise with the LBS Service UUID until the device is rebooted.
+   Reboot the device to restart the LBS Service UUID advertisements.
 
 Dependencies
 ************

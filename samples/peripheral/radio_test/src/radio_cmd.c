@@ -10,7 +10,9 @@
 #include <zephyr/init.h>
 #include <zephyr/shell/shell.h>
 #include <zephyr/types.h>
+#if !defined(CONFIG_SOC_SERIES_NRF54HX)
 #include <hal/nrf_power.h>
+#endif /* !defined(CONFIG_SOC_SERIES_NRF54HX) */
 
 #if CONFIG_FEM
 #include "fem_al/fem_al.h"
@@ -66,7 +68,7 @@ static struct radio_param_config {
 	.delay_ms = 10,
 	.duty_cycle = 50,
 #if CONFIG_FEM
-	.fem.gain = FEM_USE_DEFAULT_GAIN
+	.fem.tx_power_control = FEM_USE_DEFAULT_TX_POWER_CONTROL
 #endif /* CONFIG_FEM */
 };
 
@@ -224,8 +226,7 @@ static int cmd_tx_carrier_start(const struct shell *shell, size_t argc,
 	test_config.params.unmodulated_tx.txpower = config.txpower;
 	test_config.params.unmodulated_tx.channel = config.channel_start;
 #if CONFIG_FEM
-	test_config.fem.ramp_up_time = config.fem.ramp_up_time;
-	test_config.fem.gain = config.fem.gain;
+	test_config.fem = config.fem;
 #endif /* CONFIG_FEM */
 	radio_test_start(&test_config);
 
@@ -263,8 +264,7 @@ static int cmd_tx_modulated_carrier_start(const struct shell *shell,
 	test_config.params.modulated_tx.channel = config.channel_start;
 	test_config.params.modulated_tx.pattern = config.tx_pattern;
 #if CONFIG_FEM
-	test_config.fem.ramp_up_time = config.fem.ramp_up_time;
-	test_config.fem.gain = config.fem.gain;
+	test_config.fem = config.fem;
 #endif /* CONFIG_FEM */
 
 	if (argc == 2) {
@@ -316,8 +316,7 @@ static int cmd_duty_cycle_set(const struct shell *shell, size_t argc,
 	test_config.params.modulated_tx_duty_cycle.duty_cycle =
 		config.duty_cycle;
 #if CONFIG_FEM
-	test_config.fem.ramp_up_time = config.fem.ramp_up_time;
-	test_config.fem.gain = config.fem.gain;
+	test_config.fem = config.fem;
 #endif /* CONFIG_FEM */
 
 	radio_test_start(&test_config);
@@ -423,6 +422,23 @@ static int cmd_print(const struct shell *shell, size_t argc, char **argv)
 		break;
 
 #endif /* defined(RADIO_MODE_MODE_Nrf_250Kbit) */
+
+#if defined(RADIO_MODE_MODE_Nrf_4Mbit0_5)
+	case NRF_RADIO_MODE_NRF_4MBIT_H_0_5:
+		shell_print(shell,
+			    "Data rate: %s",
+			    STRINGIFY(NRF_RADIO_MODE_NRF_4MBIT_H_0_5));
+		break;
+#endif /* defined(RADIO_MODE_MODE_Nrf_4Mbit0_5) */
+
+#if defined(RADIO_MODE_MODE_Nrf_4Mbit0_25)
+	case NRF_RADIO_MODE_NRF_4MBIT_H_0_25:
+		shell_print(shell,
+			    "Data rate: %s",
+			    STRINGIFY(NRF_RADIO_MODE_NRF_4MBIT_H_0_25));
+		break;
+#endif /* defined(RADIO_MODE_MODE_Nrf_4Mbit0_25) */
+
 	case NRF_RADIO_MODE_NRF_1MBIT:
 		shell_print(shell,
 			    "Data rate: %s",
@@ -527,8 +543,7 @@ static int cmd_rx_sweep_start(const struct shell *shell, size_t argc,
 	test_config.params.rx_sweep.channel_end = config.channel_end;
 	test_config.params.rx_sweep.delay_ms = config.delay_ms;
 #if CONFIG_FEM
-	test_config.fem.ramp_up_time = config.fem.ramp_up_time;
-	test_config.fem.gain = config.fem.gain;
+	test_config.fem = config.fem;
 #endif /* CONFIG_FEM */
 
 	radio_test_start(&test_config);
@@ -550,8 +565,7 @@ static int cmd_tx_sweep_start(const struct shell *shell, size_t argc,
 	test_config.params.tx_sweep.delay_ms = config.delay_ms;
 	test_config.params.tx_sweep.txpower = config.txpower;
 #if CONFIG_FEM
-	test_config.fem.ramp_up_time = config.fem.ramp_up_time;
-	test_config.fem.gain = config.fem.gain;
+	test_config.fem = config.fem;
 #endif /* CONFIG_FEM */
 
 	radio_test_start(&test_config);
@@ -579,14 +593,29 @@ static int cmd_rx_start(const struct shell *shell, size_t argc, char **argv)
 	test_config.params.rx.channel = config.channel_start;
 	test_config.params.rx.pattern = config.tx_pattern;
 #if CONFIG_FEM
-	test_config.fem.ramp_up_time = config.fem.ramp_up_time;
-	test_config.fem.gain = config.fem.gain;
+	test_config.fem = config.fem;
 #endif /* CONFIG_FEM */
 
 	radio_test_start(&test_config);
 
 	return 0;
 }
+
+#if defined(RADIO_TXPOWER_TXPOWER_Pos10dBm)
+static void cmd_pos10dbm(const struct shell *shell, size_t argc, char **argv)
+{
+	config.txpower = 10;
+	shell_print(shell, "TX power: %d", config.txpower);
+}
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos10dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Pos9dBm)
+static void cmd_pos9dbm(const struct shell *shell, size_t argc, char **argv)
+{
+	config.txpower = 9;
+	shell_print(shell, "TX power: %d", config.txpower);
+}
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos9dBm) */
 
 #if defined(RADIO_TXPOWER_TXPOWER_Pos8dBm)
 static void cmd_pos8dbm(const struct shell *shell, size_t argc, char **argv)
@@ -643,6 +672,14 @@ static void cmd_pos2dbm(const struct shell *shell, size_t argc, char **argv)
 	shell_print(shell, "TX power : %d dBm", config.txpower);
 }
 #endif /* defined(RADIO_TXPOWER_TXPOWER_Pos2dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Pos1dBm)
+static void cmd_pos1dbm(const struct shell *shell, size_t argc, char **argv)
+{
+	config.txpower = 1;
+	shell_print(shell, "TX power : %d dBm", config.txpower);
+}
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos1dBm) */
 
 static void cmd_pos0dbm(const struct shell *shell, size_t argc, char **argv)
 {
@@ -710,11 +747,35 @@ static void cmd_neg8dbm(const struct shell *shell, size_t argc, char **argv)
 	shell_print(shell, "TX power : %d dBm", config.txpower);
 }
 
+#if defined(RADIO_TXPOWER_TXPOWER_Neg9dBm)
+static void cmd_neg9dbm(const struct shell *shell, size_t argc, char **argv)
+{
+	config.txpower = -9;
+	shell_print(shell, "TX power : %d dBm", config.txpower);
+}
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg9dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg10dBm)
+static void cmd_neg10dbm(const struct shell *shell, size_t argc, char **argv)
+{
+	config.txpower = -10;
+	shell_print(shell, "TX power : %d dBm", config.txpower);
+}
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg10dBm) */
+
 static void cmd_neg12dbm(const struct shell *shell, size_t argc, char **argv)
 {
 	config.txpower = -12;
 	shell_print(shell, "TX power : %d dBm", config.txpower);
 }
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg14dBm)
+static void cmd_neg14dbm(const struct shell *shell, size_t argc, char **argv)
+{
+	config.txpower = -14;
+	shell_print(shell, "TX power : %d dBm", config.txpower);
+}
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg14dBm) */
 
 static void cmd_neg16dbm(const struct shell *shell, size_t argc, char **argv)
 {
@@ -728,17 +789,43 @@ static void cmd_neg20dbm(const struct shell *shell, size_t argc, char **argv)
 	shell_print(shell, "TX power : %d dBm", config.txpower);
 }
 
+#if defined(RADIO_TXPOWER_TXPOWER_Neg26dBm)
+static void cmd_neg26dbm(const struct shell *shell, size_t argc, char **argv)
+{
+	config.txpower = -26;
+	shell_print(shell, "TX power : %d dBm", config.txpower);
+}
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg26dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg30dBm)
 static void cmd_neg30dbm(const struct shell *shell, size_t argc, char **argv)
 {
 	config.txpower = -30;
 	shell_print(shell, "TX power : %d dBm", config.txpower);
 }
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg30dBm) */
 
 static void cmd_neg40dbm(const struct shell *shell, size_t argc, char **argv)
 {
 	config.txpower = -40;
 	shell_print(shell, "TX power : %d dBm", config.txpower);
 }
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg46dBm)
+static void cmd_neg46dbm(const struct shell *shell, size_t argc, char **argv)
+{
+	config.txpower = -46;
+	shell_print(shell, "TX power : %d dBm", config.txpower);
+}
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg46dBm) */
+
+#if defined(RADIO_TXPOWER_TXPOWER_Neg70dBm)
+static void cmd_neg70dbm(const struct shell *shell, size_t argc, char **argv)
+{
+	config.txpower = -70;
+	shell_print(shell, "TX power : %d dBm", config.txpower);
+}
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg70dBm) */
 
 static int cmd_nrf_1mbit(const struct shell *shell, size_t argc, char **argv)
 {
@@ -769,6 +856,30 @@ static int cmd_nrf_250kbit(const struct shell *shell, size_t argc,
 	return 0;
 }
 #endif /* defined(RADIO_MODE_MODE_Nrf_250Kbit) */
+
+#if defined(RADIO_MODE_MODE_Nrf_4Mbit0_5)
+static int cmd_nrf_4mbit_h_0_5(const struct shell *shell, size_t argc,
+			       char **argv)
+{
+	config.mode = NRF_RADIO_MODE_NRF_4MBIT_H_0_5;
+	shell_print(shell, "Data rate: %s",
+		    STRINGIFY(NRF_RADIO_MODE_NRF_4MBIT_H_0_5));
+
+	return 0;
+}
+#endif /* defined(RADIO_MODE_MODE_Nrf_4Mbit0_5) */
+
+#if defined(RADIO_MODE_MODE_Nrf_4Mbit0_25)
+static int cmd_nrf_4mbit_h_0_25(const struct shell *shell, size_t argc,
+				char **argv)
+{
+	config.mode = NRF_RADIO_MODE_NRF_4MBIT_H_0_25;
+	shell_print(shell, "Data rate: %s",
+		    STRINGIFY(NRF_RADIO_MODE_NRF_4MBIT_H_0_25));
+
+	return 0;
+}
+#endif /* defined(RADIO_MODE_MODE_Nrf_4Mbit0_25) */
 
 static int cmd_ble_1mbit(const struct shell *shell, size_t argc, char **argv)
 {
@@ -866,6 +977,18 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_data_rate,
 		  cmd_nrf_250kbit),
 #endif /* defined(RADIO_MODE_MODE_Nrf_250Kbit) */
 
+#if defined(RADIO_MODE_MODE_Nrf_4Mbit0_5)
+	SHELL_CMD(nrf_4Mbit0_5, NULL,
+		  "4 Mbit/s Nordic proprietary radio mode (BT=0.5/h=0.5)",
+		  cmd_nrf_4mbit_h_0_5),
+#endif /* defined(RADIO_MODE_MODE_Nrf_4Mbit0_5) */
+
+#if defined(RADIO_MODE_MODE_Nrf_4Mbit0_25)
+	SHELL_CMD(nrf_4Mbit0_25, NULL,
+		  "4 Mbit/s Nordic proprietary radio mode (BT=0.5/h=0.25)",
+		  cmd_nrf_4mbit_h_0_25),
+#endif /* defined(RADIO_MODE_MODE_Nrf_4Mbit0_25) */
+
 	SHELL_CMD(ble_1Mbit, NULL, "1 Mbit/s Bluetooth Low Energy",
 		  cmd_ble_1mbit),
 	SHELL_CMD(ble_2Mbit, NULL, "2 Mbit/s Bluetooth Low Energy",
@@ -928,10 +1051,10 @@ static int cmd_fem(const struct shell *shell, size_t argc, char **argv)
 }
 
 #if !CONFIG_RADIO_TEST_POWER_CONTROL_AUTOMATIC
-static int cmd_fem_gain_set(const struct shell *shell, size_t argc,
+static int cmd_fem_tx_power_control_set(const struct shell *shell, size_t argc,
 			    char **argv)
 {
-	uint32_t gain;
+	uint32_t tx_power_control;
 
 	if (argc == 1) {
 		shell_help(shell);
@@ -943,11 +1066,11 @@ static int cmd_fem_gain_set(const struct shell *shell, size_t argc,
 		return -EINVAL;
 	}
 
-	gain = atoi(argv[1]);
+	tx_power_control = atoi(argv[1]);
 
-	config.fem.gain = gain;
+	config.fem.tx_power_control = tx_power_control;
 
-	shell_print(shell, "Front-end module (FEM) Tx gain set to %d", gain);
+	shell_print(shell, "Front-end module (FEM) Tx power control set to %u", tx_power_control);
 
 	return 0;
 }
@@ -1015,6 +1138,12 @@ static int cmd_fem_ramp_up_set(const struct shell *shell, size_t argc, char **ar
 #endif /* CONFIG_FEM */
 
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_output_power,
+#if defined(RADIO_TXPOWER_TXPOWER_Pos10dBm)
+	SHELL_CMD(pos10dBm, NULL, "TX power: +10 dBm", cmd_pos10dbm),
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos10dBm) */
+#if defined(RADIO_TXPOWER_TXPOWER_Pos9dBm)
+	SHELL_CMD(pos9dBm, NULL, "TX power: +9 dBm", cmd_pos9dbm),
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos9dBm) */
 #if defined(RADIO_TXPOWER_TXPOWER_Pos8dBm)
 	SHELL_CMD(pos8dBm, NULL, "TX power: +8 dBm", cmd_pos8dbm),
 #endif /* defined(RADIO_TXPOWER_TXPOWER_Pos8dBm) */
@@ -1036,6 +1165,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_output_power,
 #if defined(RADIO_TXPOWER_TXPOWER_Pos2dBm)
 	SHELL_CMD(pos2dBm, NULL, "TX power: +2 dBm", cmd_pos2dbm),
 #endif /* defined(RADIO_TXPOWER_TXPOWER_Pos2dBm) */
+#if defined(RADIO_TXPOWER_TXPOWER_Pos1dBm)
+	SHELL_CMD(pos1dBm, NULL, "TX power: +1 dBm", cmd_pos1dbm),
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Pos1dBm) */
 	SHELL_CMD(pos0dBm, NULL, "TX power: 0 dBm", cmd_pos0dbm),
 #if defined(RADIO_TXPOWER_TXPOWER_Neg1dBm)
 	SHELL_CMD(neg1dBm, NULL, "TX power: -1 dBm", cmd_neg1dbm),
@@ -1057,11 +1189,31 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_output_power,
 	SHELL_CMD(neg7dBm, NULL, "TX power: -7 dBm", cmd_neg7dbm),
 #endif /* defined(RADIO_TXPOWER_TXPOWER_Neg7dBm) */
 	SHELL_CMD(neg8dBm, NULL, "TX power: -8 dBm", cmd_neg8dbm),
+#if defined(RADIO_TXPOWER_TXPOWER_Neg9dBm)
+	SHELL_CMD(neg9dBm, NULL, "TX power: -9 dBm", cmd_neg9dbm),
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg9dBm) */
+#if defined(RADIO_TXPOWER_TXPOWER_Neg10dBm)
+	SHELL_CMD(neg10dBm, NULL, "TX power: -10 dBm", cmd_neg10dbm),
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg10dBm) */
 	SHELL_CMD(neg12dBm, NULL, "TX power: -12 dBm", cmd_neg12dbm),
+#if defined(RADIO_TXPOWER_TXPOWER_Neg14dBm)
+	SHELL_CMD(neg14dBm, NULL, "TX power: -14 dBm", cmd_neg14dbm),
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg14dBm) */
 	SHELL_CMD(neg16dBm, NULL, "TX power: -16 dBm", cmd_neg16dbm),
 	SHELL_CMD(neg20dBm, NULL, "TX power: -20 dBm", cmd_neg20dbm),
+#if defined(RADIO_TXPOWER_TXPOWER_Neg26dBm)
+	SHELL_CMD(neg26dBm, NULL, "TX power: -26 dBm", cmd_neg26dbm),
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg26dBm) */
+#if defined(RADIO_TXPOWER_TXPOWER_Neg30dBm)
 	SHELL_CMD(neg30dBm, NULL, "TX power: -30 dBm", cmd_neg30dbm),
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg30dBm) */
 	SHELL_CMD(neg40dBm, NULL, "TX power: -40 dBm", cmd_neg40dbm),
+#if defined(RADIO_TXPOWER_TXPOWER_Neg46dBm)
+	SHELL_CMD(neg46dBm, NULL, "TX power: -46 dBm", cmd_neg46dbm),
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg46dBm) */
+#if defined(RADIO_TXPOWER_TXPOWER_Neg70dBm)
+	SHELL_CMD(neg70dBm, NULL, "TX power: -70 dBm", cmd_neg70dbm),
+#endif /* defined(RADIO_TXPOWER_TXPOWER_Neg70dBm) */
 	SHELL_SUBCMD_SET_END
 );
 
@@ -1091,9 +1243,9 @@ SHELL_STATIC_SUBCMD_SET_CREATE(sub_fem_antenna,
 
 SHELL_STATIC_SUBCMD_SET_CREATE(sub_fem,
 #if !CONFIG_RADIO_TEST_POWER_CONTROL_AUTOMATIC
-	SHELL_CMD(tx_gain, NULL,
-		  "Set the front-end module (FEM) Tx gain in an arbitrary units <gain>",
-		  cmd_fem_gain_set),
+	SHELL_CMD(tx_power_control, NULL,
+		  "Set the front-end module (FEM) Tx power control specific to the FEM in use <tx_power_control>.",
+		  cmd_fem_tx_power_control_set),
 #endif /* !CONFIG_RADIO_TEST_POWER_CONTROL_AUTOMATIC */
 	SHELL_CMD(antenna, &sub_fem_antenna,
 		  "Select the front-end module (FEM) antenna <sub_cmd>",
@@ -1195,9 +1347,9 @@ static int radio_cmd_init(void)
 
 #if CONFIG_RADIO_TEST_POWER_CONTROL_AUTOMATIC
 	/* When front-end module is used, set output power to the front-end module
-	 * default gain.
+	 * default output power.
 	 */
-	config.txpower = fem_default_tx_gain_get();
+	config.txpower = fem_default_tx_output_power_get();
 #endif /* CONFIG_RADIO_TEST_POWER_CONTROL_AUTOMATIC */
 
 	return radio_test_init(&test_config);

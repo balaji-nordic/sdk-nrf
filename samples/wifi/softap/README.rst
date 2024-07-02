@@ -7,7 +7,7 @@ Wi-Fi: SoftAP
    :local:
    :depth: 2
 
-The SoftAP sample demonstrates how to start a nRF70 Series device in Software-enabled Access Point (SoftAP or SAP) mode.
+The SoftAP sample demonstrates how to start an nRF70 Series device in :term:`Software-enabled Access Point (SoftAP or SAP)` mode.
 
 Requirements
 ************
@@ -27,6 +27,9 @@ You can enable the SoftAP mode by setting the below configuration options in the
 
 * :kconfig:option:`CONFIG_NRF700X_AP_MODE`: Enables access point mode support.
 * :kconfig:option:`CONFIG_WPA_SUPP_AP`: Enables access point support.
+
+The sample uses the :ref:`lib_wifi_ready` library to check Wi-Fi readiness.
+To use the :ref:`lib_wifi_ready` library, enable the :kconfig:option:`CONFIG_WIFI_READY_LIB` Kconfig option.
 
 .. note::
 
@@ -66,14 +69,14 @@ Building and running
 
 .. include:: /includes/build_and_run_ns.txt
 
-To build for the nRF7002 DK, use the ``nrf7002dk_nrf5340_cpuapp`` build target.
+To build for the nRF7002 DK, use the ``nrf7002dk/nrf5340/cpuapp`` board target.
 The following is an example of the CLI command:
 
 .. code-block:: console
 
-   west build -b nrf7002dk_nrf5340_cpuapp
+   west build -b nrf7002dk/nrf5340/cpuapp
 
-To build for the nRF7002 EK with nRF5340 DK, use the ``nrf5340dk_nrf5340_cpuapp`` build target with the ``SHIELD`` CMake option set to ``nrf7002ek``.
+To build for the nRF7002 EK with nRF5340 DK, use the ``nrf5340dk/nrf5340/cpuapp`` board target with the ``SHIELD`` CMake option set to ``nrf7002ek``.
 
 Testing
 =======
@@ -128,6 +131,7 @@ Testing
 Dependencies
 ************
 
-This sample uses the following |NCS| library:
+This sample uses the following |NCS| libraries:
 
 * :ref:`nrf_security`
+* :ref:`lib_wifi_ready`

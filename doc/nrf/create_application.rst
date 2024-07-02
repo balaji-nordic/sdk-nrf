@@ -60,7 +60,7 @@ This application type is suitable for the following development cases:
 
 * You want to take advantage of west to manage your own set of repositories.
 * You want to make changes to one or more of the repositories of the |NCS| when working on the application.
-* You want to develop a project that involves more than one build target, for example using a mesh networking protocol like :ref:`ug_matter` or :ref:`ug_bt_mesh`.
+* You want to develop a project that involves more than one board target, for example using a mesh networking protocol like :ref:`ug_matter` or :ref:`ug_bt_mesh`.
 * You want to run a big project that lets you develop most features without having to patch the |NCS| tree, for example with out-of-tree boards, drivers, SoCs, and so on.
 
 For more information about applications placed in workspace in the |NCS|, see the :ref:`workflow 4 on the development model page <dm_workflow_4>`.
@@ -122,7 +122,7 @@ Use the following steps depending on the application placement:
       #. Choose one of the following options:
 
          * :guilabel:`Create a blank application` - This will create an application with a code structure that you need to populate from scratch.
-         * :guilabel:`Browse a sample` - This will create an application from an |NCS| sample or an |NCS| application.
+         * :guilabel:`Copy a sample` - This will create an application from an |NCS| sample or an |NCS| application.
 
       #. Enter the location and the name for the application.
          The location will be the *<west-workspace>/* directory mentioned in the :ref:`workspace application structure <create_application_types_workspace>`.
@@ -130,6 +130,7 @@ Use the following steps depending on the application placement:
          When the application is created, a VS Code prompt appears.
       #. Click :guilabel:`Open`.
          This opens the new application and adds it to the :guilabel:`Applications View` in the extension.
+         At this point, you have created a freestanding application.
       #. Add the :file:`west.yml` to create a west workspace around the application:
 
          a. In the :guilabel:`Welcome View`, click the :guilabel:`Manage SDKs` action.
@@ -137,8 +138,8 @@ Use the following steps depending on the application placement:
          #. Click :guilabel:`Create west workspace`.
          #. Enter a location for the :file:`west.yml` file that matches the location provided in step 4.
          #. Select the SDK version for the west workspace.
-            The west workspace is initialized and the :guilabel:`Manage SDKs` action changes to :guilabel:`Open west manifest`.
-         #. In the :guilabel:`Applications View`, click the :guilabel:`Run West Update` button to update the workspace modules.
+            The west workspace is initialized and the :guilabel:`Manage SDKs` action changes to :guilabel:`Manage west workspace`.
+         #. Click :guilabel:`Manage west workspace` and select :guilabel:`West Update` button to update the workspace modules.
 
       You can now start :ref:`configuring and building <configuration_and_build>` the application.
 
@@ -155,7 +156,7 @@ Use the following steps depending on the application placement:
       #. Choose one of the following options:
 
          * :guilabel:`Create a blank application` - This will create an application with a code structure that you need to populate from scratch.
-         * :guilabel:`Browse a sample` - This will create an application from an |NCS| sample or an |NCS| application.
+         * :guilabel:`Copy a sample` - This will create an application from an |NCS| sample or an |NCS| application.
 
       #. Enter the location and the name for the application.
          The application creation process starts after you enter the name.
@@ -166,6 +167,9 @@ Use the following steps depending on the application placement:
       You can now start :ref:`configuring and building <configuration_and_build>` the application.
 
       See the `extension documentation <Create a new application_>`_ for more information about creating freestanding applications in the extension.
+
+      .. note::
+          You can transform your freestanding application into a workspace application at any moment by completing the step 7 under the Workspace application tab.
 
 .. _creating_cmd:
 

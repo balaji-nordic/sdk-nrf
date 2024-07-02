@@ -4,6 +4,10 @@
 Enabling Matter in Kconfig
 ##########################
 
+.. contents::
+   :local:
+   :depth: 2
+
 To use the Matter protocol, set the :kconfig:option:`CONFIG_CHIP` Kconfig option.
 This option enables the Matter protocol stack and other associated features and components, such as C++ support or Zephyr networking layer.
 
@@ -17,8 +21,6 @@ The Kconfig options for Matter applications in the |NCS| are stored in the follo
 
 * :file:`prj.conf` files, which are specific to the application.
 * :file:`Kconfig.defaults` file, which is available in the :file:`module/lib/matter/config/nrfconnect/chip-module` directory and is used to populate :file:`prj.conf` with Kconfig option settings common to all samples.
-
-The Matter samples use the same structure for other software images, such as MCUboot, Multiprotocol RPMsg or HCI RPMsg, which have default options defined in the corresponding :file:`Kconfig.mcuboot.defaults`, :file:`Kconfig.multiprotocol_rpmsg.defaults` and :file:`Kconfig.hci_ipc.defaults` files.
 
 For an example configuration, see the :ref:`Matter Template sample's <matter_template_sample>` :file:`prj.conf` files in the sample root directory.
 

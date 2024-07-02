@@ -8,6 +8,24 @@ if BUILD_WITH_TFM
 
 menu "Peripheral Secure mapping"
 
+# TODO: NCSDK-22597: port this file (add peripherals) to 54L
+peripheral=UARTE00
+peripheral_depends=$(dt_nodelabel_has_compat,uart00,$(DT_COMPAT_NORDIC_NRF_UARTE))
+rsource "Kconfig.template.peripheral_secure"
+peripheral=UARTE20
+peripheral_depends=$(dt_nodelabel_has_compat,uart20,$(DT_COMPAT_NORDIC_NRF_UARTE))
+rsource "Kconfig.template.peripheral_secure"
+peripheral=UARTE21
+peripheral_depends=$(dt_nodelabel_has_compat,uart21,$(DT_COMPAT_NORDIC_NRF_UARTE))
+rsource "Kconfig.template.peripheral_secure"
+peripheral=UARTE22
+peripheral_depends=$(dt_nodelabel_has_compat,uart22,$(DT_COMPAT_NORDIC_NRF_UARTE))
+rsource "Kconfig.template.peripheral_secure"
+peripheral=UARTE30
+peripheral_depends=$(dt_nodelabel_has_compat,uart30,$(DT_COMPAT_NORDIC_NRF_UARTE))
+rsource "Kconfig.template.peripheral_secure"
+# end TODO
+
 peripheral=FPU
 peripheral_depends=CPU_HAS_FPU
 rsource "Kconfig.template.peripheral_secure"
@@ -264,10 +282,6 @@ peripheral=GPIO1
 peripheral_depends=$(dt_nodelabel_has_compat,gpio1,$(DT_COMPAT_NORDIC_NRF_GPIO))
 rsource "Kconfig.template.peripheral_secure"
 
-peripheral=VMC
-peripheral_depends=$(dt_has_compat,$(DT_COMPAT_NORDIC_NRF_VMC))
-rsource "Kconfig.template.peripheral_secure"
-
 config NRF_GPIOTE0_SECURE
 	bool "GPIOTE configured as secure peripheral"
 	depends on $(dt_has_compat,$(DT_COMPAT_NORDIC_NRF_GPIOTE))
@@ -277,6 +291,7 @@ config NRF_GPIOTE0_SECURE
 
 config NRF_GPIO0_PIN_MASK_SECURE
 	hex "Set GPIO0 PERM mask for Secure"
+	default 0x00000003 if TFM_SECURE_UART30 # P0.0 and P0.1 are used by default when TFM_SECURE_UART30
 	default 0x00000000
 	depends on $(dt_nodelabel_has_compat,gpio0,$(DT_COMPAT_NORDIC_NRF_GPIO)) && !NRF_GPIO0_SECURE
 	help
@@ -288,6 +303,7 @@ config NRF_GPIO0_PIN_MASK_SECURE
 
 config NRF_GPIO1_PIN_MASK_SECURE
 	hex "Set GPIO1 PERM mask for Secure"
+	default 0x00000003 if TFM_SECURE_UART1 # P1.0 and P1.1 are used by default when TFM_SECURE_UART1
 	default 0x00000000
 	depends on $(dt_nodelabel_has_compat,gpio1,$(DT_COMPAT_NORDIC_NRF_GPIO)) && !NRF_GPIO1_SECURE
 	help
@@ -307,6 +323,14 @@ config NRF_DPPI_CHANNEL_MASK_SECURE
 	  A bitmask can be set to configure a subset of the DPPI channels as
 	  secure to prevent non-secure from accessing these channels. Secure
 	  accesses can be made to the DPPI pins configured as non-secure.
+
+config NRF_VMC_SECURE
+	bool
+	default y
+	depends on $(dt_has_compat,$(DT_COMPAT_NORDIC_NRF_VMC))
+	help
+	  The Non-secure app should not be able to turn off the RAM block of TF-M
+	  Therefore it needs to be configured as secure peripheral.
 
 endmenu # Peripheral Secure mapping
 

@@ -365,7 +365,7 @@ Serial LTE modem
   * An ``auto_connect`` operation in the ``#XCARRIER`` carrier command.
     The operation controls automatic registration of UE to LTE network.
   * A ``log_data`` operation in the ``#XCARRIER`` carrier command.
-    The operation sends log data using the Event Log object to be read by the LwM2M server.
+    The operation sends log data using the Event Log object to be read by the LwM2M Server.
   * Support for the Binary App Data Container object as an alternative to the App Data Container object.
     This can be used through the ``app_data`` operation in the ``#XCARRIER`` carrier command.
   * ``#XNRFCLOUDPOS`` AT command to send location requests to nRF Cloud using cellular or Wi-Fi positioning, or both.
@@ -414,7 +414,7 @@ nRF5340 Audio
   * Renderer - This module handles rendering, such as volume up and down.
   * Content Control - This module handles content control, such as play and pause.
 
-* Added back the QDID number for the :ref:`lib_bt_ll_acs_nrf53_readme` to the documentation.
+* Added back the QDID number for the LE Audio controller for nRF5340 to the documentation.
 * Updated the :ref:`application documentation <nrf53_audio_app>` by splitting it into several pages.
 
 nRF Machine Learning (Edge Impulse)
@@ -651,7 +651,7 @@ Cellular samples (renamed from nRF9160 samples)
       This fulfills the proprietary PSM requirements of modem firmware v2.0.0.
       Including a new overlay file for enabling this and devicetree overlay files for UART2 and MCUboot recovery mode.
     * A handler for a new LwM2M modem firmware callback event :c:member:`LWM2M_FOTA_UPDATE_MODEM_RECONNECT_REQ` to request for reconnecting the modem and client after firmware update
-    * A new state :c:member:`RECONNECT_AFTER_UPDATE` that initializes the modem to trigger LwM2M client re-connection.
+    * A new state :c:member:`RECONNECT_AFTER_UPDATE` that initializes the modem to trigger LwM2M Client re-connection.
 
   * Updated:
 
@@ -838,7 +838,7 @@ Debug libraries
 Binary libraries
 ----------------
 
-* :ref:`lib_bt_ll_acs_nrf53_readme` library:
+* LE Audio controller for nRF5340 library:
 
   * Added a limitation about the lack of support for the +20 dBm setting when :ref:`building the nRF5340 Audio application with the nRF21540 FEM support <nrf53_audio_app_adding_FEM_support>`.
 
@@ -931,7 +931,7 @@ Modem libraries
 
   * Updated:
 
-    * The functions :c:func:`lte_lc_rai_req` and :c:func:`lte_lc_rai_param_set` and the Kconfig option :kconfig:option:`CONFIG_LTE_RAI_REQ_VALUE` are now deprecated.
+    * The functions ``lte_lc_rai_req`` and ``lte_lc_rai_param_set`` and the Kconfig option ``CONFIG_LTE_RAI_REQ_VALUE`` are now deprecated.
       The application uses the Kconfig option :kconfig:option:`CONFIG_LTE_RAI_REQ` and ``SO_RAI_*`` socket options instead.
     * The CE level enum names for :c:enum:`lte_lc_ce_level` to not include the number of repetitions.
     * The default network mode from :kconfig:option:`CONFIG_LTE_NETWORK_MODE_LTE_M` to :kconfig:option:`CONFIG_LTE_NETWORK_MODE_LTE_M_GPS`.

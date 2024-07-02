@@ -11,6 +11,7 @@
 #include "nrf_cloud_download.h"
 
 #include <zephyr/kernel.h>
+#include <zephyr/spinlock.h>
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -59,12 +60,12 @@ static void send_event(const enum nrf_cloud_fota_evt_id id,
 		       const struct nrf_cloud_fota_job *const job);
 static void cleanup_job(struct nrf_cloud_fota_job *const job);
 static int start_job(struct nrf_cloud_fota_job *const job, const bool send_evt);
-static int send_job_update(struct nrf_cloud_fota_job *const job);
+static int publish_job_status(struct nrf_cloud_fota_job *const job);
 static int publish(const struct mqtt_publish_param *const pub);
 static int save_validate_status(const char *const job_id,
 			   const enum nrf_cloud_fota_type job_type,
 			   const enum nrf_cloud_fota_validate_status status);
-static int report_validated_job_status(void);
+static int publish_validated_job_status(void);
 static void reset_topics(void);
 
 static struct mqtt_client *client_mqtt;
@@ -90,6 +91,7 @@ static struct nrf_cloud_fota_job current_fota = {
 	.info = { .type = NRF_CLOUD_FOTA_TYPE__INVALID }
 };
 
+static struct k_spinlock last_job_slock;
 static uint8_t last_job[NRF_CLOUD_FOTA_JOB_ID_SIZE];
 static struct nrf_cloud_settings_fota_job saved_job = {
 	.type = NRF_CLOUD_FOTA_TYPE__INVALID
@@ -98,6 +100,36 @@ static bool initialized;
 static bool fota_dl_initialized;
 /** Flag to indicate that a pending FOTA job was validated and a reboot is required */
 static bool reboot_on_init;
+
+/** Flag to indicate that the device is waiting on an ACK after sending a job status
+ * update to the cloud
+ */
+static bool fota_report_ack_pending;
+
+static void update_last_job(char const *const job_id)
+{
+	if ((job_id == NULL) || (job_id[0] == '\0')) {
+		return;
+	}
+
+	K_SPINLOCK(&last_job_slock) {
+		strncpy(last_job, job_id, sizeof(last_job) - 1);
+		last_job[sizeof(last_job) - 1] = '\0';
+	}
+
+	LOG_DBG("Updated last job: %s", job_id);
+}
+
+static bool is_last_job(char const *const job_id)
+{
+	bool match;
+
+	K_SPINLOCK(&last_job_slock) {
+		match = (strncmp(last_job, job_id, sizeof(last_job)) == 0);
+	}
+
+	return match;
+}
 
 static void send_fota_done_event_if_done(void)
 {
@@ -238,6 +270,8 @@ int nrf_cloud_fota_init(nrf_cloud_fota_callback_t cb)
 		LOG_ERR("Failed to process pending FOTA job, error: %d", ret);
 	}
 
+	fota_report_ack_pending = false;
+
 	initialized = true;
 	return ret;
 }
@@ -271,7 +305,7 @@ int nrf_cloud_modem_fota_completed(const bool fota_success)
 	(void)save_validate_status(saved_job.id, saved_job.type,
 		fota_success ? NRF_CLOUD_FOTA_VALIDATE_PASS : NRF_CLOUD_FOTA_VALIDATE_FAIL);
 
-	return report_validated_job_status();
+	return publish_validated_job_status();
 }
 
 static void reset_topic(struct mqtt_utf8 *const topic)
@@ -331,7 +365,7 @@ static int build_topic(const char *const client_id,
 	return 0;
 }
 
-static int report_validated_job_status(void)
+static int publish_validated_job_status(void)
 {
 	int ret = 0;
 
@@ -381,9 +415,13 @@ static int report_validated_job_status(void)
 	}
 
 	if (job.info.type != NRF_CLOUD_FOTA_TYPE__INVALID) {
-		ret = send_job_update(&job);
+		LOG_DBG("Sending job update for validated (%d) job", saved_job.validate);
+		ret = publish_job_status(&job);
 		if (ret) {
 			LOG_ERR("Error sending job update: %d", ret);
+		} else {
+			/* Validated status sent to the cloud, update the last job string */
+			update_last_job(job.info.id);
 		}
 	}
 
@@ -403,14 +441,18 @@ int nrf_cloud_fota_endpoint_set_and_report(struct mqtt_client *const client,
 	if ((current_fota.status == NRF_CLOUD_FOTA_IN_PROGRESS) &&
 	    (saved_job.validate == NRF_CLOUD_FOTA_VALIDATE_PENDING)) {
 		/* In case of a prior disconnection from nRF Cloud during the
-		 * FOTA update, send a job update to the cloud
+		 * FOTA update, publish job status to the cloud
 		 */
-		ret = send_job_update(&current_fota);
+		ret = publish_job_status(&current_fota);
 		if (ret < 0) {
+			/* If the job update fails to be sent here, proceed to inform
+			 * the application of a complete job so it can be validated.
+			 * Job update will be sent on reboot/re-init.
+			 */
 			send_fota_done_event_if_done();
 		}
 	} else {
-		ret = report_validated_job_status();
+		ret = publish_validated_job_status();
 		/* Positive value indicates no job exists, ignore */
 		if (ret > 0) {
 			ret = 0;
@@ -598,7 +640,7 @@ static void http_fota_handler(const struct fota_download_evt *evt)
 			current_fota.dl_progress = 100;
 			current_fota.sent_dl_progress = 100;
 			send_event(NRF_CLOUD_FOTA_EVT_DL_PROGRESS, &current_fota);
-			(void)send_job_update(&current_fota);
+			(void)publish_job_status(&current_fota);
 		}
 
 		/* MCUBOOT or MODEM full: download finished, update job status and install/reboot */
@@ -606,7 +648,7 @@ static void http_fota_handler(const struct fota_download_evt *evt)
 		save_validate_status(current_fota.info.id,
 				     current_fota.info.type,
 				     NRF_CLOUD_FOTA_VALIDATE_PENDING);
-		ret = send_job_update(&current_fota);
+		ret = publish_job_status(&current_fota);
 		break;
 
 	case FOTA_DOWNLOAD_EVT_ERASE_PENDING:
@@ -630,6 +672,8 @@ static void http_fota_handler(const struct fota_download_evt *evt)
 		break;
 
 	case FOTA_DOWNLOAD_EVT_ERROR:
+		LOG_DBG("FOTA_DOWNLOAD_EVT_ERROR cause: %d", evt->cause);
+
 		nrf_cloud_download_end();
 		current_fota.status = NRF_CLOUD_FOTA_FAILED;
 
@@ -642,17 +686,14 @@ static void http_fota_handler(const struct fota_download_evt *evt)
 			current_fota.error = NRF_CLOUD_FOTA_ERROR_DOWNLOAD;
 		}
 
-		/* Save as ERROR status in case send_job_update() fails
-		 * so that the job status can be updated later.
+		/* Save validate status as ERROR in case the cloud does not
+		 * receive the job status update; it can be sent later.
 		 */
 		save_validate_status(current_fota.info.id,
 				     current_fota.info.type,
 				     NRF_CLOUD_FOTA_VALIDATE_ERROR);
-		ret = send_job_update(&current_fota);
+		ret = publish_job_status(&current_fota);
 		send_event(NRF_CLOUD_FOTA_EVT_ERROR, &current_fota);
-		if (ret == 0) {
-			cleanup_job(&current_fota);
-		}
 		break;
 
 	case FOTA_DOWNLOAD_EVT_PROGRESS:
@@ -684,14 +725,14 @@ static void http_fota_handler(const struct fota_download_evt *evt)
 
 		current_fota.sent_dl_progress = current_fota.dl_progress;
 		send_event(NRF_CLOUD_FOTA_EVT_DL_PROGRESS, &current_fota);
-		ret = send_job_update(&current_fota);
+		ret = publish_job_status(&current_fota);
 		break;
 	default:
 		break;
 	}
 
 	if (ret) {
-		LOG_ERR("Failed to send job update to cloud: %d", ret);
+		LOG_ERR("Failed to send job status to cloud: %d", ret);
 		/* The done event is normally sent on the MQTT ACK, but if the
 		 * status update fails there will be no ACK. Send the done event
 		 * so the device can proceed to install the FOTA update.
@@ -819,12 +860,7 @@ static int start_job(struct nrf_cloud_fota_job *const job, const bool send_evt)
 	}
 
 	/* Send job status to the cloud */
-	(void)send_job_update(job);
-
-	/* Cleanup if the job failed to start */
-	if (ret) {
-		cleanup_job(job);
-	}
+	(void)publish_job_status(job);
 
 	return ret;
 }
@@ -898,6 +934,11 @@ static int publish_and_free_obj(struct nrf_cloud_obj *const pub_data,
 		pub_param->message.payload.data = (uint8_t *)pub_data->encoded_data.ptr;
 		pub_param->message.payload.len = pub_data->encoded_data.len;
 		err = publish(pub_param);
+
+		if ((!err) && (pub_param->message_id == NCT_MSG_ID_FOTA_REPORT)) {
+			fota_report_ack_pending = true;
+		}
+
 		(void)nrf_cloud_obj_cloud_encoded_free(pub_data);
 	}
 
@@ -918,7 +959,7 @@ static bool is_job_status_terminal(const enum nrf_cloud_fota_status status)
 	}
 }
 
-static int send_job_update(struct nrf_cloud_fota_job *const job)
+static int publish_job_status(struct nrf_cloud_fota_job *const job)
 {
 	/* ensure shell-invoked fota doesn't crash below */
 	if ((job == NULL) || (job->info.id == NULL)) {
@@ -942,14 +983,7 @@ static int send_job_update(struct nrf_cloud_fota_job *const job)
 		return -ENOMEM;
 	}
 
-	ret = publish_and_free_obj(&update_obj, &topic_updt, &param);
-	if (ret == 0 && is_job_status_terminal(job->status)) {
-		/* If job was updated to terminal status, save job ID */
-		strncpy(last_job, job->info.id, sizeof(last_job) - 1);
-		last_job[sizeof(last_job) - 1] = '\0';
-	}
-
-	return ret;
+	return publish_and_free_obj(&update_obj, &topic_updt, &param);
 }
 
 int nrf_cloud_fota_update_check(void)
@@ -1032,7 +1066,7 @@ static int handle_mqtt_evt_publish(const struct mqtt_evt *evt)
 	if (nrf_cloud_fota_job_decode(job_info, ble_id, &input)) {
 		/* Error parsing job, if a job ID exists, reject the job */
 		reject_job = (job_info->id != NULL);
-	} else if (strncmp(last_job, job_info->id, sizeof(last_job)) == 0) {
+	} else if (is_last_job(job_info->id)) {
 		/* Job parsed and already processed */
 		skip = true;
 		LOG_INF("Job %s already completed... skipping", last_job);
@@ -1076,7 +1110,7 @@ send_ack:
 	} else if (reject_job) {
 		current_fota.error = NRF_CLOUD_FOTA_ERROR_BAD_JOB_INFO;
 		current_fota.status = NRF_CLOUD_FOTA_REJECTED;
-		(void)send_job_update(&current_fota);
+		(void)publish_job_status(&current_fota);
 		cleanup_job(&current_fota);
 	}
 
@@ -1116,12 +1150,31 @@ int nrf_cloud_fota_mqtt_evt_handler(const struct mqtt_evt *evt)
 	}
 	case MQTT_EVT_SUBACK:
 	{
+		int ret = -1;
+
 		if (evt->param.suback.message_id != NCT_MSG_ID_FOTA_SUB) {
 			return 1;
 		}
 		LOG_DBG("MQTT_EVT_SUBACK");
 
-		nrf_cloud_fota_update_check();
+		if (fota_report_ack_pending) {
+			if (current_fota.info.type != NRF_CLOUD_FOTA_TYPE__INVALID) {
+				LOG_DBG("Sending job updated due to missing ACK");
+				ret = publish_job_status(&current_fota);
+			} else {
+				/* No current job info, check for a validated job */
+				ret = publish_validated_job_status();
+				if (ret == 1) {
+					/* No validated job either, clear flag */
+					fota_report_ack_pending = false;
+				}
+			}
+		}
+
+		if (ret != 0) {
+			/* Check for an update if job status was not published */
+			nrf_cloud_fota_update_check();
+		}
 
 		break;
 	}
@@ -1135,11 +1188,11 @@ int nrf_cloud_fota_mqtt_evt_handler(const struct mqtt_evt *evt)
 	}
 	case MQTT_EVT_PUBACK:
 	{
-		bool do_update_check = false;
+		bool fota_report_ack = false;
 
 		switch (evt->param.puback.message_id) {
 		case NCT_MSG_ID_FOTA_REPORT:
-			do_update_check = true;
+			fota_report_ack = true;
 		case NCT_MSG_ID_FOTA_REQUEST:
 		case NCT_MSG_ID_FOTA_BLE_REPORT:
 		case NCT_MSG_ID_FOTA_BLE_REQUEST:
@@ -1151,18 +1204,29 @@ int nrf_cloud_fota_mqtt_evt_handler(const struct mqtt_evt *evt)
 		LOG_DBG("MQTT_EVT_PUBACK: msg id %d",
 			evt->param.puback.message_id);
 
-		if (!do_update_check) {
+		if (!fota_report_ack) {
 			/* Nothing to do */
 			break;
 		}
 
+		/* Job status updated on the cloud, now process the local saved status */
+		fota_report_ack_pending = false;
+
+		/* If job was updated to terminal status, save job ID and cleanup.
+		 * This was likely due to an error, where no validation was required.
+		 */
+		if (is_job_status_terminal(current_fota.status)) {
+			update_last_job(current_fota.info.id);
+			cleanup_job(&current_fota);
+		}
+
 		switch (saved_job.validate) {
+		case NRF_CLOUD_FOTA_VALIDATE_ERROR:
 		case NRF_CLOUD_FOTA_VALIDATE_PASS:
 		case NRF_CLOUD_FOTA_VALIDATE_UNKNOWN:
 		case NRF_CLOUD_FOTA_VALIDATE_FAIL:
-		case NRF_CLOUD_FOTA_VALIDATE_ERROR:
 			save_validate_status(saved_job.id, saved_job.type,
-					NRF_CLOUD_FOTA_VALIDATE_DONE);
+					     NRF_CLOUD_FOTA_VALIDATE_DONE);
 			break;
 		case NRF_CLOUD_FOTA_VALIDATE_PENDING:
 			send_fota_done_event_if_done();
@@ -1170,6 +1234,7 @@ int nrf_cloud_fota_mqtt_evt_handler(const struct mqtt_evt *evt)
 		default:
 			break;
 		}
+
 		break;
 	}
 	case MQTT_EVT_DISCONNECT:

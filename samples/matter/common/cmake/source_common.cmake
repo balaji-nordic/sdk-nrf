@@ -44,3 +44,37 @@ endif()
 if(CONFIG_NCS_SAMPLE_MATTER_SETTINGS_SHELL)
     target_sources(app PRIVATE ${MATTER_COMMONS_SRC_DIR}/persistent_storage/persistent_storage_shell.cpp)
 endif()
+
+if(CONFIG_NCS_SAMPLE_MATTER_TEST_EVENT_TRIGGERS)
+    target_sources(app PRIVATE ${MATTER_COMMONS_SRC_DIR}/event_triggers/event_triggers.cpp)
+    if(CONFIG_NCS_SAMPLE_MATTER_TEST_EVENT_TRIGGERS_REGISTER_DEFAULTS)
+        target_sources(app PRIVATE ${MATTER_COMMONS_SRC_DIR}/event_triggers/default_event_triggers.cpp)
+    endif()
+endif()
+
+if(CONFIG_NCS_SAMPLE_MATTER_PERSISTENT_STORAGE)
+    target_sources_ifdef(CONFIG_NCS_SAMPLE_MATTER_SETTINGS_STORAGE_BACKEND app PRIVATE
+            ${MATTER_COMMONS_SRC_DIR}/persistent_storage/backends/persistent_storage_settings.cpp)
+    target_sources_ifdef(CONFIG_NCS_SAMPLE_MATTER_SECURE_STORAGE_BACKEND app PRIVATE
+            ${MATTER_COMMONS_SRC_DIR}/persistent_storage/backends/persistent_storage_secure.cpp)
+endif()
+
+if(CONFIG_NCS_SAMPLE_MATTER_WATCHDOG)
+    target_sources(app PRIVATE ${MATTER_COMMONS_SRC_DIR}/watchdog/watchdog.cpp)
+endif()
+
+if(CONFIG_NCS_SAMPLE_MATTER_DIAGNOSTIC_LOGS)
+    target_sources(app PRIVATE ${MATTER_COMMONS_SRC_DIR}/diagnostic/diagnostic_logs_provider.cpp)
+    if(CONFIG_NCS_SAMPLE_MATTER_DIAGNOSTIC_LOGS_CRASH_LOGS)
+        # Wrap z_fatal_error to allow injecting crash data into the retention memory.
+        target_link_options(app INTERFACE -Wl,--wrap=z_fatal_error)
+        target_sources(app PRIVATE ${MATTER_COMMONS_SRC_DIR}/diagnostic/diagnostic_logs_crash.cpp)
+    endif()
+
+    if(CONFIG_NCS_SAMPLE_MATTER_DIAGNOSTIC_LOGS_END_USER_LOGS OR CONFIG_NCS_SAMPLE_MATTER_DIAGNOSTIC_LOGS_NETWORK_LOGS)
+        target_sources(app PRIVATE ${MATTER_COMMONS_SRC_DIR}/diagnostic/diagnostic_logs_retention.cpp)
+        if(CONFIG_NCS_SAMPLE_MATTER_DIAGNOSTIC_LOGS_REDIRECT)
+            target_sources(app PRIVATE ${MATTER_COMMONS_SRC_DIR}/diagnostic/log_backend_diagnostic.cpp)
+        endif()
+    endif()
+endif()

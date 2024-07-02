@@ -1,0 +1,86 @@
+#
+# Copyright (c) 2024 Nordic Semiconductor
+#
+# SPDX-License-Identifier: LicenseRef-Nordic-5-Clause
+#
+
+menu "SUIT"
+
+menuconfig SUIT_ENVELOPE
+	bool "Create SUIT envelope"
+	default y if SOC_SERIES_NRF54HX
+	help
+	  Enable DFU SUIT envelope creation
+
+if SUIT_ENVELOPE
+
+config SUIT_ENVELOPE_SIGN
+	bool "Sign created SUIT envelope"
+	help
+	  Sign created SUIT envelope by external script
+
+config SUIT_ENVELOPE_SEQUENCE_NUM
+	int "Sequence number of the generated SUIT manifest"
+	range 0 2147483647
+	default 1
+
+config SUIT_ENVELOPE_ROOT_TEMPLATE
+	string "Path to the default root envelope template"
+	default "${ZEPHYR_SUIT_GENERATOR_MODULE_DIR}/ncs/root_with_binary_nordic_top.yaml.jinja2"
+	help
+	  Path to the default root envelope template, that is used if the application directory does not
+	  contain an input envelope template file.
+	  You can use either absolute or relative path.
+	  In case relative path is used, the build system uses CMAKE_SOURCE_DIR directory.
+
+config SUIT_ENVELOPE_SIGN_SCRIPT
+	string "Location of SUIT sign script"
+	depends on SUIT_ENVELOPE_SIGN
+	help
+	  Python script called to sign SUIT envelope.
+	  You can use either absolute or relative path.
+	  In case relative path is used, the build system uses NRF parent directory.
+	  Script need to accept two arguments:
+	  - --input-file <STRING> - location of unsigned envelope in the build system
+	  - --output-file <STRING> - location of signed envelope to create by script
+	default "modules/lib/suit-generator/ncs/sign_script.py"
+
+config SUIT_ENVELOPE_ROOT_ARTIFACT_NAME
+	string "Name of the root SUIT artifact."
+	default "root"
+	help
+	  Name of the root SUIT artifact.
+
+config SUIT_ENVELOPE_NORDIC_TOP_DIRECTORY
+	string "Path to the folder with nordic top artifacts"
+	default ""
+	help
+	  Path to the folder containing nordic-top.suit envelope.
+	  nordic_top.suit won't be included in the root manifest if value is empty.
+
+endif # SUIT_ENVELOPE
+
+config SUIT_BUILD_RECOVERY
+	bool "Build SUIT recovery firmware"
+	depends on NETCORE_HCI_IPC
+	help
+	  Build the recovery firmware, which allows to recover the main application
+	  if the image on the board was damaged.
+
+config SUIT_BUILD_FLASH_COMPANION
+	bool "Build SUIT flash companion firmware"
+	help
+	  Build the flash companion firmware, which acts as a proxy for the secure domain
+	  firmware to read and write to the external memory.
+
+if SUIT_BUILD_FLASH_COMPANION
+
+config FLASH_COMPANION_TARGET_CPUCLUSTER
+	string "Flash companion target cluster"
+	default "cpuapp"  if SOC_SERIES_NRF54HX
+	help
+	  Set the target CPU cluster on which the companion firmware will run.
+
+endif # SUIT_BUILD_FLASH_COMPANION
+
+endmenu

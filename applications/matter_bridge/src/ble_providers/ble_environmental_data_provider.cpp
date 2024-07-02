@@ -18,10 +18,10 @@ using namespace ::chip;
 using namespace ::chip::app;
 using namespace Nrf;
 
-static bt_uuid *sServiceUuid = BT_UUID_ESS;
-static bt_uuid *sUuidTemperature = BT_UUID_TEMPERATURE;
-static bt_uuid *sUuidHumidity = BT_UUID_HUMIDITY;
-static bt_uuid *sUuidCcc = BT_UUID_GATT_CCC;
+static const bt_uuid *sServiceUuid = BT_UUID_ESS;
+static const bt_uuid *sUuidTemperature = BT_UUID_TEMPERATURE;
+static const bt_uuid *sUuidHumidity = BT_UUID_HUMIDITY;
+static const bt_uuid *sUuidCcc = BT_UUID_GATT_CCC;
 
 bt_gatt_read_params BleEnvironmentalDataProvider::sHumidityReadParams{};
 
@@ -31,7 +31,7 @@ BleEnvironmentalDataProvider *GetProvider(bt_conn *conn)
 		BLEConnectivityManager::Instance().FindBLEProvider(*bt_conn_get_dst(conn)));
 }
 
-bt_uuid *BleEnvironmentalDataProvider::GetServiceUuid()
+const bt_uuid *BleEnvironmentalDataProvider::GetServiceUuid()
 {
 	return sServiceUuid;
 }
@@ -96,7 +96,20 @@ void BleEnvironmentalDataProvider::NotifyUpdateState(chip::ClusterId clusterId, 
 CHIP_ERROR BleEnvironmentalDataProvider::UpdateState(chip::ClusterId clusterId, chip::AttributeId attributeId,
 						     uint8_t *)
 {
-	return CHIP_ERROR_UNSUPPORTED_CHIP_FEATURE;
+	if (clusterId != Clusters::BridgedDeviceBasicInformation::Id) {
+		return CHIP_ERROR_INVALID_ARGUMENT;
+	}
+
+	switch (attributeId) {
+	case Clusters::BridgedDeviceBasicInformation::Attributes::NodeLabel::Id:
+		/* Node label is just updated locally and there is no need to propagate the information to the end
+		 * device. */
+		break;
+	default:
+		return CHIP_ERROR_UNSUPPORTED_CHIP_FEATURE;
+	}
+
+	return CHIP_NO_ERROR;
 }
 
 int BleEnvironmentalDataProvider::ParseDiscoveredData(bt_gatt_dm *discoveredData)

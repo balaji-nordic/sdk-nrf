@@ -48,7 +48,7 @@ To use this configuration, run the following command:
 
 .. code-block:: console
 
-   west build -b nrf5340dk_nrf5340_cpuapp -- -DOVERLAY_CONFIG=boards/nrf5340dk_nrf5340_cpuapp_nrf5340_singlecore.conf
+   west build -b nrf5340dk/nrf5340/cpuapp -- -DFILE_SUFFIX=singlecore
 
 Building and running
 ********************
@@ -68,13 +68,15 @@ Complete the following steps to program the sample:
 
          .. code-block:: console
 
-            west build -b nrf5340dk_nrf5340_cpuapp
+            west build -b nrf5340dk/nrf5340/cpuapp
 
       #. Program both the cores:
 
          .. code-block:: console
 
             west flash
+
+.. include:: /includes/nRF54H20_erase_UICR.txt
 
 Testing
 =======

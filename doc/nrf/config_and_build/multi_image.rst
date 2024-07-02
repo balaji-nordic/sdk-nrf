@@ -1,11 +1,14 @@
 .. _ug_multi_image:
 
-Multi-image builds
-##################
+Multi-image builds using child and parent images
+################################################
 
 .. contents::
    :local:
    :depth: 2
+
+.. caution::
+    |sysbuild_related_deprecation_note|
 
 The firmware programmed to a device can be composed of either one application or several separate images.
 In the latter case, the *parent* :term:`image file` requires one or more other images (the *child images*) to be present.
@@ -230,7 +233,7 @@ With west, you can pass these configuration variables into CMake by using the ``
 
   .. code-block:: console
 
-     west build -b nrf52840dk_nrf52840 zephyr/samples/hello_world -- \
+     west build -b nrf52840dk/nrf52840 zephyr/samples/hello_world -- \
      -Dmcuboot_CONF_FILE=prj_a.conf \
      -DCONF_FILE=app_prj.conf
 
@@ -255,7 +258,7 @@ The following example adds an extra Kconfig fragment ``extrafragment.conf`` to `
   .. parsed-literal::
     :class: highlight
 
-     cmake -D\ *childimageone*\_OVERLAY_CONFIG=\ *extrafragment.conf*\ [...]
+     cmake -D\ *childimageone*\_EXTRA_CONF_FILE=\ *extrafragment.conf*\ [...]
 
 It is also possible to provide a custom configuration file as a replacement for the default Kconfig file for the child image.
 The following example uses the custom configuration file ``myfile.conf`` when building ``childimageone``:
@@ -268,20 +271,20 @@ The following example uses the custom configuration file ``myfile.conf`` when bu
 If your application includes multiple child images, then you can combine all the above as follows:
 
 * Setting ``CONFIG_VARIABLEONE=val`` in the main application.
-* Adding a Kconfig fragment ``extrafragment.conf`` to the ``childimageone`` child image, using ``-Dchildimageone_OVERLAY_CONFIG=extrafragment.conf``.
+* Adding a Kconfig fragment ``extrafragment.conf`` to the ``childimageone`` child image, using ``-Dchildimageone_EXTRA_CONF_FILE=extrafragment.conf``.
 * Using ``myfile.conf`` as configuration for the ``quz`` child image, using ``-Dquz_CONF_FILE=myfile.conf``.
 
   .. parsed-literal::
     :class: highlight
 
-     cmake -DCONFIG_VARIABLEONE=val -D\ *childimageone*\_OVERLAY_CONFIG=\ *extrafragment.conf*\ -Dquz_CONF_FILE=\ *myfile.conf*\ [...]
+    cmake -DCONFIG_VARIABLEONE=val -D\ *childimageone*\_EXTRA_CONF_FILE=\ *extrafragment.conf*\ -Dquz_CONF_FILE=\ *myfile.conf*\ [...]
 
 See :ref:`ug_bootloader` for more details.
 
 .. note::
 
    The build system grabs the Kconfig fragment or configuration file specified in a CMake argument relative to that image's application directory.
-   For example, the build system uses ``nrf/samples/bootloader/my-fragment.conf`` when building with the ``-Db0_OVERLAY_CONFIG=my-fragment.conf`` option, whereas ``-DOVERLAY_CONFIG=my-fragment.conf`` grabs the fragment from the main application's directory, such as ``zephyr/samples/hello_world/my-fragment.conf``.
+   For example, the build system uses ``nrf/samples/bootloader/my-fragment.conf`` when building with the ``-Db0_EXTRA_CONF_FILE=my-fragment.conf`` option, whereas ``-DEXTRA_CONF_FILE=my-fragment.conf`` grabs the fragment from the main application's directory, such as ``zephyr/samples/hello_world/my-fragment.conf``.
 
 You can also merge multiple fragments into the overall configuration for an image by giving a list of Kconfig fragments as a string, separated using ``;``.
 The following example shows how to combine ``abc.conf``, Kconfig fragment of the ``childimageone`` child image, with the ``extrafragment.conf`` fragment:
@@ -289,7 +292,7 @@ The following example shows how to combine ``abc.conf``, Kconfig fragment of the
   .. parsed-literal::
     :class: highlight
 
-     cmake -D\ *childimageone*\_OVERLAY_CONFIG='\ *extrafragment.conf*\;\ *abc.conf*\'
+     cmake -D\ *childimageone*\_EXTRA_CONF_FILE='\ *extrafragment.conf*\;\ *abc.conf*\'
 
 When the build system finds the fragment, it outputs their merge during the CMake build output as follows:
 
@@ -332,18 +335,18 @@ Permanent configuration changes to child images
 -----------------------------------------------
 
 You can make a project automatically pass Kconfig configuration files, fragments, and devicetree overlays to child images by placing them under a predefined path.
-For example, in the |NCS| applications and samples that use different :ref:`build types for configuration <gs_modifying_build_types>`, the :file:`child_image` folder in the application source directory is often used to apply :ref:`permanent configuration changes <configuration_permanent_change>`.
+For example, in the |NCS| applications and samples that use different :ref:`build types <app_build_additions_build_types>`, the :file:`child_image` folder in the application source directory is often used to apply :ref:`permanent configuration changes <configuration_permanent_change>`.
 
 The listing below describes how to leverage this functionality, where ``ACI_NAME`` is the name of the child image to which the configuration will be applied.
 
 .. literalinclude:: ../../../cmake/multi_image.cmake
     :language: c
     :start-at: It is possible for a sample to use a custom set of Kconfig fragments for a
-    :end-before: set(ACI_CONF_DIR ${APPLICATION_CONFIG_DIR}/child_image)
+    :end-before: set(ACI_CONF_DIR ${config_dir}/child_image)
 
-When you are :ref:`modifying_build_types` and the build type has been inferred, the child image Kconfig overlay file is searched at :file:`child_image/<ACI_NAME>_<buildtype>.conf`.
+When you are using :ref:`app_build_additions_build_types` and the configuration name has been inferred, the child image Kconfig overlay file is searched at :file:`child_image/<ACI_NAME>_<name>.conf`.
 Alternatively, the child image Kconfig configuration file can be introduced as :file:`child_image/<ACI_NAME>/prj.conf` and follow the same pattern as the parent Kconfig.
-For example, :file:`child_image/mcuboot/prj_release.conf` can be used to define ``release`` build type for ``mcuboot`` child image.
+For example, :file:`child_image/mcuboot/prj_release.conf` can be used to define the ``release`` build type for the ``mcuboot`` child image.
 
 Child image targets
 ===================
@@ -388,12 +391,12 @@ You can use the CMake environment variables `VERBOSE`_ and `CMAKE_BUILD_PARALLEL
 
 When using the command line or |VSC| terminal window, you must set them before invoking west.
 They apply to both the parent and child images.
-For example, to build with verbose output and one parallel job, use the following command, where *build_target* is the target for the development kit for which you are building:
+For example, to build with verbose output and one parallel job, use the following command, where *board_target* is the target for the development kit for which you are building:
 
 .. parsed-literal::
    :class: highlight
 
-   west build -b *build_target* -- -DCMAKE_VERBOSE_MAKEFILE=1 -DCMAKE_BUILD_PARALLEL_LEVEL=1
+   west build -b *board_target* -- -DCMAKE_VERBOSE_MAKEFILE=1 -DCMAKE_BUILD_PARALLEL_LEVEL=1
 
 Memory placement
 ****************

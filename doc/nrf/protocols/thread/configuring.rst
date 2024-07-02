@@ -66,7 +66,7 @@ Using pre-built variants can be useful for certification purposes.
 
 * :kconfig:option:`CONFIG_OPENTHREAD_LIBRARY` - This option enables OpenThread to use pre-built libraries.
 
-  You must select one of the :ref:`thread_ug_feature_sets` by enabling :kconfig:option:`CONFIG_OPENTHREAD_NORDIC_LIBRARY_MASTER`, :kconfig:option:`CONFIG_OPENTHREAD_NORDIC_LIBRARY_FTD`, or :kconfig:option:`CONFIG_OPENTHREAD_NORDIC_LIBRARY_MTD`.
+  You must select one of the :ref:`thread_ug_feature_sets` by enabling :kconfig:option:`CONFIG_OPENTHREAD_NORDIC_LIBRARY_MASTER`, :kconfig:option:`CONFIG_OPENTHREAD_NORDIC_LIBRARY_FTD`, :kconfig:option:`CONFIG_OPENTHREAD_NORDIC_LIBRARY_MTD`, or :kconfig:option:`CONFIG_OPENTHREAD_NORDIC_LIBRARY_RCP`.
 
   This disables building OpenThread from source files and links pre-built libraries instead.
 
@@ -260,11 +260,11 @@ Minimal Thread Device (MTD)
 Trusted Firmware-M support options
 ==================================
 
-To configure your Thread application on the nRF5340 DK to run with Trusted Firmware-M, use the ``nrf5340dk_nrf5340_cpuapp_ns`` build target and enable the following Kconfig options:
+To configure your Thread application on the nRF5340 DK to run with Trusted Firmware-M, use the ``nrf5340dk/nrf5340/cpuapp/ns`` board target and enable the following Kconfig options:
 
 * :kconfig:option:`CONFIG_BUILD_WITH_TFM`
 * :kconfig:option:`CONFIG_OPENTHREAD_CRYPTO_PSA`
 
-In the |NCS|, these options are enabled by default for the :ref:`application core <ug_nrf5340_intro_app_core>` of the :ref:`openthread_samples` that can be programmed with the ``nrf5340dk_nrf5340_cpuapp_ns`` build target.
+In the |NCS|, these options are enabled by default for the :ref:`application core <ug_nrf5340_intro_app_core>` of the :ref:`openthread_samples` that can be programmed with the ``nrf5340dk/nrf5340/cpuapp/ns`` board target.
 
 For more Trusted Firmware-M documentation, see :ref:`ug_tfm` and the official `TF-M documentation`_.

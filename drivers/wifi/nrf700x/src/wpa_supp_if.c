@@ -383,7 +383,7 @@ void nrf_wifi_wpa_supp_event_proc_deauth(void *if_priv,
 	mgmt = (const struct ieee80211_mgmt *)frame;
 
 	if (frame_len < 24 + sizeof(mgmt->u.deauth)) {
-		LOG_ERR("%s: Association response frame too short", __func__);
+		LOG_ERR("%s: Deauthentication frame too short", __func__);
 		return;
 	}
 
@@ -419,7 +419,7 @@ void nrf_wifi_wpa_supp_event_proc_disassoc(void *if_priv,
 	mgmt = (const struct ieee80211_mgmt *)frame;
 
 	if (frame_len < 24 + sizeof(mgmt->u.disassoc)) {
-		LOG_ERR("%s: Association response frame too short", __func__);
+		LOG_ERR("%s: Disassociation frame too short", __func__);
 		return;
 	}
 
@@ -457,11 +457,16 @@ void *nrf_wifi_wpa_supp_dev_init(void *supp_drv_if_ctx, const char *iface_name,
 		return NULL;
 	}
 
+	/* Needed to make sure that during initialization, commands like setting regdomain
+	 * does not access it.
+	 */
+	k_mutex_lock(&vif_ctx_zep->vif_lock, K_FOREVER);
 	vif_ctx_zep->supp_drv_if_ctx = supp_drv_if_ctx;
 
 	memcpy(&vif_ctx_zep->supp_callbk_fns, supp_callbk_fns,
 	       sizeof(vif_ctx_zep->supp_callbk_fns));
 
+	k_mutex_unlock(&vif_ctx_zep->vif_lock);
 	return vif_ctx_zep;
 }
 
@@ -515,6 +520,12 @@ int nrf_wifi_wpa_supp_scan2(void *if_priv, struct wpa_driver_scan_params *params
 
 	scan_info = k_calloc(sizeof(*scan_info) + (num_freqs * sizeof(unsigned int)),
 			     sizeof(char));
+
+	if (!scan_info) {
+		LOG_ERR("%s: Unable to allocate memory for scan info", __func__);
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	memset(scan_info, 0x0, sizeof(*scan_info));
 
@@ -604,7 +615,7 @@ int nrf_wifi_wpa_supp_scan_abort(void *if_priv)
 	status = nrf_wifi_fmac_abort_scan(rpu_ctx_zep->rpu_ctx, vif_ctx_zep->vif_idx);
 
 	if (status != NRF_WIFI_STATUS_SUCCESS) {
-		LOG_ERR("%s: Scan trigger failed", __func__);
+		LOG_ERR("%s: nrf_wifi_fmac_abort_scan failed", __func__);
 		goto out;
 	}
 
@@ -696,7 +707,7 @@ int nrf_wifi_wpa_supp_deauthenticate(void *if_priv, const char *addr, unsigned s
 	status = nrf_wifi_fmac_deauth(rpu_ctx_zep->rpu_ctx, vif_ctx_zep->vif_idx, &deauth_info);
 
 	if (status != NRF_WIFI_STATUS_SUCCESS) {
-		LOG_ERR("%s: nrf_wifi_fmac_scan_res_get failed", __func__);
+		LOG_ERR("%s: nrf_wifi_fmac_deauth failed", __func__);
 		goto out;
 	}
 
@@ -1209,17 +1220,23 @@ void nrf_wifi_wpa_supp_event_proc_get_sta(void *if_priv,
 
 	if (!if_priv || !info) {
 		LOG_ERR("%s: Invalid params", __func__);
-		k_sem_give(&wait_for_event_sem);
-		return;
+		goto out;
 	}
+
 	vif_ctx_zep = if_priv;
+	if (!vif_ctx_zep) {
+		LOG_ERR("%s: vif_ctx_zep is NULL", __func__);
+		goto out;
+	}
+
+#ifdef CONFIG_NRF700X_AP_MODE
+	vif_ctx_zep->inactive_time_sec = info->sta_info.inactive_time;
+#endif /* CONFIG_NRF700X_AP_MODE */
+
 	signal_info = vif_ctx_zep->signal_info;
-
-
 	/* Semaphore timedout */
 	if (!signal_info) {
-		LOG_DBG("%s: Get station Semaphore timedout", __func__);
-		return;
+		goto out;
 	}
 
 	if (info->sta_info.valid_fields & NRF_WIFI_STA_INFO_SIGNAL_VALID) {
@@ -1247,6 +1264,7 @@ void nrf_wifi_wpa_supp_event_proc_get_sta(void *if_priv,
 			signal_info->current_txrate = info->sta_info.tx_bitrate.bitrate * 100;
 		}
 	}
+out:
 	k_sem_give(&wait_for_event_sem);
 }
 
@@ -1550,41 +1568,6 @@ enum nrf_wifi_status nrf_wifi_parse_sband(
 	return WLAN_STATUS_SUCCESS;
 }
 
-void *nrf_wifi_memdup(const void *src, size_t len)
-{
-	void *r = malloc(len);
-
-	if (r && src) {
-		memcpy(r, src, len);
-	}
-	return r;
-}
-
-static void nrf_wifi_wiphy_info_extended_capab_cfg(struct nrf_wifi_ext_capa *capa,
-						   struct nrf_wifi_event_get_wiphy *wiphy_info)
-{
-	unsigned int len;
-
-	capa->iftype = NRF_WIFI_IFTYPE_STATION;
-
-	len = wiphy_info->extended_capabilities_len;
-
-	capa->ext_capa = nrf_wifi_memdup(&wiphy_info->extended_capabilities[0], len);
-
-	if (!capa->ext_capa)
-		return;
-
-	capa->ext_capa_len = len;
-
-	len = wiphy_info->extended_capabilities_len;
-
-	capa->ext_capa_mask =
-	nrf_wifi_memdup(&wiphy_info->extended_capabilities_mask[0], len);
-
-	if (!capa->ext_capa_mask)
-		return;
-}
-
 void nrf_wifi_wpa_supp_event_get_wiphy(void *if_priv,
 		struct nrf_wifi_event_get_wiphy *wiphy_info,
 		unsigned int event_len)
@@ -1616,14 +1599,14 @@ void nrf_wifi_wpa_supp_event_get_wiphy(void *if_priv,
 	if ((wiphy_info->params_valid & NRF_WIFI_GET_WIPHY_VALID_EXTENDED_CAPABILITIES) &&
 	    rpu_ctx_zep->extended_capa == NULL) {
 
-		rpu_ctx_zep->extended_capa = malloc(wiphy_info->extended_capabilities_len);
+		rpu_ctx_zep->extended_capa = k_malloc(wiphy_info->extended_capabilities_len);
 
 		if (rpu_ctx_zep->extended_capa) {
 			memcpy(rpu_ctx_zep->extended_capa, wiphy_info->extended_capabilities,
 			       wiphy_info->extended_capabilities_len);
 		}
 
-		rpu_ctx_zep->extended_capa_mask = malloc(wiphy_info->extended_capabilities_len);
+		rpu_ctx_zep->extended_capa_mask = k_malloc(wiphy_info->extended_capabilities_len);
 
 		if (rpu_ctx_zep->extended_capa_mask) {
 			memcpy(rpu_ctx_zep->extended_capa_mask,
@@ -1635,8 +1618,6 @@ void nrf_wifi_wpa_supp_event_get_wiphy(void *if_priv,
 			rpu_ctx_zep->extended_capa_len = 0;
 		}
 	}
-
-	nrf_wifi_wiphy_info_extended_capab_cfg(&vif_ctx_zep->iface_ext_capa, wiphy_info);
 
 	if (vif_ctx_zep->supp_drv_if_ctx && vif_ctx_zep->supp_callbk_fns.get_wiphy_res) {
 		vif_ctx_zep->supp_callbk_fns.get_wiphy_res(vif_ctx_zep->supp_drv_if_ctx, NULL);
@@ -1761,6 +1742,8 @@ int nrf_wifi_supp_get_capa(void *if_priv, struct wpa_driver_capa *capa)
 		return -1;
 	}
 
+	memset(capa, 0, sizeof(*capa));
+
 	vif_ctx_zep = if_priv;
 	rpu_ctx_zep = vif_ctx_zep->rpu_ctx_zep;
 	if (!rpu_ctx_zep) {
@@ -1775,7 +1758,6 @@ int nrf_wifi_supp_get_capa(void *if_priv, struct wpa_driver_capa *capa)
 	}
 
 	/* TODO: Get these from RPU*/
-	memset(capa, 0, sizeof(*capa));
 	/* Use SME */
 	capa->flags = 0;
 	capa->flags |= WPA_DRIVER_FLAGS_SME;
@@ -1799,10 +1781,6 @@ int nrf_wifi_supp_get_capa(void *if_priv, struct wpa_driver_capa *capa)
 		capa->extended_capa = rpu_ctx_zep->extended_capa;
 		capa->extended_capa_mask = rpu_ctx_zep->extended_capa_mask;
 		capa->extended_capa_len = rpu_ctx_zep->extended_capa_len;
-
-		capa->extended_capa = vif_ctx_zep->iface_ext_capa.ext_capa;
-		capa->extended_capa_mask = vif_ctx_zep->iface_ext_capa.ext_capa_mask;
-		capa->extended_capa_len = vif_ctx_zep->iface_ext_capa.ext_capa_len;
 	}
 out:
 	k_mutex_unlock(&vif_ctx_zep->vif_lock);
@@ -1859,13 +1837,13 @@ int nrf_wifi_supp_get_conn_info(void *if_priv, struct wpa_conn_info *info)
 	vif_ctx_zep->conn_info = info;
 	ret = nrf_wifi_fmac_get_conn_info(rpu_ctx_zep->rpu_ctx, vif_ctx_zep->vif_idx);
 	if (ret != NRF_WIFI_STATUS_SUCCESS) {
-		LOG_ERR("%s: Failed to get beacon info", __func__);
+		LOG_ERR("%s: nrf_wifi_fmac_get_conn_info failed", __func__);
 		goto out;
 	}
 
 	sem_ret = k_sem_take(&wait_for_event_sem, K_MSEC(RPU_RESP_EVENT_TIMEOUT));
 	if (sem_ret) {
-		LOG_ERR("%s: Failed to get station info, ret = %d", __func__, sem_ret);
+		LOG_ERR("%s: Timeout: failed to get connection info, ret = %d", __func__, sem_ret);
 		ret = NRF_WIFI_STATUS_FAIL;
 		goto out;
 	}
@@ -2277,6 +2255,32 @@ out:
 	return ret;
 }
 
+
+static enum nrf_wifi_chan_width wpa_supp_chan_width_to_nrf(enum hostapd_hw_mode mode,
+	int bandwidth, int cfreq1, int cfreq2)
+{
+	switch (bandwidth) {
+	case 20:
+		if (mode == HOSTAPD_MODE_IEEE80211B) {
+			return NRF_WIFI_CHAN_WIDTH_20_NOHT;
+		} else {
+			return NRF_WIFI_CHAN_WIDTH_20;
+		};
+	case 40:
+		return NRF_WIFI_CHAN_WIDTH_40;
+	case 80:
+		if (cfreq2) {
+			return NRF_WIFI_CHAN_WIDTH_80P80;
+		} else {
+			return NRF_WIFI_CHAN_WIDTH_80;
+		}
+	case 160:
+		return NRF_WIFI_CHAN_WIDTH_160;
+	};
+
+	return NRF_WIFI_CHAN_WIDTH_20;
+}
+
 int nrf_wifi_wpa_supp_start_ap(void *if_priv, struct wpa_driver_ap_params *params)
 {
 	struct nrf_wifi_vif_ctx_zep *vif_ctx_zep = NULL;
@@ -2284,6 +2288,7 @@ int nrf_wifi_wpa_supp_start_ap(void *if_priv, struct wpa_driver_ap_params *param
 	int ret = -1;
 	struct nrf_wifi_umac_start_ap_info start_ap_info = {0};
 	enum nrf_wifi_status status = NRF_WIFI_STATUS_FAIL;
+	int ch_width = 0;
 
 	if (!if_priv || !params) {
 		LOG_ERR("%s: Invalid params", __func__);
@@ -2321,8 +2326,11 @@ int nrf_wifi_wpa_supp_start_ap(void *if_priv, struct wpa_driver_ap_params *param
 		}
 	}
 
+	ch_width = wpa_supp_chan_width_to_nrf(params->freq->mode, params->freq->bandwidth,
+			params->freq->center_freq1, params->freq->center_freq2);
+
 	start_ap_info.freq_params.frequency = params->freq->freq;
-	start_ap_info.freq_params.channel_width = params->freq->bandwidth;
+	start_ap_info.freq_params.channel_width = ch_width;
 	start_ap_info.freq_params.center_frequency1 = params->freq->center_freq1;
 	start_ap_info.freq_params.center_frequency2 = params->freq->center_freq2;
 	start_ap_info.freq_params.channel_type = params->freq->ht_enabled ? NRF_WIFI_CHAN_HT20 :
@@ -2703,5 +2711,51 @@ int nrf_wifi_wpa_supp_sta_set_flags(void *if_priv, const u8 *addr,
 out:
 	k_mutex_unlock(&vif_ctx_zep->vif_lock);
 	return ret;
+}
+
+int nrf_wifi_wpa_supp_sta_get_inact_sec(void *if_priv, const u8 *addr)
+{
+	struct nrf_wifi_vif_ctx_zep *vif_ctx_zep = NULL;
+	struct nrf_wifi_ctx_zep *rpu_ctx_zep = NULL;
+	enum nrf_wifi_status status = NRF_WIFI_STATUS_FAIL;
+	int ret = -1, sem_ret;
+	int inactive_time_sec = -1;
+
+	if (!if_priv || !addr) {
+		LOG_ERR("%s: Invalid params", __func__);
+		return ret;
+	}
+
+	vif_ctx_zep = if_priv;
+	rpu_ctx_zep = vif_ctx_zep->rpu_ctx_zep;
+	if (!rpu_ctx_zep) {
+		LOG_DBG("%s: rpu_ctx_zep is NULL", __func__);
+		return ret;
+	}
+
+	k_mutex_lock(&vif_ctx_zep->vif_lock, K_FOREVER);
+	if (!rpu_ctx_zep->rpu_ctx) {
+		LOG_DBG("%s: RPU context not initialized", __func__);
+		goto out;
+	}
+
+	status = nrf_wifi_fmac_get_station(rpu_ctx_zep->rpu_ctx, vif_ctx_zep->vif_idx,
+					(unsigned char *) addr);
+	if (status != NRF_WIFI_STATUS_SUCCESS) {
+		LOG_ERR("%s: nrf_wifi_fmac_get_station failed", __func__);
+		goto out;
+	}
+
+	sem_ret = k_sem_take(&wait_for_event_sem, K_MSEC(RPU_RESP_EVENT_TIMEOUT));
+	if (sem_ret) {
+		LOG_ERR("%s: Timed out to get station info, ret = %d", __func__, sem_ret);
+		ret = NRF_WIFI_STATUS_FAIL;
+		goto out;
+	}
+
+	inactive_time_sec = vif_ctx_zep->inactive_time_sec;
+out:
+	k_mutex_unlock(&vif_ctx_zep->vif_lock);
+	return inactive_time_sec;
 }
 #endif /* CONFIG_NRF700X_AP_MODE */

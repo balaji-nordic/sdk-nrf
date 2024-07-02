@@ -10,6 +10,8 @@ HTTPS Client
 The HTTPS Client sample demonstrates a minimal implementation of HTTP communication.
 It shows how to set up a TLS session towards an HTTPS server and how to send an HTTP request.
 
+.. |wifi| replace:: Wi-Fi®
+
 .. include:: /includes/net_connection_manager.txt
 
 Requirements
@@ -73,7 +75,7 @@ To build the sample with Mbed TLS and TF-M for the nRF91 Series DKs, add the fol
 
 .. code-block:: none
 
-   -DOVERLAY_CONFIG=overlay-tfm-nrf91.conf
+   -DEXTRA_CONF_FILE=overlay-tfm-nrf91.conf
 
 The default packet data network (PDN) configuration is dual stack, which will use an IPv6 address if available (and IPv4 if not).
 
@@ -81,15 +83,17 @@ On the nRF91 Series DKs, for testing IPv4 only, you might need to configure the 
 
 .. code-block:: none
 
-   -DOVERLAY_CONFIG=overlay-pdn-nrf91-ipv4.conf
+   -DEXTRA_CONF_FILE=overlay-pdn-nrf91-ipv4.conf
 
 Testing
 =======
 
 After programming the sample to your development kit, test it by performing the following steps:
 
-1. Connect the USB cable and power on or reset your DK.
-#. Open a terminal emulator and observe that the sample starts, provisions certificates, connects to the network and to example.com, and then sends an HTTP HEAD request.
+1. |connect_kit|
+#. Power on or reset the kit.
+#. |connect_terminal|
+#. Observe that the sample starts, provisions certificates, connects to the network and to example.com, and then sends an HTTP HEAD request.
 #. Observe that the HTTP HEAD request returns ``HTTP/1.1 200 OK``.
 
 Sample output

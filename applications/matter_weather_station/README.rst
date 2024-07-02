@@ -46,8 +46,8 @@ IPv6 network support
 
 The development kits for this sample offer the following IPv6 network support for Matter:
 
-* Matter over Thread is supported for ``thingy53_nrf5340_cpuapp``.
-* Matter over Wi-Fi is supported for ``thingy53_nrf5340_cpuapp`` with the ``nrf7002`` expansion board attached, for the :file:`prj_release.conf` build type only.
+* Matter over Thread is supported for ``thingy53/nrf5340/cpuapp``.
+* Matter over Wi-Fi is supported for ``thingy53/nrf5340/cpuapp`` with the ``nrf7002`` expansion board attached, for the :ref:`release configuration <matter_weather_station_custom_configs>` only.
   See `Building for the nRF7002 Wi-Fi expansion board`_ for more information.
 
 Overview
@@ -111,7 +111,6 @@ Button (SW3):
 USB port:
     Used for getting logs from the device or communicating with it through the command-line interface.
     It is enabled only for the debug configuration of an application.
-    See the `Selecting a build type`_ section to learn how to select the debug configuration.
 
 NFC port with antenna attached:
     Used for obtaining the `Onboarding information`_ from the Matter accessory device to start the commissioning procedure.
@@ -121,37 +120,44 @@ Configuration
 
 |config|
 
-.. _matter_weather_station_app_build_types:
+.. _matter_weather_station_custom_configs:
 
-Matter weather station build types
-==================================
+Matter weather station custom configurations
+============================================
 
-The Matter weather station application does not use a single :file:`prj.conf` file.
-Configuration files are provided for different build types, and they are located in the :file:`configuration/thingy53_nrf5340_cpuapp` directory.
-Before you start testing the application, you can select one of the build types supported by the application.
+The Matter weather station application uses a :file:`prj.conf` configuration file located in the root directory for the default configuration.
+It also provides additional files for different custom configurations.
+When you build the application, you can select one of these configurations using the :makevar:`FILE_SUFFIX` variable.
 
-See :ref:`app_build_additions_build_types` and :ref:`modifying_build_types` for more information about this feature of the |NCS|.
+See :ref:`app_build_file_suffixes` and :ref:`cmake_options` for more information.
 
-The application supports the following build types:
+The application supports the following configurations:
 
-.. list-table:: Matter weather station build types
+.. list-table:: Matter weather station configurations
    :widths: auto
    :header-rows: 1
 
-   * - Build type
+   * - Configuration
      - File name
+     - :makevar:`FILE_SUFFIX`
      - Supported board
      - Description
    * - Debug (default)
      - :file:`prj.conf`
+     - No suffix
      - All from `Requirements`_
-     - Debug version of the application; can be used to enable additional features for verifying the application behavior, such as logs or command-line shell.
+     - Debug version of the application.
+
+       Enables additional features for verifying the application behavior, such as logs.
    * - Release
      - :file:`prj_release.conf`
+     - ``release``
      - All from `Requirements`_
-     - | Release version of the application; can be used to enable only the necessary application functionalities to optimize its performance.
-       |
-       | Currently, this application supports only the release build type when `Building for the nRF7002 Wi-Fi expansion board`_.
+     - Release version of the application.
+
+       Enables only the necessary application functionalities to optimize its performance.
+
+       Currently, only the release configuration is supported when `Building for the nRF7002 Wi-Fi expansion board`_.
 
 .. _matter_weather_station_app_build_configuration_overlays:
 
@@ -166,6 +172,14 @@ The application comes with the following overlays:
   See `Generating factory data`_ to learn how to put factory data into device's storage.
   To learn more about factory data, read the :doc:`matter:nrfconnect_factory_data_configuration` page in the Matter documentation.
 
+  This overlay requires providing of the :file:`pm_static_factory_data.yml` Partition Manager static configuration file.
+
+  To build the example with the factory data support, run the following command:
+
+  .. code-block:: console
+
+      west build -b thingy53/nrf5340/cpuapp -- -DEXTRA_CONF_FILE=overlay-factory_data.conf -DPM_STATIC_YML_FILE=pm_static_factory_data.yml
+
 .. note::
    Matter factory data support requires the dedicated partition layout.
    This means that if you build the application using the ``overlay-factory_data`` configuration overlay, it will not be compatible with other :ref:`Thingy:53 applications and samples <thingy53_compatible_applications>`.
@@ -177,11 +191,11 @@ Building and running
 
 .. include:: /includes/build_and_run.txt
 
-Selecting a build type
-======================
+Selecting a configuration
+=========================
 
-Before you start testing the application, you can select one of the :ref:`matter_weather_station_app_build_types`.
-See :ref:`modifying_build_types` for detailed steps how to select a build type.
+Before you start testing the application, you can select one of the :ref:`matter_weather_station_custom_configs`.
+See :ref:`app_build_file_suffixes` and :ref:`cmake_options` for more information how to select a configuration.
 
 Building for the nRF7002 Wi-Fi expansion board
 ==============================================
@@ -195,8 +209,8 @@ To build this application to work with the nRF7002 Wi-Fi expansion board:
 
       .. group-tab:: nRF Connect for VS Code
 
-         To build the application in the nRF Connect for VS Code IDE for Thingy:53 with the nRF7002 EB attached, add the expansion board and the build type variables in the build configuration's :guilabel:`Extra CMake arguments` and rebuild the build configuration.
-         For example: ``-- -DSHIELD=nrf7002eb -DCONF_FILE=prj_release.conf``.
+         To build the application in the nRF Connect for VS Code IDE for Thingy:53 with the nRF7002 EB attached, add the expansion board and the file suffix variables in the build configuration's :guilabel:`Extra CMake arguments` and rebuild the build configuration.
+         For example: ``-- -Dmatter_weather_station_SHIELD=nrf7002eb -DFILE_SUFFIX=release -DSB_CONFIG_WIFI_NRF700X=y``.
 
       .. group-tab:: Command line
 
@@ -204,21 +218,20 @@ To build this application to work with the nRF7002 Wi-Fi expansion board:
 
          .. code-block:: console
 
-            west build -b thingy53_nrf5340_cpuapp -- -DSHIELD=nrf7002eb -DCONF_FILE=prj_release.conf
+            west build -b thingy53/nrf5340/cpuapp -- -Dmatter_weather_station_SHIELD=nrf7002eb -DFILE_SUFFIX=release -DSB_CONFIG_WIFI_NRF700X=y
 
 Generating factory data
 =======================
 
-To enable factory data support, you need to select the ``overlay-factory_data`` configuration overlay from the available application :ref:`build configuration overlays <matter_weather_station_app_build_configuration_overlays>`.
-You can generate new factory data set when building for the target board by invoking the following command:
+To enable factory data support, you need to select the ``overlay-factory_data`` configuration overlay from the available application :ref:`build configuration overlays <matter_weather_station_app_build_configuration_overlays>`, set the ``SB_CONFIG_MATTER_FACTORY_DATA_GENERATE`` kconfig option to ``y``, and use the ``factory_data`` file suffix.
+You can generate new factory data set when building for the given board target by invoking the following command:
 
-.. parsed-literal::
-   :class: highlight
+.. code-block:: console
 
-   west build -b thingy53_nrf5340_cpuapp -- -DOVERLAY_CONFIG=overlay-factory_data.conf
+   west build -b thingy53/nrf5340/cpuapp -- -DEXTRA_CONF_FILE=overlay-factory_data.conf -DSB_CONFIG_MATTER_FACTORY_DATA_GENERATE=y -DFILE_SUFFIX=factory_data
 
 This command builds the application with default certificates.
-After building the target, the generated :file:`factory_data.hex` file will be merged with the application target HEX file, so you can use the :ref:`regular command to flash it to the device <programming>`.
+After building for the board target, the generated :file:`factory_data.hex` file will be merged with the application target HEX file, so you can use the :ref:`regular command to flash it to the device <programming>`.
 
 If you want to use Vendor ID, Product ID or other data that is not reserved for tests, you need custom test certificates.
 To build with custom certificates, you need to :ref:`install CHIP Certificate Tool <ug_matter_gs_tools_cert_installation>`.
@@ -311,11 +324,11 @@ The onboarding information representation depends on your commissioner setup.
 For this application, the data payload, which includes the device discriminator and setup PIN code, is encoded and shared using an NFC tag.
 When using the debug configuration, you can also get this type of information from the USB interface logs.
 
-Alternatively, depending on your build type and selected configuration overlay, you can also use one of the following :ref:`onboarding information formats <ug_matter_network_topologies_commissioning_onboarding_formats>` to provide the commissioner with the data required:
+Alternatively, depending on your configuration and selected overlay, you can also use one of the following :ref:`onboarding information formats <ug_matter_network_topologies_commissioning_onboarding_formats>` to provide the commissioner with the data required:
 
-* For the debug and release build types:
+* For the debug and release configurations:
 
-  .. list-table:: Weather station application onboarding information for the debug build type
+  .. list-table:: Weather station application onboarding information for the debug or release configurations
      :header-rows: 1
 
      * - QR Code
@@ -325,7 +338,7 @@ Alternatively, depending on your build type and selected configuration overlay, 
 
          .. figure:: /images/matter_qr_code_weather_station_default.png
             :width: 200px
-            :alt: QR code for commissioning the weather station device (debug build type)
+            :alt: QR code for commissioning the weather station device (debug or release configuration)
 
        - MT:M1TJ342C00KA0648G00
        - 34970112332
